@@ -19,6 +19,11 @@
   const supabaseUrl = (apiConfig.supabaseUrl != null && apiConfig.supabaseUrl !== '') ? String(apiConfig.supabaseUrl).trim() : '';
   const supabaseKey = (apiConfig.supabaseAnonKey != null && apiConfig.supabaseAnonKey !== '') ? String(apiConfig.supabaseAnonKey).trim() : '';
   const discordOAuthBaseUrl = (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '';
+  const mercadopagoAccessToken = (apiConfig.mercadopagoAccessToken != null) ? String(apiConfig.mercadopagoAccessToken).trim() : '';
+  const mercadopagoAccessTokenChile =
+    apiConfig.mercadopagoAccessTokenChile != null ? String(apiConfig.mercadopagoAccessTokenChile).trim() : '';
+  const mercadopagoAccessTokenArg =
+    apiConfig.mercadopagoAccessTokenArg != null ? String(apiConfig.mercadopagoAccessTokenArg).trim() : '';
   const dashTabs = Array.from(document.querySelectorAll('.dash-nav-item'));
   const dashPanels = Array.from(document.querySelectorAll('.dash-tab'));
   const discordLinkStatusEl = document.getElementById('discordLinkStatus');
@@ -26,6 +31,12 @@
   const discordUsernameLabel = document.getElementById('discordUsernameLabel');
   const discordRolesList = document.getElementById('discordRolesList');
   const btnConnectDiscord = document.getElementById('btnConnectDiscord');
+  const mercadopagoLoadingEl = document.getElementById('mercadopagoLoading');
+  const mercadopagoNotFoundEl = document.getElementById('mercadopagoNotFound');
+  const mercadopagoFoundEl = document.getElementById('mercadopagoFound');
+  const mercadopagoStatusLabelEl = document.getElementById('mercadopagoStatusLabel');
+  const mercadopagoErrorEl = document.getElementById('mercadopagoError');
+  const mercadopagoHeaderStatusIconEl = document.getElementById('mercadopagoHeaderStatusIcon');
 
   let currentUser = null;
   let currentDiscordRow = null;
@@ -154,6 +165,8 @@
 
     // Sincronizar usuario en Supabase
     syncUserWithSupabase().catch(() => {});
+    // Consultar MercadoPago por correo y guardar status en DB
+    fetchMercadoPagoAndSave().catch(() => {});
   }
 
   function showLogin() {
@@ -166,6 +179,8 @@
     currentDiscordRow = null;
     if (discordHeaderLinkedEl) discordHeaderLinkedEl.hidden = true;
     if (discordHeaderUnlinkedEl) discordHeaderUnlinkedEl.hidden = false;
+    setMercadoPagoUI('loading');
+    updateMercadoPagoHeaderIcon(null);
   }
 
   function activateTab(tabName) {
@@ -194,6 +209,180 @@
     // Ya no intentamos crear/actualizar filas desde el front.
     // Solo leemos el estado actual desde Supabase.
     await refreshDiscordFromSupabase();
+  }
+
+  function setMercadoPagoUI(state, statusText) {
+    if (mercadopagoLoadingEl) mercadopagoLoadingEl.hidden = state !== 'loading';
+    if (mercadopagoNotFoundEl) mercadopagoNotFoundEl.hidden = state !== 'not_found';
+    if (mercadopagoFoundEl) {
+      mercadopagoFoundEl.hidden = state !== 'found';
+      if (mercadopagoStatusLabelEl) mercadopagoStatusLabelEl.textContent = statusText || '-';
+    }
+    if (mercadopagoErrorEl) mercadopagoErrorEl.hidden = state !== 'error';
+  }
+
+  function updateMercadoPagoHeaderIcon(status) {
+    if (!mercadopagoHeaderStatusIconEl) return;
+
+    const normalized = (status || '').toLowerCase();
+    const hasStatus = !!normalized;
+
+    if (!hasStatus) {
+      mercadopagoHeaderStatusIconEl.hidden = true;
+      mercadopagoHeaderStatusIconEl.classList.remove('mercadopago-header-status-icon--ok', 'mercadopago-header-status-icon--bad');
+      mercadopagoHeaderStatusIconEl.innerHTML = '';
+      return;
+    }
+
+    const isAuthorized = normalized === 'authorized';
+    mercadopagoHeaderStatusIconEl.hidden = false;
+    mercadopagoHeaderStatusIconEl.classList.toggle('mercadopago-header-status-icon--ok', isAuthorized);
+    mercadopagoHeaderStatusIconEl.classList.toggle('mercadopago-header-status-icon--bad', !isAuthorized);
+
+    if (isAuthorized) {
+      mercadopagoHeaderStatusIconEl.innerHTML =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    } else {
+      mercadopagoHeaderStatusIconEl.innerHTML =
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    }
+  }
+
+  async function fetchMercadoPagoAndSave() {
+    if (!currentUser || !currentUser.user_email) {
+      setMercadoPagoUI('error');
+      updateMercadoPagoHeaderIcon('error');
+      return;
+    }
+    const email = currentUser.user_email;
+
+    const tokensToUse = [];
+    if (mercadopagoAccessTokenChile) {
+      tokensToUse.push({ country: 'chile', token: mercadopagoAccessTokenChile });
+    }
+    if (mercadopagoAccessTokenArg) {
+      tokensToUse.push({ country: 'argentina', token: mercadopagoAccessTokenArg });
+    }
+
+    if (tokensToUse.length === 0 && !mercadopagoAccessToken) {
+      setMercadoPagoUI('error');
+      updateMercadoPagoHeaderIcon('error');
+      return;
+    }
+
+    setMercadoPagoUI('loading');
+
+    const searchUrlBase = `https://api.mercadopago.com/preapproval/search?payer_email=${encodeURIComponent(email)}`;
+    let statusToSave = 'not_found';
+    let dataToSave = { results: [], sources: [], paging: null };
+    let anyError = false;
+
+    // Función auxiliar para consultar con un token concreto
+    async function queryWithToken(label, token) {
+      try {
+        const res = await fetch(searchUrlBase, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          anyError = true;
+          return { ok: false, status: 'error', data: { error: data.message || res.status, source: label } };
+        }
+
+        if (Array.isArray(data.results) && data.results.length > 0) {
+          const first = data.results[0];
+          const status = first.status || 'authorized';
+          return {
+            ok: true,
+            status,
+            data: { results: data.results, paging: data.paging, source: label }
+          };
+        }
+
+        // Sin resultados pero sin error
+        return { ok: true, status: 'not_found', data: { results: [], paging: data.paging, source: label } };
+      } catch (_) {
+        anyError = true;
+        return { ok: false, status: 'error', data: { error: 'network_error', source: label } };
+      }
+    }
+
+    const queries = [];
+
+    // Primero, usar los tokens específicos de país
+    for (const entry of tokensToUse) {
+      queries.push(queryWithToken(entry.country, entry.token));
+    }
+
+    // Compatibilidad: si existe un token unificado adicional, también consultarlo
+    if (mercadopagoAccessToken && tokensToUse.length === 0) {
+      queries.push(queryWithToken('legacy', mercadopagoAccessToken));
+    }
+
+    const results = [];
+    for (const q of queries) {
+      // Ejecutar en serie para evitar límites agresivos de rate limit
+      // eslint-disable-next-line no-await-in-loop
+      const r = await q;
+      if (r) results.push(r);
+    }
+
+    // Combinar resultados
+    const found = results.filter((r) => r.ok && r.status !== 'not_found');
+    if (found.length > 0) {
+      // Priorizar un estado "authorized" si existe
+      const authorized = found.find((r) => String(r.status).toLowerCase() === 'authorized');
+      const chosen = authorized || found[0];
+      statusToSave = chosen.status;
+      dataToSave = {
+        results: found.flatMap((r) => (r.data && Array.isArray(r.data.results) ? r.data.results : [])),
+        sources: found.map((r) => r.data?.source).filter(Boolean),
+        paging: null
+      };
+      setMercadoPagoUI('found', statusToSave);
+    } else if (results.length > 0 && results.every((r) => r.status === 'not_found')) {
+      statusToSave = 'not_found';
+      dataToSave = {
+        results: [],
+        sources: results.map((r) => r.data?.source).filter(Boolean),
+        paging: null
+      };
+      setMercadoPagoUI('not_found');
+    } else if (anyError || results.length === 0) {
+      statusToSave = 'error';
+      dataToSave = {
+        error: 'error_consultando_mercadopago',
+        sources: results.map((r) => r.data?.source).filter(Boolean)
+      };
+      setMercadoPagoUI('error');
+    }
+
+    updateMercadoPagoHeaderIcon(statusToSave);
+
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const patchUrl = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/user_discord_links?email=eq.${encodeURIComponent(email)}`;
+        await fetch(patchUrl, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+            Prefer: 'return=minimal'
+          },
+          body: JSON.stringify({
+            mercadopago_status: statusToSave,
+            mercadopago_data: dataToSave,
+            updated_at: new Date().toISOString()
+          })
+        });
+      } catch (_) {}
+    }
   }
 
   async function refreshDiscordFromSupabase() {

@@ -615,13 +615,24 @@ html, body {
   grid-column: 1 / -1;
 }
 
-/* Contenedor para la tarjeta Discord (tamaño tarjeta, alineada a la izquierda) */
+/* Contenedor para tarjetas Perfil (Discord + MercadoPago) */
 .discord-card-wrap {
   grid-column: 1 / -1;
   display: flex;
   justify-content: flex-start;
   align-items: flex-start;
   padding: 8px 0;
+}
+
+.profile-cards-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.profile-cards-row .discord-card-white {
+  flex: 0 1 auto;
 }
 
 .discord-card-white {
@@ -722,6 +733,70 @@ html, body {
 .discord-card-white .btn-primary-large {
   background: #5865F2;
   color: #fff;
+}
+
+/* Tarjeta Mercado Pago (al lado de Discord) */
+.mercadopago-card .mercadopago-logo {
+  color: #009ee3;
+}
+
+.mercadopago-header {
+  justify-content: space-between;
+}
+
+.mercadopago-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mercadopago-logo-img {
+  height: 28px;
+  display: block;
+  border-radius: 6px;
+}
+
+.mercadopago-header-status-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.5);
+}
+
+.mercadopago-header-status-icon--ok {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.mercadopago-header-status-icon--bad {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.mercadopago-header-status-icon[hidden] {
+  display: none !important;
+}
+
+.mercadopago-status-content p {
+  margin: 0;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.mercadopago-status-content p[hidden] {
+  display: none !important;
+}
+
+.mercadopago-found strong {
+  color: #059669;
+}
+
+.mercadopago-error {
+  color: #dc2626;
 }
 
 .dash-card-tall {

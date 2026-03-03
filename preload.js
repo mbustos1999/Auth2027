@@ -13,7 +13,10 @@ let supabaseUrl = (process.env.SUPABASE_URL != null) ? String(process.env.SUPABA
 let supabaseAnonKey = (process.env.SUPABASE_ANON_KEY != null) ? String(process.env.SUPABASE_ANON_KEY).trim() : '';
 let discordInviteUrl = (process.env.DISCORD_INVITE_URL != null) ? String(process.env.DISCORD_INVITE_URL).trim() : '';
 let discordOAuthBaseUrl = (process.env.DISCORD_OAUTH_BASE_URL != null) ? String(process.env.DISCORD_OAUTH_BASE_URL).trim() : '';
-if (!baseUrl || !authEndpoint) {
+let mercadopagoAccessTokenChile = (process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE != null) ? String(process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE).trim() : '';
+let mercadopagoAccessTokenArg = (process.env.MERCADOPAGO_ACCESS_TOKEN_ARG != null) ? String(process.env.MERCADOPAGO_ACCESS_TOKEN_ARG).trim() : '';
+
+if (!baseUrl || !authEndpoint || (!mercadopagoAccessTokenChile && !mercadopagoAccessTokenArg)) {
   try {
     const config = require('./config.js');
     if (config) {
@@ -27,9 +30,21 @@ if (!baseUrl || !authEndpoint) {
       if (!discordOAuthBaseUrl && config.DISCORD_OAUTH_BASE_URL) {
         discordOAuthBaseUrl = String(config.DISCORD_OAUTH_BASE_URL).trim();
       }
+      if (!mercadopagoAccessTokenChile && config.MERCADOPAGO_ACCESS_TOKEN_CHILE) {
+        mercadopagoAccessTokenChile = String(config.MERCADOPAGO_ACCESS_TOKEN_CHILE).trim();
+      }
+      if (!mercadopagoAccessTokenArg && config.MERCADOPAGO_ACCESS_TOKEN_ARG) {
+        mercadopagoAccessTokenArg = String(config.MERCADOPAGO_ACCESS_TOKEN_ARG).trim();
+      }
     }
   } catch (_) {}
 }
+
+// Token unificado para compatibilidad (prioriza ARG, luego CHILE, luego variable antigua si existe)
+const mercadopagoAccessToken =
+  (process.env.MERCADOPAGO_ACCESS_TOKEN != null ? String(process.env.MERCADOPAGO_ACCESS_TOKEN).trim() : '') ||
+  mercadopagoAccessTokenArg ||
+  mercadopagoAccessTokenChile;
 
 contextBridge.exposeInMainWorld('apiConfig', {
   baseUrl,
@@ -37,5 +52,8 @@ contextBridge.exposeInMainWorld('apiConfig', {
   supabaseUrl,
   supabaseAnonKey,
   discordInviteUrl,
-  discordOAuthBaseUrl
+  discordOAuthBaseUrl,
+  mercadopagoAccessToken,
+  mercadopagoAccessTokenChile,
+  mercadopagoAccessTokenArg
 });

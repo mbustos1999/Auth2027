@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS public.user_discord_links (
   discord_username TEXT,
   roles JSONB DEFAULT '[]'::jsonb,
   status TEXT DEFAULT 'pending',
+  mercadopago_status TEXT,
+  mercadopago_data JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -43,3 +45,7 @@ CREATE POLICY "anon_update_user_discord_links"
   WITH CHECK (true);
 
 -- El bot usa service_role, que bypasea RLS; no hace falta política para él.
+
+-- Si la tabla ya existía, añade columnas de MercadoPago (ejecutar solo si faltan):
+-- ALTER TABLE public.user_discord_links ADD COLUMN IF NOT EXISTS mercadopago_status TEXT;
+-- ALTER TABLE public.user_discord_links ADD COLUMN IF NOT EXISTS mercadopago_data JSONB;

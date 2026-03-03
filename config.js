@@ -7,5 +7,7 @@ module.exports = {
   // URL base de OAuth de Discord, sin el parámetro "state".
   // Ejemplo:
   // https://discord.com/api/oauth2/authorize?client_id=TU_CLIENT_ID&redirect_uri=URL_ENCODEADA&response_type=code&scope=identify
-  DISCORD_OAUTH_BASE_URL: process.env.DISCORD_OAUTH_BASE_URL
+  DISCORD_OAUTH_BASE_URL: process.env.DISCORD_OAUTH_BASE_URL,
+  MERCADOPAGO_ACCESS_TOKEN_CHILE: process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE,
+  MERCADOPAGO_ACCESS_TOKEN_ARG: process.env.MERCADOPAGO_ACCESS_TOKEN_ARG
 };
