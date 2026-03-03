@@ -118,6 +118,10 @@
               <span class="dash-nav-icon">⚙️</span>
               <span class="dash-nav-label">Ajustes</span>
             </button>
+            <button class="dash-nav-item" data-tab="users">
+              <span class="dash-nav-icon">👥</span>
+              <span class="dash-nav-label">Usuarios</span>
+            </button>
           </nav>
 
           <button type="button" class="dash-logout" id="btnLogout">
@@ -307,6 +311,99 @@
                   </div>
                 </div>
               </section>
+            </div>
+          </div>
+
+          <!-- ADMIN: USUARIOS (solo roles admin) -->
+          <div class="dash-tab" data-tab-panel="users" hidden>
+            <section class="dash-card dash-card-wide">
+              <h3>Usuarios</h3>
+              <p class="dash-card-text">
+                Este panel solo está disponible para administradores. Aquí puedes revisar los usuarios vinculados y gestionar su estado.
+              </p>
+              <div id="usersAdminError" class="message message-error" role="alert" hidden></div>
+              <div class="users-admin-toolbar">
+                <div class="users-admin-filters">
+                  <input
+                    type="text"
+                    id="usersAdminFilterEmail"
+                    class="recover-input"
+                    placeholder="Filtrar por email"
+                  />
+                  <input
+                    type="text"
+                    id="usersAdminFilterDiscord"
+                    class="recover-input"
+                    placeholder="Filtrar por Discord"
+                  />
+                </div>
+                <button type="button" class="login-btn-secondary" id="usersAdminRefresh">
+                  Recargar lista
+                </button>
+              </div>
+              <div class="users-admin-table-wrapper">
+                <table class="users-admin-table">
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Discord</th>
+                      <th>Estado</th>
+                      <th>Roles</th>
+                      <th>MP</th>
+                      <th>PC</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="usersAdminTableBody">
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <div id="userEditModal" class="recover-modal" hidden>
+              <div class="recover-modal-backdrop"></div>
+              <div class="recover-modal-content">
+                <h2>Editar usuario</h2>
+                <p>Modifica el estado básico del usuario.</p>
+
+                <input
+                  type="text"
+                  id="userEditEmail"
+                  class="recover-input"
+                  placeholder="Email"
+                  readonly
+                />
+                <input
+                  type="text"
+                  id="userEditDiscord"
+                  class="recover-input"
+                  placeholder="Discord"
+                  readonly
+                />
+                <select id="userEditStatus" class="recover-input">
+                  <option value="linked">linked</option>
+                  <option value="pending">pending</option>
+                  <option value="banned">banned</option>
+                  <option value="disabled">disabled</option>
+                </select>
+                <input
+                  type="text"
+                  id="userEditPcName"
+                  class="recover-input"
+                  placeholder="PC vinculado (opcional)"
+                />
+
+                <div id="userEditError" class="recover-error" hidden></div>
+
+                <div class="recover-actions">
+                  <button type="button" id="userEditCancel" class="recover-btn recover-btn-secondary">
+                    Cancelar
+                  </button>
+                  <button type="button" id="userEditSave" class="recover-btn recover-btn-primary">
+                    Guardar cambios
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

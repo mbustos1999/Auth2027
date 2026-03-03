@@ -809,6 +809,78 @@ html, body {
   color: #374151;
 }
 
+/* Admin usuarios */
+.users-admin-toolbar {
+  margin-top: 10px;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.users-admin-filters {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.users-admin-filters .recover-input {
+  max-width: 220px;
+}
+
+.users-admin-table-wrapper {
+  margin-top: 8px;
+  max-height: 320px;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.users-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.users-admin-table th,
+.users-admin-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(30, 64, 175, 0.4);
+  text-align: left;
+}
+
+.users-admin-table th {
+  background: rgba(15, 23, 42, 0.95);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.users-admin-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.users-admin-btn {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  border: none;
+  cursor: pointer;
+}
+
+.users-admin-btn--edit {
+  background: #2563eb;
+  color: #e5e7eb;
+}
+
+.users-admin-btn--delete {
+  background: #b91c1c;
+  color: #fee2e2;
+}
+
 .discord-card-white .discord-status--ok .discord-status-badge {
   background: #10b981;
   color: #fff;

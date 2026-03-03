@@ -618,13 +618,14 @@
   }
 
   function updateMenuAccess(isLinked, roles) {
-    const { canAccessProtected } = evaluateAccessFlags(isLinked, roles);
+    const { canAccessProtected, hasAdminRole } = evaluateAccessFlags(isLinked, roles);
 
     dashTabs.forEach((btn) => {
       const tab = btn.getAttribute('data-tab');
       if (!tab) return;
 
       const isProfile = tab === 'profile';
+      const isUsersTab = tab === 'users';
 
       // Perfil siempre accesible
       if (isProfile) {
@@ -632,6 +633,16 @@
         btn.removeAttribute('data-locked');
         btn.removeAttribute('title');
         return;
+      }
+
+      // Menú Usuarios: requiere admin sí o sí
+      if (isUsersTab) {
+        if (!isLinked || !hasAdminRole) {
+          btn.classList.add('dash-nav-item--locked');
+          btn.setAttribute('data-locked', 'admin-only');
+          btn.title = 'Este menú solo está disponible para administradores.';
+          return;
+        }
       }
 
       if (!isLinked) {
@@ -722,6 +733,23 @@
   const registerSendBtn = document.getElementById('registerSend');
   const btnOpenRegister = document.getElementById('btnOpenRegister');
   const registerErrorEl = document.getElementById('registerError');
+
+  // Admin usuarios
+  const usersAdminErrorEl = document.getElementById('usersAdminError');
+  const usersAdminRefreshBtn = document.getElementById('usersAdminRefresh');
+  const usersAdminTableBody = document.getElementById('usersAdminTableBody');
+  const usersAdminFilterEmail = document.getElementById('usersAdminFilterEmail');
+  const usersAdminFilterDiscord = document.getElementById('usersAdminFilterDiscord');
+  const userEditModal = document.getElementById('userEditModal');
+  const userEditEmailInput = document.getElementById('userEditEmail');
+  const userEditDiscordInput = document.getElementById('userEditDiscord');
+  const userEditStatusSelect = document.getElementById('userEditStatus');
+  const userEditPcNameInput = document.getElementById('userEditPcName');
+  const userEditErrorEl = document.getElementById('userEditError');
+  const userEditCancelBtn = document.getElementById('userEditCancel');
+  const userEditSaveBtn = document.getElementById('userEditSave');
+  let userEditCurrentId = null;
+  let usersAdminCache = [];
 
   function openRecoverModal() {
     if (!recoverModal) return;
@@ -888,6 +916,271 @@
     registerSendBtn.addEventListener('click', crearCuenta);
   }
 
+  // --- Admin: gestión de usuarios ---
+
+  function clearUsersAdminError() {
+    if (!usersAdminErrorEl) return;
+    usersAdminErrorEl.hidden = true;
+    usersAdminErrorEl.textContent = '';
+  }
+
+  function showUsersAdminError(msg) {
+    if (!usersAdminErrorEl) return;
+    usersAdminErrorEl.textContent = msg;
+    usersAdminErrorEl.hidden = false;
+  }
+
+  function openUserEditModal(row) {
+    if (!userEditModal) return;
+    userEditCurrentId = row.id;
+    userEditEmailInput.value = row.email || '';
+    userEditDiscordInput.value = row.discord_username || row.discord_id || '';
+    userEditStatusSelect.value = row.status || 'pending';
+    userEditPcNameInput.value = row.pc_name || '';
+    userEditErrorEl.hidden = true;
+    userEditErrorEl.textContent = '';
+    userEditModal.hidden = false;
+  }
+
+  function closeUserEditModal() {
+    if (!userEditModal) return;
+    userEditCurrentId = null;
+    userEditModal.hidden = true;
+  }
+
+  function pickMercadoPagoLabel(row) {
+    if (!row) return '-';
+
+    const status = (row.mercadopago_status || '').toString().toLowerCase();
+
+    // Sin plan registrado
+    if (!status || status === 'not_found') {
+      return 'Sin plan';
+    }
+
+    let data = row.mercadopago_data;
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (_) {
+        data = null;
+      }
+    }
+
+    const meta = data && typeof data === 'object' ? data.meta || {} : {};
+
+    const effective = (meta.effective_status || status || '').toString().toLowerCase();
+    const uiLabelRaw = meta.ui_label || status || '-';
+
+    let label = uiLabelRaw;
+    // Normalizar algunos textos
+    if (effective === 'active') {
+      label = 'Sub activa';
+    } else if (effective === 'pending') {
+      label = 'Sub pendiente';
+    } else if (effective === 'cancelled') {
+      label = 'Sub cancelada';
+    } else if (effective === 'paused') {
+      label = 'Sub pausada';
+    } else if (effective === 'expired') {
+      label = 'Sub expirada';
+    }
+
+    const daysLeft =
+      typeof meta.days_left === 'number' ? meta.days_left : null;
+
+    if (daysLeft != null && daysLeft >= 0) {
+      const suffix =
+        daysLeft === 1 ? '1 día' : `${daysLeft} días`;
+      return `${label} (${suffix})`;
+    }
+
+    return label;
+  }
+
+  function pickDisplayRole(roles) {
+    if (!Array.isArray(roles) || roles.length === 0) return '-';
+
+    const rolesStr = roles.map((r) => String(r));
+    const rolesLower = rolesStr.map((r) => r.toLowerCase());
+
+    const candidates = [
+      { type: 'lower', value: 'arg-6m', label: 'arg-6m' },
+      { type: 'lower', value: 'arg-1m', label: 'arg-1m' },
+      { type: 'lower', value: 'argenmod argentina mensual', label: 'Argenmod Argentina Mensual' },
+      { type: 'lower', value: 'arg-3m', label: 'arg-3m' },
+      { type: 'lower', value: 'chile-1 mes', label: 'Chile-1 mes' },
+      { type: 'exact', value: '☕・𝙈𝙄𝙀𝙈𝘽𝙍𝙊 𝙆𝙊𝙁𝙄', label: '☕・𝙈𝙄𝙀𝙈𝘽𝙍𝙊 𝙆𝙊𝙁𝙀' },
+      { type: 'exact', value: '💲・ 𝙋𝘼𝙏𝙍𝙀𝙊𝙉・💲', label: '💲・ 𝙋𝘼𝙏𝙍𝙀𝙊𝙉・💲' },
+      { type: 'lower', value: 'admin', label: 'admin' },
+      { type: 'exact', value: '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️', label: '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️' }
+    ];
+
+    for (const rule of candidates) {
+      if (rule.type === 'exact') {
+        if (rolesStr.includes(rule.value)) return rule.label;
+      } else if (rule.type === 'lower') {
+        if (rolesLower.includes(rule.value)) return rule.label;
+      }
+    }
+
+    return '-';
+  }
+
+  function renderAdminUsersTable() {
+    if (!usersAdminTableBody) return;
+
+    const emailFilter = (usersAdminFilterEmail?.value || '').trim().toLowerCase();
+    const discordFilter = (usersAdminFilterDiscord?.value || '').trim().toLowerCase();
+
+    const filtered = usersAdminCache.filter((row) => {
+      const email = (row.email || '').toString().toLowerCase();
+      const discord = (
+        row.discord_username ||
+        row.discord_id ||
+        ''
+      ).toString().toLowerCase();
+
+      if (emailFilter && !email.includes(emailFilter)) return false;
+      if (discordFilter && !discord.includes(discordFilter)) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      usersAdminTableBody.innerHTML = '<tr><td colspan="7">Sin resultados para este filtro.</td></tr>';
+      return;
+    }
+
+    usersAdminTableBody.innerHTML = '';
+
+    filtered.forEach((row) => {
+      const tr = document.createElement('tr');
+      const displayRole = pickDisplayRole(row.roles);
+      const mpText = pickMercadoPagoLabel(row);
+      const statusText = row.status || '-';
+
+      tr.innerHTML = `
+        <td>${row.email || '-'}</td>
+        <td>${row.discord_username || row.discord_id || '-'}</td>
+        <td>${statusText}</td>
+        <td>${displayRole}</td>
+        <td>${mpText}</td>
+        <td>${row.pc_name || '-'}</td>
+        <td>
+          <div class="users-admin-actions">
+            <button type="button" class="users-admin-btn users-admin-btn--edit" data-user-id="${row.id}">Editar</button>
+            <button type="button" class="users-admin-btn users-admin-btn--delete" data-user-id="${row.id}">Eliminar</button>
+          </div>
+        </td>
+      `;
+
+      usersAdminTableBody.appendChild(tr);
+    });
+  }
+
+  async function fetchAdminUsers() {
+    clearUsersAdminError();
+    if (!currentUser || !currentUser.user_email) {
+      showUsersAdminError('No hay sesión válida.');
+      return;
+    }
+    if (!usersAdminTableBody) return;
+
+    usersAdminTableBody.innerHTML = '<tr><td colspan="7">Cargando usuarios...</td></tr>';
+
+    try {
+      const email = encodeURIComponent(currentUser.user_email);
+      const res = await fetch(`http://localhost:4000/admin/users?email=${email}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data || !data.success || !Array.isArray(data.users)) {
+        showUsersAdminError(data.message || 'No se pudo cargar la lista de usuarios.');
+        usersAdminTableBody.innerHTML = '';
+        return;
+      }
+
+      usersAdminCache = data.users;
+      if (usersAdminCache.length === 0) {
+        usersAdminTableBody.innerHTML = '<tr><td colspan="7">No hay usuarios registrados.</td></tr>';
+        return;
+      }
+
+      renderAdminUsersTable();
+    } catch (e) {
+      showUsersAdminError('Error de conexión al cargar usuarios.');
+      usersAdminTableBody.innerHTML = '';
+    }
+  }
+
+  async function saveUserEdits() {
+    if (!currentUser || !currentUser.user_email || !userEditCurrentId) return;
+
+    try {
+      const adminEmail = encodeURIComponent(currentUser.user_email);
+      const payload = {
+        email: currentUser.user_email,
+        id: userEditCurrentId,
+        updates: {
+          status: userEditStatusSelect.value || 'pending',
+          pc_name: userEditPcNameInput.value || null
+        }
+      };
+
+      const res = await fetch(`http://localhost:4000/admin/users/update?email=${adminEmail}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data || !data.success) {
+        userEditErrorEl.textContent = data.message || 'No se pudieron guardar los cambios.';
+        userEditErrorEl.hidden = false;
+        return;
+      }
+
+      closeUserEditModal();
+      await fetchAdminUsers();
+    } catch (e) {
+      userEditErrorEl.textContent = 'Error de conexión al guardar los cambios.';
+      userEditErrorEl.hidden = false;
+    }
+  }
+
+  async function deleteUserById(id) {
+    if (!currentUser || !currentUser.user_email) return;
+    if (!id) return;
+
+    const confirmed = window.confirm('¿Seguro que quieres eliminar este usuario? Esta acción no se puede deshacer.');
+    if (!confirmed) return;
+
+    clearUsersAdminError();
+
+    try {
+      const adminEmail = encodeURIComponent(currentUser.user_email);
+      const payload = { email: currentUser.user_email, id };
+      const res = await fetch(`http://localhost:4000/admin/users/delete?email=${adminEmail}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data || !data.success) {
+        showUsersAdminError(data.message || 'No se pudo eliminar el usuario.');
+        return;
+      }
+
+      await fetchAdminUsers();
+    } catch (e) {
+      showUsersAdminError('Error de conexión al eliminar usuario.');
+    }
+  }
+
   if (btnConnectDiscord) {
     btnConnectDiscord.addEventListener('click', async () => {
       if (!discordOAuthBaseUrl) {
@@ -919,6 +1212,69 @@
       // Después de abrir la ventana de autorización, empezamos a consultar Supabase
       // para detectar cuándo se complete la vinculación y refrescar la vista.
       startDiscordLinkPolling();
+    });
+  }
+
+  if (usersAdminRefreshBtn) {
+    usersAdminRefreshBtn.addEventListener('click', () => {
+      fetchAdminUsers();
+    });
+  }
+
+  if (usersAdminFilterEmail) {
+    usersAdminFilterEmail.addEventListener('input', () => {
+      renderAdminUsersTable();
+    });
+  }
+
+  if (usersAdminFilterDiscord) {
+    usersAdminFilterDiscord.addEventListener('input', () => {
+      renderAdminUsersTable();
+    });
+  }
+
+  if (usersAdminTableBody) {
+    usersAdminTableBody.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const editBtn = target.closest('.users-admin-btn--edit');
+      const deleteBtn = target.closest('.users-admin-btn--delete');
+
+      if (editBtn) {
+        const id = editBtn.getAttribute('data-user-id');
+        if (!id || !usersAdminTableBody) return;
+
+        const rowEl = editBtn.closest('tr');
+        if (!rowEl) return;
+        const cells = rowEl.querySelectorAll('td');
+        const rowData = {
+          id,
+          email: cells[0]?.textContent || '',
+          discord_username: cells[1]?.textContent || '',
+          status: cells[2]?.textContent || '',
+          roles: (cells[3]?.textContent || '').split(',').map((s) => s.trim()).filter(Boolean),
+          mercadopago_status: cells[4]?.textContent || '',
+          pc_name: cells[5]?.textContent || ''
+        };
+        openUserEditModal(rowData);
+      } else if (deleteBtn) {
+        const id = deleteBtn.getAttribute('data-user-id');
+        if (!id) return;
+        deleteUserById(id);
+      }
+    });
+  }
+
+  if (userEditCancelBtn) {
+    userEditCancelBtn.addEventListener('click', () => {
+      closeUserEditModal();
+    });
+  }
+
+  if (userEditSaveBtn) {
+    userEditSaveBtn.addEventListener('click', () => {
+      saveUserEdits();
     });
   }
 

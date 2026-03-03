@@ -795,6 +795,201 @@ function startOAuthServer() {
         return;
       }
 
+      // --- Admin: gestión de usuarios ---
+      if (url.pathname.startsWith('/admin/')) {
+        const adminEmail = url.searchParams.get('email');
+        if (!adminEmail) {
+          res.statusCode = 400;
+          res.end('Missing email');
+          return;
+        }
+
+        async function isAdminByEmail(email) {
+          try {
+            const { data: rows, error } = await supabase
+              .from('user_discord_links')
+              .select('*')
+              .eq('email', email);
+
+            if (error || !Array.isArray(rows) || rows.length === 0) {
+              return false;
+            }
+
+            let bestRow = null;
+            const candidates = rows.filter((r) => r && r.discord_id) || rows;
+
+            candidates.sort((a, b) => {
+              const da = a && a.updated_at ? new Date(a.updated_at).getTime() : 0;
+              const db = b && b.updated_at ? new Date(b.updated_at).getTime() : 0;
+              return db - da;
+            });
+
+            bestRow = candidates[0] || null;
+            if (!bestRow) return false;
+
+            const rolesArr = Array.isArray(bestRow.roles) ? bestRow.roles.map((r) => String(r)) : [];
+            const rolesLower = rolesArr.map((r) => r.toLowerCase());
+            const adminRoles = ['admin', '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️'.toLowerCase()];
+
+            const isLinkedAdmin =
+              bestRow.discord_id &&
+              String(bestRow.status || '').toLowerCase() === 'linked' &&
+              rolesLower.some((r) => adminRoles.includes(r));
+
+            return isLinkedAdmin;
+          } catch (e) {
+            console.error('Error en isAdminByEmail:', e);
+            return false;
+          }
+        }
+
+        async function readJsonBody(reqToRead) {
+          return new Promise((resolve) => {
+            let body = '';
+            reqToRead.on('data', (chunk) => {
+              body += chunk.toString();
+              if (body.length > 1e6) {
+                reqToRead.destroy();
+              }
+            });
+            reqToRead.on('end', () => {
+              try {
+                const parsed = body ? JSON.parse(body) : {};
+                resolve(parsed);
+              } catch {
+                resolve({});
+              }
+            });
+            reqToRead.on('error', () => resolve({}));
+          });
+        }
+
+        if (!(await isAdminByEmail(adminEmail))) {
+          res.statusCode = 403;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Acceso denegado (admin requerido).' }));
+          return;
+        }
+
+        if (url.pathname === '/admin/users' && req.method === 'GET') {
+          try {
+            const { data: rows, error } = await supabase
+              .from('user_discord_links')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .limit(500);
+
+            if (error) {
+              console.error('Error leyendo user_discord_links para /admin/users:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, users: rows || [] }));
+          } catch (e) {
+            console.error('Error inesperado en /admin/users:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/users/update' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const { id, updates } = body || {};
+
+          if (!id || !updates || typeof updates !== 'object') {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Parámetros inválidos.' }));
+            return;
+          }
+
+          try {
+            const patch = {};
+            if (typeof updates.status === 'string') {
+              patch.status = updates.status;
+            }
+            if (typeof updates.pc_name === 'string' || updates.pc_name === null) {
+              patch.pc_name = updates.pc_name;
+            }
+            patch.updated_at = new Date().toISOString();
+
+            const { error, data: updated } = await supabase
+              .from('user_discord_links')
+              .update(patch)
+              .eq('id', id)
+              .select('*')
+              .maybeSingle();
+
+            if (error) {
+              console.error('Error en /admin/users/update:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, user: updated }));
+          } catch (e) {
+            console.error('Error inesperado en /admin/users/update:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/users/delete' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const { id } = body || {};
+
+          if (!id) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Parámetros inválidos.' }));
+            return;
+          }
+
+          try {
+            const { error } = await supabase
+              .from('user_discord_links')
+              .delete()
+              .eq('id', id);
+
+            if (error) {
+              console.error('Error en /admin/users/delete:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            console.error('Error inesperado en /admin/users/delete:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ success: false, message: 'Not found' }));
+        return;
+      }
+
       // Endpoint interno para obtener estado completo de usuario
       if (url.pathname === '/u/state') {
         const email = url.searchParams.get('email');
