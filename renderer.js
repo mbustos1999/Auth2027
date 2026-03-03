@@ -166,6 +166,7 @@
   const registerCancelBtn = document.getElementById('registerCancel');
   const registerSendBtn = document.getElementById('registerSend');
   const btnOpenRegister = document.getElementById('btnOpenRegister');
+  const registerErrorEl = document.getElementById('registerError');
 
   function openRecoverModal() {
     if (!recoverModal) return;
@@ -220,9 +221,25 @@
 
   const registerUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}/wp-json/argenmod/v1/crear-cuenta` : '';
 
+  function clearRegisterError() {
+    if (!registerErrorEl) return;
+    registerErrorEl.hidden = true;
+    registerErrorEl.textContent = '';
+  }
+
+  function showRegisterError(msg) {
+    if (!registerErrorEl) {
+      showError(msg);
+      return;
+    }
+    registerErrorEl.textContent = msg;
+    registerErrorEl.hidden = false;
+  }
+
   function openRegisterModal() {
     if (!registerModal) return;
     clearError();
+    clearRegisterError();
     registerModal.hidden = false;
     regUsernameInput.value = usernameInput.value.trim();
     regEmailInput.value = '';
@@ -239,7 +256,7 @@
 
   async function crearCuenta() {
     if (!registerUrl) {
-      showError('Configura la URL de WordPress en config.js para crear cuentas.');
+      showRegisterError('Configura la URL de WordPress en config.js para crear cuentas.');
       return;
     }
 
@@ -250,26 +267,27 @@
     const pais = regCountryInput.value.trim();
 
     if (!username || !email || !password || !passwordConfirm) {
-      showError('Completa usuario, email y contraseñas.');
+      showRegisterError('Completa usuario, email y contraseñas.');
       return;
     }
 
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      showError('Introduce un correo electrónico válido.');
+      showRegisterError('Introduce un correo electrónico válido.');
       return;
     }
 
     if (password !== passwordConfirm) {
-      showError('Las contraseñas no coinciden.');
+      showRegisterError('Las contraseñas no coinciden.');
       return;
     }
 
     if (password.length < 8) {
-      showError('La contraseña debe tener al menos 8 caracteres.');
+      showRegisterError('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
 
     clearError();
+    clearRegisterError();
     setLoading(true);
     try {
       const res = await fetch(registerUrl, {
@@ -294,12 +312,10 @@
         messageError.classList.remove('message-error');
         messageError.classList.add('message-success');
       } else {
-        messageError.classList.remove('message-success');
-        messageError.classList.add('message-error');
-        showError(data.message || 'No se pudo crear la cuenta.');
+        showRegisterError(data.message || 'No se pudo crear la cuenta.');
       }
     } catch (e) {
-      showError('Error de conexión al crear la cuenta.');
+      showRegisterError('Error de conexión al crear la cuenta.');
     } finally {
       setLoading(false);
     }

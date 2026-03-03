@@ -704,6 +704,15 @@ html, body {
   font-family: inherit;
 }
 
+.recover-error {
+  font-size: 12px;
+  color: #fecaca;
+  background: rgba(248, 113, 113, 0.18);
+  border-radius: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(248, 113, 113, 0.5);
+}
+
 .recover-actions {
   display: flex;
   justify-content: flex-end;

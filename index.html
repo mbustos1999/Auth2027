@@ -30,7 +30,7 @@
       <div class="login-card">
         <div class="login-right">
           <div class="login-right-header">
-            <h1>Welcome!</h1>
+            <h1>Bienvenido!</h1>
             <p>Inicia sesión con tu cuenta de ArgenMod para continuar.</p>
           </div>
 
@@ -71,9 +71,6 @@
               <span class="login-link-small" id="forgotPasswordLink">
                 ¿Olvidaste tu contraseña?
               </span>
-              <span class="login-link-small" id="createAccountLink">
-                Crear cuenta en la web
-              </span>
             </div>
 
             <div class="login-buttons">
@@ -81,7 +78,7 @@
                 Crear cuenta
               </button>
               <button type="submit" class="login-btn-secondary" id="btnSubmit">
-                <span class="btn-text">Sign in</span>
+                <span class="btn-text">Iniciar sesión</span>
                 <span class="btn-loader" aria-hidden="true"></span>
               </button>
             </div>
@@ -161,12 +158,17 @@
           placeholder="Confirmar contraseña"
           autocomplete="new-password"
         />
-        <input
-          type="text"
+        <select
           id="regCountry"
           class="recover-input"
-          placeholder="País"
-        />
+        >
+          <option value="">Selecciona país</option>
+          <option value="Chile">Chile</option>
+          <option value="Argentina">Argentina</option>
+          <option value="Otro">Otro</option>
+        </select>
+
+        <div id="registerError" class="recover-error" hidden></div>
 
         <div class="recover-actions">
           <button type="button" id="registerCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
