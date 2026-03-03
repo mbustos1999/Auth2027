@@ -556,6 +556,115 @@ html, body {
   grid-column: 1 / -1;
 }
 
+/* Contenedor para la tarjeta Discord (tamaño tarjeta, alineada a la izquierda) */
+.discord-card-wrap {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: 8px 0;
+}
+
+.discord-card-white {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px 22px 22px;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.04),
+    0 12px 24px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: dashCardIn 0.45s ease-out both;
+}
+
+.discord-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.discord-card-logo {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  color: #5865F2;
+}
+
+.discord-card-white .discord-card-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #1f2937;
+  margin: 0;
+}
+
+.discord-card-white .discord-card-text {
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Estados Discord dentro de la tarjeta blanca */
+.discord-card-white .discord-status {
+  margin-top: 4px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.discord-card-white .discord-status--pending {
+  border-color: #e5e7eb;
+}
+
+.discord-card-white .discord-status--ok {
+  border-color: #a7f3d0;
+  background: #f0fdf4;
+}
+
+.discord-card-white .discord-status-main p,
+.discord-card-white .discord-user-line {
+  font-size: 13px;
+  color: #374151;
+}
+
+.discord-card-white .discord-status-badge {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.discord-card-white .discord-status--ok .discord-status-badge {
+  background: #10b981;
+  color: #fff;
+}
+
+.discord-card-white .discord-user-line strong {
+  color: #be185d;
+}
+
+.discord-card-white .discord-roles-label {
+  color: #374151;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.discord-card-white .discord-roles-list li {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.discord-card-white .btn-primary-large {
+  background: #5865F2;
+  color: #fff;
+}
+
 .dash-card-tall {
   grid-row: span 2;
 }
