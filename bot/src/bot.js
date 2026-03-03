@@ -795,6 +795,91 @@ function startOAuthServer() {
         return;
       }
 
+      // Endpoint interno para verificar/anclar PC a cuenta
+      if (url.pathname === '/pc/check-binding') {
+        const email = url.searchParams.get('email');
+        const pc = (url.searchParams.get('pc') || '').trim();
+
+        if (!email || !pc) {
+          res.statusCode = 400;
+          res.end('Missing email or pc');
+          return;
+        }
+
+        try {
+          let { data: row, error } = await supabase
+            .from('user_discord_links')
+            .select('*')
+            .eq('email', email)
+            .maybeSingle();
+
+          if (error) {
+            console.error('Error leyendo user_discord_links para check-binding:', error);
+            res.statusCode = 500;
+            res.end('db_error');
+            return;
+          }
+
+          let allowed = true;
+
+          if (!row) {
+            const insertRes = await supabase
+              .from('user_discord_links')
+              .insert({
+                email,
+                pc_name: pc,
+                status: 'pending',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .select('*')
+              .maybeSingle();
+
+            if (insertRes.error) {
+              console.error(
+                'No se pudo crear fila user_discord_links en check-binding:',
+                email,
+                insertRes.error
+              );
+              // Si falla la creación, por seguridad NO bloqueamos el login
+              allowed = true;
+            }
+          } else {
+            const storedPc = (row.pc_name || '').trim();
+            if (!storedPc) {
+              const updateRes = await supabase
+                .from('user_discord_links')
+                .update({
+                  pc_name: pc,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', row.id);
+
+              if (updateRes.error) {
+                console.error(
+                  'No se pudo actualizar pc_name en check-binding:',
+                  row.id,
+                  updateRes.error
+                );
+              }
+            } else if (storedPc !== pc) {
+              allowed = false;
+            }
+          }
+
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ allowed }));
+        } catch (e) {
+          console.error('Error inesperado en /pc/check-binding:', e);
+          // En caso de error inesperado, no bloqueamos el login
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ allowed: true }));
+        }
+        return;
+      }
+
       // Aceptar la ruta que coincida con DISCORD_REDIRECT_URI (ej. /auth/discord/callback o /discord/callback)
       const callbackPath = DISCORD_REDIRECT_URI ? new URL(DISCORD_REDIRECT_URI).pathname : '/discord/callback';
       if (url.pathname !== callbackPath && url.pathname !== '/discord/callback') {

@@ -38,12 +38,18 @@ CREATE POLICY "anon_select_user_discord_links"
   TO anon
   USING (true);
 
--- Política: la app (anon) puede hacer UPDATE por email (upsert al iniciar sesión)
-CREATE POLICY "anon_update_user_discord_links"
-  ON public.user_discord_links FOR UPDATE
-  TO anon
-  USING (true)
-  WITH CHECK (true);
+-- Recomendación: no permitir UPDATE a anon (solo service_role/bot)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'user_discord_links'
+      AND policyname = 'anon_update_user_discord_links'
+  ) THEN
+    EXECUTE 'DROP POLICY "anon_update_user_discord_links" ON public.user_discord_links';
+  END IF;
+END $$;
 
 -- El bot usa service_role, que bypasea RLS; no hace falta política para él.
 

@@ -168,10 +168,8 @@
     // Mostrar solo "Pendiente" hasta confirmar el estado real desde Supabase
     updateDiscordUI();
 
-    // Crear/actualizar fila básica en Supabase (email + nombre de PC),
-    // luego sincronizar y consultar MercadoPago
-    ensureSupabaseUserRow()
-      .then(() => syncUserWithSupabase())
+    // Sincronizar estado desde Supabase y consultar MercadoPago
+    syncUserWithSupabase()
       .then(() => fetchMercadoPagoAndSave())
       .catch(() => {
         // Aunque falle Supabase, intentamos al menos consultar MercadoPago
@@ -252,119 +250,28 @@
   }
 
   async function checkPcBindingForEmail(email) {
-    if (!supabaseUrl || !supabaseKey) return true;
+    if (!pcName) return true;
 
-    const base = supabaseUrl.replace(/\/$/, '');
     try {
-      const url = `${base}/rest/v1/user_discord_links?email=eq.${encodeURIComponent(
+      const url = `http://localhost:4000/pc/check-binding?email=${encodeURIComponent(
         email
-      )}&select=id,pc_name`;
-      const res = await fetch(url, {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`
-        }
-      });
-      const rows = await res.json().catch(() => []);
+      )}&pc=${encodeURIComponent(pcName)}`;
+      const res = await fetch(url);
+      const payload = await res.json().catch(() => ({}));
 
-      if (!Array.isArray(rows) || rows.length === 0) {
-        // No hay fila aún: se creará luego, permitimos el login
+      if (!res.ok || !payload || typeof payload.allowed !== 'boolean') {
+        // En caso de error del bot, no bloqueamos el login
         return true;
       }
 
-      const row = rows[0];
-      const storedPc = (row.pc_name || '').trim();
-      const currentPc = (pcName || '').trim();
-
-      // Si no tenemos nombre de PC actual, no bloqueamos
-      if (!currentPc) return true;
-
-      // Si no hay PC guardado, lo fijamos ahora
-      if (!storedPc) {
-        const patchUrl = `${base}/rest/v1/user_discord_links?id=eq.${row.id}`;
-        await fetch(patchUrl, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-            Prefer: 'return=minimal'
-          },
-          body: JSON.stringify({
-            pc_name: currentPc,
-            updated_at: new Date().toISOString()
-          })
-        });
-        return true;
-      }
-
-      // Si coincide, ok; si no, bloquear
-      return storedPc === currentPc;
+      return !!payload.allowed;
     } catch (_) {
-      // En caso de error de red/Supabase, no bloqueamos el login
+      // En caso de error de red/bot, no bloqueamos el login
       return true;
     }
   }
 
-  async function ensureSupabaseUserRow() {
-    if (!currentUser || !currentUser.user_email || !supabaseUrl || !supabaseKey) return;
-
-    const email = currentUser.user_email;
-    const base = supabaseUrl.replace(/\/$/, '');
-
-    try {
-      const getUrl = `${base}/rest/v1/user_discord_links?email=eq.${encodeURIComponent(email)}&select=*`;
-      const res = await fetch(getUrl, {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`
-        }
-      });
-      const rows = await res.json().catch(() => []);
-
-      if (Array.isArray(rows) && rows.length > 0) {
-        const row = rows[0];
-        if (!row.pc_name && pcName) {
-          const patchUrl = `${base}/rest/v1/user_discord_links?id=eq.${row.id}`;
-          await fetch(patchUrl, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: supabaseKey,
-              Authorization: `Bearer ${supabaseKey}`,
-              Prefer: 'return=minimal'
-            },
-            body: JSON.stringify({
-              pc_name: pcName,
-              updated_at: new Date().toISOString()
-            })
-          });
-        }
-        return;
-      }
-
-      // No existe fila: crearla con email y pc_name, resto vacío
-      const insertUrl = `${base}/rest/v1/user_discord_links`;
-      await fetch(insertUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-          Prefer: 'return=minimal'
-        },
-        body: JSON.stringify({
-          email,
-          pc_name: pcName || null,
-          status: 'pending',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-      });
-    } catch (_) {
-      // Ignorar errores silenciosamente: la app sigue funcionando sin Supabase
-    }
-  }
+  // Toda la creación/actualización de filas ahora la hace el bot (service_role).
 
   function setMercadoPagoUI(state, statusText) {
     if (mercadopagoLoadingEl) mercadopagoLoadingEl.hidden = state !== 'loading';
