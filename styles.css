@@ -887,6 +887,24 @@ html, body {
   gap: 12px;
 }
 
+.login-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #e5e7eb;
+  cursor: pointer;
+}
+
+.login-remember input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.9);
+  background: rgba(15, 23, 42, 0.9);
+  accent-color: #fbbf24;
+}
+
 .login-link-small {
   font-size: 12px;
   color: #e5e7eb;

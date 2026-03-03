@@ -137,6 +137,21 @@
     clearError();
   }
 
+  const rememberMe = document.getElementById('rememberMe');
+
+  // Cargar credenciales guardadas (si el usuario eligió recordarlas)
+  try {
+    const savedRaw = localStorage.getItem('auth2027_remember');
+    if (savedRaw) {
+      const saved = JSON.parse(savedRaw);
+      if (saved && typeof saved === 'object') {
+        if (saved.u) usernameInput.value = saved.u;
+        if (saved.p) passwordInput.value = saved.p;
+        if (rememberMe) rememberMe.checked = true;
+      }
+    }
+  } catch (_) {}
+
   formLogin.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = usernameInput.value.trim();
@@ -148,7 +163,16 @@
     }
 
     const user = await login(username, password);
-    if (user) showDashboard(user);
+    if (user) {
+      if (rememberMe && rememberMe.checked) {
+        try {
+          localStorage.setItem('auth2027_remember', JSON.stringify({ u: username, p: password }));
+        } catch (_) {}
+      } else {
+        localStorage.removeItem('auth2027_remember');
+      }
+      showDashboard(user);
+    }
   });
 
   btnLogout.addEventListener('click', showLogin);
