@@ -7,9 +7,9 @@
   const btnSubmit = document.getElementById('btnSubmit');
   const messageError = document.getElementById('messageError');
   const userNameEl = document.getElementById('userName');
-  const userEmailEl = document.getElementById('userEmail');
   const userAvatarEl = document.getElementById('userAvatar');
-  const discordTopSummaryEl = document.getElementById('discordTopSummary');
+  const discordHeaderLinkedEl = document.getElementById('discordHeaderLinked');
+  const discordHeaderUnlinkedEl = document.getElementById('discordHeaderUnlinked');
   const btnLogout = document.getElementById('btnLogout');
 
   const apiConfig = window.apiConfig || {};
@@ -138,12 +138,9 @@
     currentUser = user;
     currentDiscordRow = null; // Hasta que Supabase responda, considerar no vinculado
     userNameEl.textContent = user.display_name || 'Usuario';
-    userEmailEl.textContent = user.user_email || '';
     userAvatarEl.textContent = (user.display_name || user.user_email || 'U').charAt(0).toUpperCase();
-    if (discordTopSummaryEl) {
-      discordTopSummaryEl.hidden = true;
-      discordTopSummaryEl.textContent = '';
-    }
+    if (discordHeaderLinkedEl) discordHeaderLinkedEl.hidden = true;
+    if (discordHeaderUnlinkedEl) discordHeaderUnlinkedEl.hidden = false;
     panelLogin.hidden = true;
     panelLogin.style.display = 'none';
     panelDashboard.hidden = false;
@@ -167,10 +164,8 @@
     clearError();
     currentUser = null;
     currentDiscordRow = null;
-    if (discordTopSummaryEl) {
-      discordTopSummaryEl.hidden = true;
-      discordTopSummaryEl.textContent = '';
-    }
+    if (discordHeaderLinkedEl) discordHeaderLinkedEl.hidden = true;
+    if (discordHeaderUnlinkedEl) discordHeaderUnlinkedEl.hidden = false;
   }
 
   function activateTab(tabName) {
@@ -266,16 +261,9 @@
       btnConnectDiscord.disabled = linked;
     }
 
-    if (discordTopSummaryEl) {
-      if (linked && row) {
-        const rolesTop = Array.isArray(row.roles) ? row.roles : [];
-        const rolesTextTop = rolesTop.length ? rolesTop.join(', ') : 'Sin roles';
-        discordTopSummaryEl.textContent = `Discord: ${row.discord_username || '(sin nombre)'} · Roles: ${rolesTextTop}`;
-        discordTopSummaryEl.hidden = false;
-      } else {
-        discordTopSummaryEl.hidden = true;
-        discordTopSummaryEl.textContent = '';
-      }
+    if (discordHeaderLinkedEl && discordHeaderUnlinkedEl) {
+      discordHeaderLinkedEl.hidden = !linked;
+      discordHeaderUnlinkedEl.hidden = linked;
     }
 
     if (linked) {
