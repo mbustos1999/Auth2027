@@ -240,7 +240,7 @@
                 <div class="discord-card-header mercadopago-header">
                   <div class="mercadopago-header-left">
                     <img
-                      src="assets/mercadolibre.webp"
+                      src="assets/Mercado_Pago.svg.png"
                       alt="Mercado Libre"
                       class="mercadopago-logo-img"
                     />
@@ -256,7 +256,16 @@
                 <div id="mercadopagoStatusContent" class="mercadopago-status-content">
                   <p class="discord-card-text mercadopago-loading" id="mercadopagoLoading">Comprobando suscripción…</p>
                   <p class="discord-card-text mercadopago-not-found" id="mercadopagoNotFound" hidden>No hay suscripción con este correo.</p>
-                  <p class="discord-card-text mercadopago-found" id="mercadopagoFound" hidden>Estado: <strong id="mercadopagoStatusLabel">-</strong></p>
+                  <p class="discord-card-text mercadopago-found" id="mercadopagoFound" hidden>
+                    Estado: <strong id="mercadopagoStatusLabel">-</strong>
+                  </p>
+                  <p class="discord-card-text mercadopago-details" id="mercadopagoDetails" hidden>
+                    Motivo: <strong id="mercadopagoReason">-</strong><br />
+                    Monto cobrado: <strong id="mercadopagoAmount">-</strong><br />
+                    Titular: <strong id="mercadopagoPayerName">-</strong><br />
+                    Estado MP: <strong id="mercadopagoStatusRaw">-</strong><br />
+                    Días restantes: <strong id="mercadopagoDaysLeft">-</strong>
+                  </p>
                   <p class="discord-card-text mercadopago-error" id="mercadopagoError" hidden>No se pudo comprobar (revisa token en .env).</p>
                 </div>
               </section>
