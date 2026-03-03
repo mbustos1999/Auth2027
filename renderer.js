@@ -38,6 +38,7 @@
   const mercadopagoStatusLabelEl = document.getElementById('mercadopagoStatusLabel');
   const mercadopagoErrorEl = document.getElementById('mercadopagoError');
   const mercadopagoHeaderStatusIconEl = document.getElementById('mercadopagoHeaderStatusIcon');
+  const mercadopagoHeaderStatusIconTopEl = document.getElementById('mercadopagoHeaderStatusIconTop');
   const mercadopagoDetailsEl = document.getElementById('mercadopagoDetails');
   const mercadopagoReasonEl = document.getElementById('mercadopagoReason');
   const mercadopagoAmountEl = document.getElementById('mercadopagoAmount');
@@ -372,30 +373,48 @@
   }
 
   function updateMercadoPagoHeaderIcon(status) {
-    if (!mercadopagoHeaderStatusIconEl) return;
-
     const normalized = (status || '').toLowerCase();
     const hasStatus = !!normalized;
 
-    if (!hasStatus) {
-      mercadopagoHeaderStatusIconEl.hidden = true;
-      mercadopagoHeaderStatusIconEl.classList.remove('mercadopago-header-status-icon--ok', 'mercadopago-header-status-icon--bad');
-      mercadopagoHeaderStatusIconEl.innerHTML = '';
-      return;
+    const isAuthorized =
+      normalized === 'authorized' || normalized === 'active' || normalized === 'sub_activa';
+
+    function applyToElement(el, okClass, badClass) {
+      if (!el) return;
+
+      if (!hasStatus) {
+        el.hidden = true;
+        el.classList.remove(okClass, badClass);
+        el.innerHTML = '';
+        return;
+      }
+
+      el.hidden = false;
+      el.classList.toggle(okClass, isAuthorized);
+      el.classList.toggle(badClass, !isAuthorized);
+
+      if (isAuthorized) {
+        el.innerHTML =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      } else {
+        el.innerHTML =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      }
     }
 
-    const isAuthorized = normalized === 'authorized' || normalized === 'active' || normalized === 'sub_activa';
-    mercadopagoHeaderStatusIconEl.hidden = false;
-    mercadopagoHeaderStatusIconEl.classList.toggle('mercadopago-header-status-icon--ok', isAuthorized);
-    mercadopagoHeaderStatusIconEl.classList.toggle('mercadopago-header-status-icon--bad', !isAuthorized);
+    // Icono dentro de la tarjeta Perfil (MercadoPago)
+    applyToElement(
+      mercadopagoHeaderStatusIconEl,
+      'mercadopago-header-status-icon--ok',
+      'mercadopago-header-status-icon--bad'
+    );
 
-    if (isAuthorized) {
-      mercadopagoHeaderStatusIconEl.innerHTML =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-    } else {
-      mercadopagoHeaderStatusIconEl.innerHTML =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-    }
+    // Icono en el header principal
+    applyToElement(
+      mercadopagoHeaderStatusIconTopEl,
+      'dash-mercado-status-icon--ok',
+      'dash-mercado-status-icon--bad'
+    );
   }
 
   async function fetchMercadoPagoAndSave() {
