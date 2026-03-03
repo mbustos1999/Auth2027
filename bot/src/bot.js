@@ -378,10 +378,69 @@ async function assignRolesForLinkedUser(member, row, ancladoRoleName = 'Anclado'
   // Siempre rol Anclado
   await assignAncladoRoleAndGetRoles(member, ancladoRoleName);
 
-  // Si tiene sub activa, rol Motivo (nombre = reason)
+  // Gestionar roles de suscripción (Motivo)
+  // 1) Obtener motivo "activo" actual
   const motivoRoleName = getMotivoRoleNameFromRow(rowWithMp);
-  if (motivoRoleName) {
-    await ensureRoleByName(member, motivoRoleName);
+
+  // 2) Obtener todos los posibles nombres de motivo desde mercadopago_data.results
+  let allReasonNames = [];
+  try {
+    let data = rowWithMp.mercadopago_data;
+    if (typeof data === 'string') {
+      data = JSON.parse(data);
+    }
+    const results = Array.isArray(data?.results) ? data.results : [];
+    allReasonNames = Array.from(
+      new Set(
+        results
+          .map((pre) => {
+            const r =
+              pre.reason ||
+              (pre.auto_recurring && pre.auto_recurring.reason) ||
+              null;
+            return typeof r === 'string' ? r.trim() : null;
+          })
+          .filter(Boolean)
+      )
+    );
+  } catch (e) {
+    console.error('No se pudieron obtener todos los motivos desde mercadopago_data:', e);
+    allReasonNames = [];
+  }
+
+  // 3) Limpiar/asignar roles de motivo en Discord:
+  //    - Si hay motivo activo: asegurar ese rol y quitar otros motivos antiguos
+  //    - Si no hay motivo activo: quitar todos los roles cuyo nombre sea un motivo conocido
+  if (allReasonNames.length > 0) {
+    const memberRoles = member.roles.cache;
+
+    if (motivoRoleName) {
+      // Asegurar rol del motivo actual
+      await ensureRoleByName(member, motivoRoleName);
+
+      // Quitar otros motivos que ya no apliquen
+      for (const role of memberRoles.values()) {
+        if (
+          allReasonNames.includes(role.name) &&
+          role.name !== motivoRoleName
+        ) {
+          // eslint-disable-next-line no-await-in-loop
+          await member.roles.remove(role).catch((err) => {
+            console.error('No se pudo quitar rol de motivo antiguo:', role.name, err);
+          });
+        }
+      }
+    } else {
+      // Sin sub activa: quitar todos los roles que correspondan a motivos
+      for (const role of memberRoles.values()) {
+        if (allReasonNames.includes(role.name)) {
+          // eslint-disable-next-line no-await-in-loop
+          await member.roles.remove(role).catch((err) => {
+            console.error('No se pudo quitar rol de motivo (sub finalizada):', role.name, err);
+          });
+        }
+      }
+    }
   }
 
   // Devolver listado actualizado de roles
@@ -476,6 +535,58 @@ client.once('ready', () => {
 });
 
 client.login(DISCORD_BOT_TOKEN);
+
+// ===== Sincronización periódica de roles según Supabase + MercadoPago =====
+
+async function syncAllLinkedUsersRoles() {
+  try {
+    if (!GUILD_ID) return;
+
+    const guild = await client.guilds.fetch(GUILD_ID);
+
+    const { data: rows, error } = await supabase
+      .from('user_discord_links')
+      .select('*')
+      .not('discord_id', 'is', null);
+
+    if (error) {
+      console.error('Error al leer user_discord_links para sync periódico:', error);
+      return;
+    }
+
+    if (!Array.isArray(rows) || rows.length === 0) return;
+
+    for (const row of rows) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const member = await guild.members.fetch(row.discord_id).catch(() => null);
+        if (!member) continue;
+
+        // eslint-disable-next-line no-await-in-loop
+        const roles = await assignRolesForLinkedUser(member, row, 'Anclado');
+
+        // eslint-disable-next-line no-await-in-loop
+        await updateDiscordLinkRow(row.id, {
+          discordId: member.id,
+          discordUsername: row.discord_username || member.user.username,
+          roles
+        });
+      } catch (e) {
+        console.error('Error sincronizando roles periódicamente para fila:', row.id, e);
+      }
+    }
+  } catch (e) {
+    console.error('Error global en syncAllLinkedUsersRoles:', e);
+  }
+}
+
+// Ejecutar sync al arrancar y luego cada 10 minutos
+client.once('ready', () => {
+  syncAllLinkedUsersRoles().catch(() => {});
+  setInterval(() => {
+    syncAllLinkedUsersRoles().catch(() => {});
+  }, 10 * 60 * 1000);
+});
 
 // ===== Asignación automática al entrar al servidor =====
 
