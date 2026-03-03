@@ -795,6 +795,53 @@ function startOAuthServer() {
         return;
       }
 
+      // Endpoint interno para obtener estado completo de usuario
+      if (url.pathname === '/u/state') {
+        const email = url.searchParams.get('email');
+        if (!email) {
+          res.statusCode = 400;
+          res.end('Missing email');
+          return;
+        }
+
+        try {
+          const { data: rows, error } = await supabase
+            .from('user_discord_links')
+            .select('*')
+            .eq('email', email);
+
+          if (error) {
+            console.error('Error leyendo user_discord_links para /u/state:', error);
+            res.statusCode = 500;
+            res.end('db_error');
+            return;
+          }
+
+          let bestRow = null;
+          if (Array.isArray(rows) && rows.length > 0) {
+            const withDiscord = rows.filter((r) => r && r.discord_id);
+            const candidates = withDiscord.length > 0 ? withDiscord : rows;
+
+            candidates.sort((a, b) => {
+              const da = a && a.updated_at ? new Date(a.updated_at).getTime() : 0;
+              const db = b && b.updated_at ? new Date(b.updated_at).getTime() : 0;
+              return db - da;
+            });
+
+            bestRow = candidates[0] || null;
+          }
+
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: true, row: bestRow }));
+        } catch (e) {
+          console.error('Error inesperado en /u/state:', e);
+          res.statusCode = 500;
+          res.end('internal_error');
+        }
+        return;
+      }
+
       // Endpoint interno para verificar/anclar PC a cuenta
       if (url.pathname === '/pc/check-binding') {
         const email = url.searchParams.get('email');

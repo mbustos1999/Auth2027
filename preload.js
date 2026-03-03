@@ -41,17 +41,9 @@ if (!baseUrl || !authEndpoint || (!mercadopagoAccessTokenChile && !mercadopagoAc
   } catch (_) {}
 }
 
-// Token unificado para compatibilidad (prioriza ARG, luego CHILE, luego variable antigua si existe)
-const mercadopagoAccessToken =
-  (process.env.MERCADOPAGO_ACCESS_TOKEN != null ? String(process.env.MERCADOPAGO_ACCESS_TOKEN).trim() : '') ||
-  mercadopagoAccessTokenArg ||
-  mercadopagoAccessTokenChile;
-
 contextBridge.exposeInMainWorld('apiConfig', {
   baseUrl,
   authEndpoint,
-  supabaseUrl,
-  supabaseAnonKey,
   discordInviteUrl,
   discordOAuthBaseUrl,
   pcName

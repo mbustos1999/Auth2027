@@ -16,14 +16,7 @@
   const baseUrl = (apiConfig.baseUrl != null && apiConfig.baseUrl !== '') ? String(apiConfig.baseUrl).trim() : '';
   const authEndpoint = (apiConfig.authEndpoint != null && apiConfig.authEndpoint !== '') ? String(apiConfig.authEndpoint).trim() : '';
   const authUrl = baseUrl && authEndpoint ? `${baseUrl.replace(/\/$/, '')}${authEndpoint}` : '';
-  const supabaseUrl = (apiConfig.supabaseUrl != null && apiConfig.supabaseUrl !== '') ? String(apiConfig.supabaseUrl).trim() : '';
-  const supabaseKey = (apiConfig.supabaseAnonKey != null && apiConfig.supabaseAnonKey !== '') ? String(apiConfig.supabaseAnonKey).trim() : '';
   const discordOAuthBaseUrl = (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '';
-  const mercadopagoAccessToken = (apiConfig.mercadopagoAccessToken != null) ? String(apiConfig.mercadopagoAccessToken).trim() : '';
-  const mercadopagoAccessTokenChile =
-    apiConfig.mercadopagoAccessTokenChile != null ? String(apiConfig.mercadopagoAccessTokenChile).trim() : '';
-  const mercadopagoAccessTokenArg =
-    apiConfig.mercadopagoAccessTokenArg != null ? String(apiConfig.mercadopagoAccessTokenArg).trim() : '';
   const pcName = (apiConfig.pcName != null && apiConfig.pcName !== '') ? String(apiConfig.pcName).trim() : '';
   const dashTabs = Array.from(document.querySelectorAll('.dash-nav-item'));
   const dashPanels = Array.from(document.querySelectorAll('.dash-tab'));
@@ -433,33 +426,26 @@
   }
 
   async function refreshDiscordFromSupabase() {
-    if (!currentUser || !supabaseUrl || !supabaseKey) return;
-    const url = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/user_discord_links?email=eq.${encodeURIComponent(currentUser.user_email)}&select=*`;
-    const res = await fetch(url, {
-      headers: {
-        apikey: supabaseKey,
-        Authorization: `Bearer ${supabaseKey}`
+    if (!currentUser) return;
+    try {
+      const url = `http://localhost:4000/u/state?email=${encodeURIComponent(
+        currentUser.user_email
+      )}`;
+      const res = await fetch(url);
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok || !payload || !payload.success) {
+        currentDiscordRow = null;
+        updateDiscordUI();
+        return;
       }
-    });
-    const rows = await res.json().catch(() => []);
 
-    let bestRow = null;
-    if (Array.isArray(rows) && rows.length > 0) {
-      // Si hay varias filas, preferir la que tenga discord_id y el updated_at más reciente
-      const withDiscord = rows.filter((r) => r && r.discord_id);
-      const candidates = withDiscord.length > 0 ? withDiscord : rows;
-
-      candidates.sort((a, b) => {
-        const da = a && a.updated_at ? new Date(a.updated_at).getTime() : 0;
-        const db = b && b.updated_at ? new Date(b.updated_at).getTime() : 0;
-        return db - da;
-      });
-
-      bestRow = candidates[0] || null;
+      currentDiscordRow = payload.row || null;
+      updateDiscordUI();
+    } catch (_) {
+      currentDiscordRow = null;
+      updateDiscordUI();
     }
-
-    currentDiscordRow = bestRow;
-    updateDiscordUI();
   }
 
   function startDiscordLinkPolling() {
@@ -624,7 +610,7 @@
     if (user) {
       // Validar que la cuenta esté anclada (o se ancle ahora) a este PC
       let pcOk = true;
-      if (pcName && supabaseUrl && supabaseKey) {
+      if (pcName) {
         pcOk = await checkPcBindingForEmail(user.user_email);
       }
 
