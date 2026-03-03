@@ -157,6 +157,15 @@
   const recoverEmailInput = document.getElementById('recoverEmail');
   const recoverCancelBtn = document.getElementById('recoverCancel');
   const recoverSendBtn = document.getElementById('recoverSend');
+  const registerModal = document.getElementById('registerModal');
+  const regUsernameInput = document.getElementById('regUsername');
+  const regEmailInput = document.getElementById('regEmail');
+  const regPasswordInput = document.getElementById('regPassword');
+  const regPasswordConfirmInput = document.getElementById('regPasswordConfirm');
+  const regCountryInput = document.getElementById('regCountry');
+  const registerCancelBtn = document.getElementById('registerCancel');
+  const registerSendBtn = document.getElementById('registerSend');
+  const btnOpenRegister = document.getElementById('btnOpenRegister');
 
   function openRecoverModal() {
     if (!recoverModal) return;
@@ -205,6 +214,107 @@
       // si no hay error de conexión, cerramos modal (el mensaje se muestra en el panel)
       closeRecoverModal();
     });
+  }
+
+  // --- Registro de cuenta ---
+
+  const registerUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}/wp-json/argenmod/v1/crear-cuenta` : '';
+
+  function openRegisterModal() {
+    if (!registerModal) return;
+    clearError();
+    registerModal.hidden = false;
+    regUsernameInput.value = usernameInput.value.trim();
+    regEmailInput.value = '';
+    regPasswordInput.value = '';
+    regPasswordConfirmInput.value = '';
+    regCountryInput.value = '';
+    (regUsernameInput.value ? regEmailInput : regUsernameInput).focus();
+  }
+
+  function closeRegisterModal() {
+    if (!registerModal) return;
+    registerModal.hidden = true;
+  }
+
+  async function crearCuenta() {
+    if (!registerUrl) {
+      showError('Configura la URL de WordPress en config.js para crear cuentas.');
+      return;
+    }
+
+    const username = regUsernameInput.value.trim();
+    const email = regEmailInput.value.trim();
+    const password = regPasswordInput.value;
+    const passwordConfirm = regPasswordConfirmInput.value;
+    const pais = regCountryInput.value.trim();
+
+    if (!username || !email || !password || !passwordConfirm) {
+      showError('Completa usuario, email y contraseñas.');
+      return;
+    }
+
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      showError('Introduce un correo electrónico válido.');
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      showError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    if (password.length < 8) {
+      showError('La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+
+    clearError();
+    setLoading(true);
+    try {
+      const res = await fetch(registerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          password_confirm: passwordConfirm,
+          pais,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.success) {
+        closeRegisterModal();
+        usernameInput.value = username;
+        passwordInput.value = password;
+        showError('Cuenta creada correctamente. Ahora puedes iniciar sesión.');
+        messageError.classList.remove('message-error');
+        messageError.classList.add('message-success');
+      } else {
+        messageError.classList.remove('message-success');
+        messageError.classList.add('message-error');
+        showError(data.message || 'No se pudo crear la cuenta.');
+      }
+    } catch (e) {
+      showError('Error de conexión al crear la cuenta.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (btnOpenRegister) {
+    btnOpenRegister.addEventListener('click', openRegisterModal);
+  }
+
+  if (registerCancelBtn) {
+    registerCancelBtn.addEventListener('click', closeRegisterModal);
+  }
+
+  if (registerSendBtn) {
+    registerSendBtn.addEventListener('click', crearCuenta);
   }
 
   document.getElementById('btnMinimize').addEventListener('click', () => window.electronAPI.minimize());

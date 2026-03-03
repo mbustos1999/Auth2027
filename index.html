@@ -77,7 +77,7 @@
             </div>
 
             <div class="login-buttons">
-              <button type="button" class="login-btn-primary" onclick="window.open('https://argenmod.com', '_blank')">
+              <button type="button" class="login-btn-primary" id="btnOpenRegister">
                 Crear cuenta
               </button>
               <button type="submit" class="login-btn-secondary" id="btnSubmit">
@@ -122,6 +122,55 @@
         <div class="recover-actions">
           <button type="button" id="recoverCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
           <button type="button" id="recoverSend" class="recover-btn recover-btn-primary">Enviar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal creación de cuenta -->
+    <div id="registerModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content">
+        <h2>Crear cuenta</h2>
+        <p>Completa los datos para registrarte en ArgenMod.</p>
+
+        <input
+          type="text"
+          id="regUsername"
+          class="recover-input"
+          placeholder="Nombre de usuario"
+          autocomplete="username"
+        />
+        <input
+          type="email"
+          id="regEmail"
+          class="recover-input"
+          placeholder="Email"
+          autocomplete="email"
+        />
+        <input
+          type="password"
+          id="regPassword"
+          class="recover-input"
+          placeholder="Contraseña"
+          autocomplete="new-password"
+        />
+        <input
+          type="password"
+          id="regPasswordConfirm"
+          class="recover-input"
+          placeholder="Confirmar contraseña"
+          autocomplete="new-password"
+        />
+        <input
+          type="text"
+          id="regCountry"
+          class="recover-input"
+          placeholder="País"
+        />
+
+        <div class="recover-actions">
+          <button type="button" id="registerCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
+          <button type="button" id="registerSend" class="recover-btn recover-btn-primary">Crear cuenta</button>
         </div>
       </div>
     </div>
