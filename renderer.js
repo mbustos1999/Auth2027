@@ -9,12 +9,32 @@
   const userNameEl = document.getElementById('userName');
   const userEmailEl = document.getElementById('userEmail');
   const userAvatarEl = document.getElementById('userAvatar');
+  const discordTopSummaryEl = document.getElementById('discordTopSummary');
   const btnLogout = document.getElementById('btnLogout');
 
   const apiConfig = window.apiConfig || {};
   const baseUrl = (apiConfig.baseUrl != null && apiConfig.baseUrl !== '') ? String(apiConfig.baseUrl).trim() : '';
   const authEndpoint = (apiConfig.authEndpoint != null && apiConfig.authEndpoint !== '') ? String(apiConfig.authEndpoint).trim() : '';
   const authUrl = baseUrl && authEndpoint ? `${baseUrl.replace(/\/$/, '')}${authEndpoint}` : '';
+  const supabaseUrl = (apiConfig.supabaseUrl != null && apiConfig.supabaseUrl !== '') ? String(apiConfig.supabaseUrl).trim() : '';
+  const supabaseKey = (apiConfig.supabaseAnonKey != null && apiConfig.supabaseAnonKey !== '') ? String(apiConfig.supabaseAnonKey).trim() : '';
+  const discordInviteUrl = (apiConfig.discordInviteUrl != null && apiConfig.discordInviteUrl !== '') ? String(apiConfig.discordInviteUrl).trim() : '';
+  const discordOAuthBaseUrl = (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '';
+  const dashTabs = Array.from(document.querySelectorAll('.dash-nav-item'));
+  const dashPanels = Array.from(document.querySelectorAll('.dash-tab'));
+  const discordLinkCodeEl = document.getElementById('discordLinkCode');
+  const discordLinkStatusEl = document.getElementById('discordLinkStatus');
+  const discordLinkedBoxEl = document.getElementById('discordLinkedBox');
+  const discordUsernameLabel = document.getElementById('discordUsernameLabel');
+  const discordRolesList = document.getElementById('discordRolesList');
+  const btnCopyDiscordCode = document.getElementById('btnCopyDiscordCode');
+  const btnRefreshDiscordLink = document.getElementById('btnRefreshDiscordLink');
+  const btnRefreshDiscordLink2 = document.getElementById('btnRefreshDiscordLink2');
+  const btnOpenDiscord = document.getElementById('btnOpenDiscord');
+  const btnConnectDiscord = document.getElementById('btnConnectDiscord');
+
+  let currentUser = null;
+  let currentDiscordRow = null;
 
   function showError(msg) {
     messageError.textContent = msg;
@@ -120,13 +140,24 @@
   }
 
   function showDashboard(user) {
+    currentUser = user;
     userNameEl.textContent = user.display_name || 'Usuario';
     userEmailEl.textContent = user.user_email || '';
     userAvatarEl.textContent = (user.display_name || user.user_email || 'U').charAt(0).toUpperCase();
+    if (discordTopSummaryEl) {
+      discordTopSummaryEl.hidden = true;
+      discordTopSummaryEl.textContent = '';
+    }
     panelLogin.hidden = true;
     panelLogin.style.display = 'none';
     panelDashboard.hidden = false;
     panelDashboard.style.display = 'block';
+
+    // Al entrar al dashboard, ir directamente a la pestaña Perfil
+    activateTab('profile');
+
+    // Sincronizar usuario en Supabase
+    syncUserWithSupabase().catch(() => {});
   }
 
   function showLogin() {
@@ -135,6 +166,100 @@
     usernameInput.value = '';
     passwordInput.value = '';
     clearError();
+    currentUser = null;
+    currentDiscordRow = null;
+    if (discordTopSummaryEl) {
+      discordTopSummaryEl.hidden = true;
+      discordTopSummaryEl.textContent = '';
+    }
+  }
+
+  function activateTab(tabName) {
+    dashTabs.forEach((btn) => {
+      const t = btn.getAttribute('data-tab');
+      btn.classList.toggle('dash-nav-item--active', t === tabName);
+    });
+    dashPanels.forEach((panel) => {
+      const p = panel.getAttribute('data-tab-panel');
+      const active = p === tabName;
+      panel.classList.toggle('dash-tab--active', active);
+      panel.hidden = !active;
+    });
+  }
+
+  dashTabs.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-tab');
+      if (tab) activateTab(tab);
+    });
+  });
+
+  async function syncUserWithSupabase() {
+    // Ya no intentamos crear/actualizar filas desde el front.
+    // Solo leemos el estado actual desde Supabase.
+    await refreshDiscordFromSupabase();
+  }
+
+  async function refreshDiscordFromSupabase() {
+    if (!currentUser || !supabaseUrl || !supabaseKey) return;
+    const url = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/user_discord_links?email=eq.${encodeURIComponent(currentUser.user_email)}&select=*`;
+    const res = await fetch(url, {
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`
+      }
+    });
+    const rows = await res.json().catch(() => []);
+
+    let bestRow = null;
+    if (Array.isArray(rows) && rows.length > 0) {
+      // Preferir la fila que ya tenga discord_id (ya vinculado); si no, la primera
+      bestRow = rows.find((r) => r && r.discord_id) || rows[0];
+    }
+
+    currentDiscordRow = bestRow || null;
+    updateDiscordUI();
+  }
+
+  function updateDiscordUI() {
+    if (!discordLinkCodeEl || !discordLinkStatusEl || !discordLinkedBoxEl) return;
+
+    const row = currentDiscordRow;
+    const code = row?.link_code || '••••••';
+    discordLinkCodeEl.textContent = code;
+
+    const linked = !!row && (row.status === 'linked' || !!row.discord_id);
+    discordLinkStatusEl.hidden = linked;
+    discordLinkedBoxEl.hidden = !linked;
+
+    if (discordTopSummaryEl) {
+      if (linked && row) {
+        const rolesTop = Array.isArray(row.roles) ? row.roles : [];
+        const rolesTextTop = rolesTop.length ? rolesTop.join(', ') : 'Sin roles';
+        discordTopSummaryEl.textContent = `Discord: ${row.discord_username || '(sin nombre)'} · Roles: ${rolesTextTop}`;
+        discordTopSummaryEl.hidden = false;
+      } else {
+        discordTopSummaryEl.hidden = true;
+        discordTopSummaryEl.textContent = '';
+      }
+    }
+
+    if (linked) {
+      discordUsernameLabel.textContent = row.discord_username || '(sin nombre)';
+      const roles = Array.isArray(row.roles) ? row.roles : [];
+      discordRolesList.innerHTML = '';
+      if (roles.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'Sin roles especiales';
+        discordRolesList.appendChild(li);
+      } else {
+        roles.forEach((r) => {
+          const li = document.createElement('li');
+          li.textContent = r;
+          discordRolesList.appendChild(li);
+        });
+      }
+    }
   }
 
   const rememberMe = document.getElementById('rememberMe');
@@ -357,6 +482,64 @@
 
   if (registerSendBtn) {
     registerSendBtn.addEventListener('click', crearCuenta);
+  }
+
+  if (btnCopyDiscordCode && navigator.clipboard) {
+    btnCopyDiscordCode.addEventListener('click', async () => {
+      const code = discordLinkCodeEl.textContent || '';
+      try {
+        await navigator.clipboard.writeText(code);
+      } catch (_) {}
+    });
+  }
+
+  if (btnRefreshDiscordLink) {
+    btnRefreshDiscordLink.addEventListener('click', () => {
+      refreshDiscordFromSupabase().catch(() => {});
+    });
+  }
+
+  if (btnRefreshDiscordLink2) {
+    btnRefreshDiscordLink2.addEventListener('click', () => {
+      refreshDiscordFromSupabase().catch(() => {});
+    });
+  }
+
+  if (btnOpenDiscord) {
+    btnOpenDiscord.addEventListener('click', () => {
+      const url = discordInviteUrl || 'https://discord.com/app';
+      window.open(url, '_blank');
+    });
+  }
+
+  if (btnConnectDiscord) {
+    btnConnectDiscord.addEventListener('click', async () => {
+      if (!discordOAuthBaseUrl) {
+        alert('Discord OAuth no está configurado. Falta DISCORD_OAUTH_BASE_URL.');
+        return;
+      }
+
+      // Asegurarnos de tener una fila en user_discord_links y su ID
+      if (!currentDiscordRow) {
+        await syncUserWithSupabase().catch(() => {});
+      }
+
+      const row = currentDiscordRow;
+      const stateValue =
+        (row && (row.id || row.link_code || row.email)) ||
+        (currentUser && currentUser.user_email) ||
+        null;
+
+      if (!stateValue) {
+        alert('No se pudo preparar el enlace con Discord (sin identificador). Intenta volver a iniciar sesión.');
+        return;
+      }
+
+      const hasQuery = discordOAuthBaseUrl.includes('?');
+      const sep = hasQuery ? '&' : '?';
+      const url = `${discordOAuthBaseUrl}${sep}state=${encodeURIComponent(String(stateValue))}`;
+      window.open(url, '_blank');
+    });
   }
 
   document.getElementById('btnMinimize').addEventListener('click', () => window.electronAPI.minimize());

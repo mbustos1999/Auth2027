@@ -102,19 +102,19 @@
           </div>
 
           <nav class="dash-nav">
-            <button class="dash-nav-item dash-nav-item--active">
+            <button class="dash-nav-item dash-nav-item--active" data-tab="home">
               <span class="dash-nav-icon">🏠</span>
               <span class="dash-nav-label">Inicio</span>
             </button>
-            <button class="dash-nav-item">
+            <button class="dash-nav-item" data-tab="profile">
               <span class="dash-nav-icon">👤</span>
               <span class="dash-nav-label">Perfil</span>
             </button>
-            <button class="dash-nav-item">
+            <button class="dash-nav-item" data-tab="subscription">
               <span class="dash-nav-icon">📅</span>
               <span class="dash-nav-label">Suscripción</span>
             </button>
-            <button class="dash-nav-item">
+            <button class="dash-nav-item" data-tab="settings">
               <span class="dash-nav-icon">⚙️</span>
               <span class="dash-nav-label">Ajustes</span>
             </button>
@@ -137,11 +137,13 @@
               <div class="dash-user-meta">
                 <span id="userName">Usuario</span>
                 <small id="userEmail">email@ejemplo.com</small>
+                <small id="discordTopSummary" class="discord-top-summary" hidden>Discord: -</small>
               </div>
             </div>
           </header>
 
-          <div class="dash-grid">
+          <!-- HOME -->
+          <div class="dash-grid dash-tab dash-tab--active" data-tab-panel="home">
             <section class="dash-card dash-card-wide">
               <h3>Estado de tu cuenta</h3>
               <div class="dash-status-row">
@@ -192,6 +194,58 @@
                 Pronto podrás ver aquí más detalles de tu suscripción, historial de inicios de sesión
                 y gestión avanzada de dispositivos vinculados.
               </p>
+            </section>
+          </div>
+
+          <!-- PERFIL / DISCORD -->
+          <div class="dash-tab" data-tab-panel="profile" hidden>
+            <section class="dash-card dash-card-wide">
+              <h3>Perfil y Discord</h3>
+              <p class="dash-card-text">
+                Para usar Auth 2027 necesitas anclar tu cuenta de Discord a ArgenMod.
+              </p>
+              <div id="discordLinkStatus" class="discord-status discord-status--pending">
+                <div class="discord-status-main">
+                  <span class="discord-status-badge">Pendiente</span>
+                  <p>Tu Discord aún no está vinculado.</p>
+                </div>
+                <div class="discord-status-code">
+                  <span>Código de enlace:</span>
+                  <code id="discordLinkCode">••••••</code>
+                  <button type="button" id="btnCopyDiscordCode" class="btn-ghost-small">Copiar</button>
+                </div>
+                <button type="button" id="btnConnectDiscord" class="btn-primary-small">
+                  Conectar con Discord
+                </button>
+                <button type="button" id="btnOpenDiscord" class="btn-primary-small">
+                  Abrir servidor de Discord
+                </button>
+                <ol class="discord-steps">
+                  <li>Pulsa en "Conectar con Discord" e inicia sesión.</li>
+                  <li>Entra a tu servidor de Discord de ArgenMod (botón "Abrir servidor de Discord").</li>
+                  <li>Pulsa en "Comprobar estado" para actualizar.</li>
+                </ol>
+                <button type="button" id="btnRefreshDiscordLink" class="btn-primary-small">
+                  Comprobar estado
+                </button>
+              </div>
+
+              <div id="discordLinkedBox" class="discord-status discord-status--ok" hidden>
+                <div class="discord-status-main">
+                  <span class="discord-status-badge">Discord vinculado</span>
+                  <p>Tu cuenta de Discord está correctamente anclada.</p>
+                </div>
+                <p class="discord-user-line">
+                  Usuario de Discord: <strong id="discordUsernameLabel">-</strong>
+                </p>
+                <div>
+                  <span class="discord-roles-label">Roles obtenidos:</span>
+                  <ul id="discordRolesList" class="discord-roles-list"></ul>
+                </div>
+                <button type="button" id="btnRefreshDiscordLink2" class="btn-ghost-small">
+                  Volver a comprobar
+                </button>
+              </div>
             </section>
           </div>
         </div>

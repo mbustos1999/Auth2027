@@ -1,0 +1,17 @@
+{
+  "name": "auth2027-discord-bot",
+  "version": "1.0.0",
+  "description": "Bot de Discord para vincular usuarios de Auth 2027 con Supabase.",
+  "main": "src/bot.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/bot.js",
+    "dev": "node --watch src/bot.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.0",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  }
+}
+

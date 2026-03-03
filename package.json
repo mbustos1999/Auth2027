@@ -4,13 +4,23 @@
   "description": "Aplicación Electron con autenticación WordPress",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "concurrently \"npm run electron\" \"npm run bot\"",
+    "electron": "electron .",
+    "bot": "npm start --prefix bot",
     "dev": "electron . --enable-logging"
   },
-  "keywords": ["electron", "auth", "wordpress"],
+  "keywords": [
+    "electron",
+    "auth",
+    "wordpress"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "electron": "^28.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
   }
 }

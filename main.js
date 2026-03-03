@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
-
+require('dotenv').config();
 // Cargar config aquí (main se ejecuta desde la carpeta de la app) y pasarla al preload vía env
 try {
   const config = require('./config.js');
@@ -30,7 +30,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: false, // desactiva DevTools en producción
+      devTools: true, // desactiva DevTools en producción
       preload: path.join(__dirname, 'preload.js')
     },
     show: false
@@ -47,6 +47,7 @@ function createWindow() {
   }
 
   mainWindow.loadFile('index.html');
+  mainWindow.webContents.openDevTools();
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.maximize();
