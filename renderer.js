@@ -124,7 +124,9 @@
     userEmailEl.textContent = user.user_email || '';
     userAvatarEl.textContent = (user.display_name || user.user_email || 'U').charAt(0).toUpperCase();
     panelLogin.hidden = true;
+    panelLogin.style.display = 'none';
     panelDashboard.hidden = false;
+    panelDashboard.style.display = 'block';
   }
 
   function showLogin() {

@@ -90,16 +90,107 @@
     </section>
 
     <section class="panel panel-dashboard" id="panelDashboard" hidden>
-      <div class="panel-inner">
-        <div class="dashboard-header">
-          <div class="avatar" id="userAvatar">U</div>
-          <div class="user-info">
-            <h2 id="userName">Usuario</h2>
-            <p id="userEmail" class="user-email">email@ejemplo.com</p>
+      <div class="dashboard-shell">
+        <aside class="dash-sidebar">
+          <div class="dash-logo">
+            <span class="dash-logo-icon">A</span>
+            <span class="dash-logo-text">Auth 2027</span>
+          </div>
+
+          <nav class="dash-nav">
+            <button class="dash-nav-item dash-nav-item--active">
+              <span class="dash-nav-icon">🏠</span>
+              <span class="dash-nav-label">Inicio</span>
+            </button>
+            <button class="dash-nav-item">
+              <span class="dash-nav-icon">👤</span>
+              <span class="dash-nav-label">Perfil</span>
+            </button>
+            <button class="dash-nav-item">
+              <span class="dash-nav-icon">📅</span>
+              <span class="dash-nav-label">Suscripción</span>
+            </button>
+            <button class="dash-nav-item">
+              <span class="dash-nav-icon">⚙️</span>
+              <span class="dash-nav-label">Ajustes</span>
+            </button>
+          </nav>
+
+          <button type="button" class="dash-logout" id="btnLogout">
+            <span class="dash-nav-icon">⏏</span>
+            <span class="dash-nav-label">Cerrar sesión</span>
+          </button>
+        </aside>
+
+        <div class="dash-main">
+          <header class="dash-header-row">
+            <div class="dash-header-left">
+              <h2>Bienvenido de nuevo</h2>
+              <p>Gestiona tu acceso a ArgenMod y tus dispositivos.</p>
+            </div>
+            <div class="dash-user-pill">
+              <div class="avatar" id="userAvatar">U</div>
+              <div class="dash-user-meta">
+                <span id="userName">Usuario</span>
+                <small id="userEmail">email@ejemplo.com</small>
+              </div>
+            </div>
+          </header>
+
+          <div class="dash-grid">
+            <section class="dash-card dash-card-wide">
+              <h3>Estado de tu cuenta</h3>
+              <div class="dash-status-row">
+                <div class="dash-status-pill dash-status-pill--ok">
+                  <span class="dot"></span>
+                  <span>Login verificado</span>
+                </div>
+                <div class="dash-status-pill">
+                  <span class="dot dot--muted"></span>
+                  <span>PC vinculado</span>
+                </div>
+              </div>
+              <p class="dash-card-text">
+                Este panel se activa solo después de un inicio de sesión válido.
+              </p>
+            </section>
+
+            <section class="dash-card">
+              <h3>Actividad reciente</h3>
+              <ul class="dash-list">
+                <li>
+                  <span class="dash-list-title">Último inicio de sesión</span>
+                  <span class="dash-list-meta">Hace unos segundos</span>
+                </li>
+                <li>
+                  <span class="dash-list-title">Versión de Auth</span>
+                  <span class="dash-list-meta">2027.1</span>
+                </li>
+                <li>
+                  <span class="dash-list-title">Sitio conectado</span>
+                  <span class="dash-list-meta">argenmod.com</span>
+                </li>
+              </ul>
+            </section>
+
+            <section class="dash-card">
+              <h3>Consejos de seguridad</h3>
+              <ul class="dash-list dash-list--bullets">
+                <li>Usa una contraseña única y de al menos 8 caracteres.</li>
+                <li>No compartas tu cuenta con otras personas.</li>
+                <li>Si sospechas actividad extraña, cambia tu contraseña.</li>
+              </ul>
+            </section>
+
+            <section class="dash-card dash-card-tall">
+              <h3>Próximas mejoras</h3>
+              <p class="dash-card-text">
+                Pronto podrás ver aquí más detalles de tu suscripción, historial de inicios de sesión
+                y gestión avanzada de dispositivos vinculados.
+              </p>
+            </section>
           </div>
         </div>
-        <p class="welcome-text">Has iniciado sesión correctamente.</p>
-        <button type="button" class="btn btn-ghost" id="btnLogout">Cerrar sesión</button>
       </div>
     </section>
 

@@ -30,6 +30,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      devTools: false, // desactiva DevTools en producción
       preload: path.join(__dirname, 'preload.js')
     },
     show: false
@@ -37,6 +38,13 @@ function createWindow() {
   if (fs.existsSync(iconPath)) mainWindowOptions.icon = iconPath;
 
   mainWindow = new BrowserWindow(mainWindowOptions);
+
+  // Elimina menús para que no puedan abrir DevTools ni recargar fácilmente
+  if (mainWindow.removeMenu) {
+    mainWindow.removeMenu();
+  } else {
+    mainWindow.setMenu(null);
+  }
 
   mainWindow.loadFile('index.html');
   mainWindow.once('ready-to-show', () => {

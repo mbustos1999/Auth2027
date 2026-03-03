@@ -92,9 +92,7 @@ html, body {
 .app {
   height: calc(100% - 38px);
   position: relative;
-  display: flex;
-  align-items: stretch;
-  justify-content: stretch;
+  display: block;
   padding: 0; /* que el contenido ocupe toda la ventana */
 }
 
@@ -352,6 +350,305 @@ html, body {
 .welcome-text {
   color: var(--text-muted);
   font-size: 0.95rem;
+}
+
+/* ===== Dashboard moderno ===== */
+
+#panelDashboard {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.dashboard-shell {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  background: radial-gradient(circle at top left, rgba(165, 180, 252, 0.22), transparent 55%),
+              radial-gradient(circle at bottom right, rgba(244, 114, 182, 0.16), transparent 55%),
+              #020617;
+  color: #e5e7eb;
+  overflow: hidden;
+  animation: dashFadeIn 0.4s ease-out both;
+}
+
+.dash-sidebar {
+  background: rgba(15, 23, 42, 0.95);
+  border-right: 1px solid rgba(55, 65, 81, 0.8);
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px;
+  gap: 16px;
+}
+
+.dash-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 12px;
+}
+
+.dash-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #4f46e5, #ec4899);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.dash-logo-text {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dash-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.dash-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.12s ease;
+}
+
+.dash-nav-item:hover {
+  background: rgba(31, 41, 55, 0.85);
+  color: #e5e7eb;
+  transform: translateX(2px);
+}
+
+.dash-nav-item--active {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #f9fafb;
+}
+
+.dash-nav-icon {
+  width: 22px;
+  text-align: center;
+}
+
+.dash-nav-label {
+  flex: 1;
+  text-align: left;
+}
+
+.dash-logout {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(239, 68, 68, 0.08);
+  color: #fecaca;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.12s ease;
+}
+
+.dash-logout:hover {
+  background: rgba(239, 68, 68, 0.25);
+  transform: translateX(2px);
+}
+
+.dash-main {
+  padding: 18px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dash-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dash-header-left h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.dash-header-left p {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.dash-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.8);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.9);
+}
+
+.dash-user-meta span {
+  display: block;
+  font-size: 13px;
+}
+
+.dash-user-meta small {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr);
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.dash-card {
+  background: rgba(15, 23, 42, 0.88);
+  border-radius: 18px;
+  padding: 14px 16px 16px;
+  box-shadow:
+    0 18px 40px rgba(15, 23, 42, 0.85),
+    0 0 0 1px rgba(30, 64, 175, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: dashCardIn 0.45s ease-out both;
+}
+
+.dash-card-wide {
+  grid-column: 1 / -1;
+}
+
+.dash-card-tall {
+  grid-row: span 2;
+}
+
+.dash-card h3 {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #a5b4fc;
+}
+
+.dash-card-text {
+  font-size: 13px;
+  color: #e5e7eb;
+}
+
+.dash-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dash-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(31, 41, 55, 0.9);
+  font-size: 12px;
+  color: #e5e7eb;
+}
+
+.dash-status-pill--ok {
+  background: rgba(22, 163, 74, 0.16);
+  color: #bbf7d0;
+}
+
+.dash-status-pill .dot,
+.dash-status-pill .dot--muted {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+}
+
+.dash-status-pill .dot--muted {
+  background: #64748b;
+}
+
+.dash-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dash-list-title {
+  display: block;
+  font-size: 13px;
+}
+
+.dash-list-meta {
+  display: block;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.dash-list--bullets li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 13px;
+  color: #e5e7eb;
+}
+
+.dash-list--bullets li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0.7em;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #a5b4fc;
+}
+
+@keyframes dashFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dashCardIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ===== Login layout tipo card con columna ilustración + panel morado ===== */
