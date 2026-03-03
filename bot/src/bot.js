@@ -202,10 +202,15 @@ async function ensureRoleByName(member, roleName) {
 }
 
 async function ensureMercadoPagoDataOnRow(row) {
-  if (!row || !row.email || !row.id) return row;
+  if (!row || !row.email) return row;
+  if (row.mercadopago_status || row.mercadopago_data) return row;
 
-  const hasStatus = !!row.mercadopago_status;
-  const hasData = !!row.mercadopago_data;
+  const updated = await fetchMercadoPagoAndUpdateRowForEmail(row.email).catch(() => null);
+  return updated || row;
+}
+
+async function fetchMercadoPagoAndUpdateRowForEmail(email) {
+  if (!email) return null;
 
   const tokensToUse = [];
   if (MERCADOPAGO_ACCESS_TOKEN_CHILE) {
@@ -218,13 +223,11 @@ async function ensureMercadoPagoDataOnRow(row) {
     tokensToUse.push({ country: 'legacy', token: MERCADOPAGO_ACCESS_TOKEN });
   }
 
-  // Si ya tenemos datos y no hay tokens configurados, no hacemos nada
-  if ((hasStatus || hasData) || tokensToUse.length === 0) {
-    return row;
-  }
+  if (tokensToUse.length === 0) return null;
 
-  const email = row.email;
-  const searchUrlBase = `https://api.mercadopago.com/preapproval/search?payer_email=${encodeURIComponent(email)}`;
+  const searchUrlBase = `https://api.mercadopago.com/preapproval/search?payer_email=${encodeURIComponent(
+    email
+  )}`;
 
   async function queryWithToken(label, token) {
     try {
@@ -264,37 +267,189 @@ async function ensureMercadoPagoDataOnRow(row) {
     if (r) results.push(r);
   }
 
+  let statusToSave = 'not_found';
+  let dataToSave = { results: [], sources: [], paging: null };
+  let anyError = false;
+
   const found = results.filter((r) => r.ok && r.status === 'found');
-  if (found.length === 0) {
-    return row;
-  }
+  if (found.length > 0) {
+    const allPreapprovals = found.flatMap((r) =>
+      r.data && Array.isArray(r.data.results) ? r.data.results : []
+    );
 
-  const allPreapprovals = found.flatMap((r) =>
-    r.data && Array.isArray(r.data.results) ? r.data.results : []
-  );
+    if (!Array.isArray(allPreapprovals) || allPreapprovals.length === 0) {
+      statusToSave = 'not_found';
+      dataToSave = {
+        results: [],
+        sources: found.map((r) => r.data?.source).filter(Boolean),
+        paging: null
+      };
+    } else {
+      function pickBestPreapproval(preapprovals) {
+        if (!Array.isArray(preapprovals) || preapprovals.length === 0) return null;
+        const now = new Date();
+        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-  if (!Array.isArray(allPreapprovals) || allPreapprovals.length === 0) {
-    return row;
-  }
+        let bestActive = null;
 
-  const first = allPreapprovals[0];
-  const rawStatus = String(first.status || '').toLowerCase() || 'unknown';
+        for (const pre of preapprovals) {
+          const rawStatus = String(pre.status || '').toLowerCase();
+          const endDateStr =
+            pre.end_date ||
+            (pre.auto_recurring && pre.auto_recurring.end_date) ||
+            null;
 
-  const dataToSave = {
-    results: allPreapprovals,
-    sources: found.map((r) => r.data?.source).filter(Boolean),
-    paging: null,
-    meta: {
-      effective_status: rawStatus,
-      ui_label: rawStatus === 'authorized' ? 'Sub activa' : rawStatus,
-      raw_status: rawStatus
+          let endDate = null;
+          let notExpired = false;
+          if (endDateStr) {
+            const d = new Date(endDateStr);
+            if (!Number.isNaN(d.getTime())) {
+              endDate = d;
+              notExpired = d >= now;
+            }
+          }
+
+          const isActive =
+            rawStatus === 'authorized' ||
+            (notExpired && (rawStatus === 'cancelled' || rawStatus === 'pending'));
+
+          if (isActive) {
+            if (!bestActive || (endDate && bestActive.endDate && endDate > bestActive.endDate)) {
+              bestActive = { pre, endDate, rawStatus, notExpired };
+            } else if (!bestActive) {
+              bestActive = { pre, endDate, rawStatus, notExpired };
+            }
+          }
+        }
+
+        if (bestActive) {
+          return {
+            preapproval: bestActive.pre,
+            effectiveStatus: 'active',
+            uiLabel: 'Sub activa',
+            rawStatus: bestActive.rawStatus,
+            endDate: bestActive.endDate,
+            daysLeft: bestActive.endDate
+              ? Math.max(0, Math.ceil((bestActive.endDate.getTime() - now.getTime()) / ONE_DAY_MS))
+              : null
+          };
+        }
+
+        // Si ninguna está "activa" según la lógica anterior, usar la primera como referencia
+        const first = preapprovals[0];
+        const rawStatus = String(first.status || '').toLowerCase();
+
+        const endDateStrFirst =
+          first.end_date ||
+          (first.auto_recurring && first.auto_recurring.end_date) ||
+          null;
+        let endDateFirst = null;
+        let daysLeftFirst = null;
+        if (endDateStrFirst) {
+          const d = new Date(endDateStrFirst);
+          if (!Number.isNaN(d.getTime()) && d >= new Date()) {
+            endDateFirst = d;
+            daysLeftFirst = Math.max(
+              0,
+              Math.ceil((d.getTime() - new Date().getTime()) / ONE_DAY_MS)
+            );
+          }
+        }
+        let uiLabel = rawStatus || '-';
+        switch (rawStatus) {
+          case 'authorized':
+            uiLabel = 'Sub activa';
+            break;
+          case 'pending':
+            uiLabel = 'Sub pendiente';
+            break;
+          case 'cancelled':
+            uiLabel = 'Sub cancelada';
+            break;
+          case 'paused':
+            uiLabel = 'Sub pausada';
+            break;
+          case 'expired':
+            uiLabel = 'Sub expirada';
+            break;
+          default:
+            break;
+        }
+
+        return {
+          preapproval: first,
+          effectiveStatus: rawStatus || 'unknown',
+          uiLabel,
+          rawStatus,
+          endDate: endDateFirst,
+          daysLeft: daysLeftFirst
+        };
+      }
+
+      const decision = pickBestPreapproval(allPreapprovals);
+
+      statusToSave = decision ? decision.effectiveStatus : 'not_found';
+      dataToSave = {
+        results: allPreapprovals,
+        sources: found.map((r) => r.data?.source).filter(Boolean),
+        paging: null,
+        meta: {
+          effective_status: decision ? decision.effectiveStatus : null,
+          ui_label: decision ? decision.uiLabel : null,
+          raw_status: decision ? decision.rawStatus : null,
+          end_date: decision && decision.endDate ? decision.endDate.toISOString() : null,
+          days_left: decision && typeof decision.daysLeft === 'number' ? decision.daysLeft : null
+        }
+      };
     }
-  };
-
-  const statusToSave = rawStatus;
+  } else if (results.length > 0 && results.every((r) => r.status === 'not_found')) {
+    statusToSave = 'not_found';
+    dataToSave = {
+      results: [],
+      sources: results.map((r) => r.data?.source).filter(Boolean),
+      paging: null
+    };
+  } else if (anyError || results.length === 0) {
+    statusToSave = 'error';
+    dataToSave = {
+      error: 'error_consultando_mercadopago',
+      sources: results.map((r) => r.data?.source).filter(Boolean)
+    };
+  }
 
   try {
-    const { data: updated, error } = await supabase
+    // Buscar o crear fila por email
+    let { data: row, error } = await supabase
+      .from('user_discord_links')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error leyendo user_discord_links por email:', error);
+      return null;
+    }
+
+    if (!row) {
+      const insertRes = await supabase
+        .from('user_discord_links')
+        .insert({
+          email,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select('*')
+        .maybeSingle();
+
+      if (insertRes.error) {
+        console.error('No se pudo crear fila user_discord_links para email:', email, insertRes.error);
+        return null;
+      }
+      row = insertRes.data;
+    }
+
+    const { data: updated, error: updateError } = await supabase
       .from('user_discord_links')
       .update({
         mercadopago_status: statusToSave,
@@ -305,15 +460,15 @@ async function ensureMercadoPagoDataOnRow(row) {
       .select('*')
       .maybeSingle();
 
-    if (error) {
-      console.error('No se pudo actualizar mercadopago_data desde el bot:', error);
+    if (updateError) {
+      console.error('No se pudo actualizar mercadopago_data desde el bot:', updateError);
       return row;
     }
 
     return updated || row;
   } catch (e) {
-    console.error('Error inesperado actualizando mercadopago_data desde el bot:', e);
-    return row;
+    console.error('Error inesperado en fetchMercadoPagoAndUpdateRowForEmail:', e);
+    return null;
   }
 }
 
@@ -611,6 +766,34 @@ function startOAuthServer() {
   const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url, `http://localhost:${port}`);
+
+      // Endpoint interno para estado de MercadoPago
+      if (url.pathname === '/mp/status') {
+        const email = url.searchParams.get('email');
+        if (!email) {
+          res.statusCode = 400;
+          res.end('Missing email');
+          return;
+        }
+
+        const row = await fetchMercadoPagoAndUpdateRowForEmail(email).catch(() => null);
+        if (!row) {
+          res.statusCode = 500;
+          res.end('No se pudo obtener estado de MercadoPago');
+          return;
+        }
+
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(
+          JSON.stringify({
+            success: true,
+            mercadopago_status: row.mercadopago_status || null,
+            mercadopago_data: row.mercadopago_data || null
+          })
+        );
+        return;
+      }
 
       // Aceptar la ruta que coincida con DISCORD_REDIRECT_URI (ej. /auth/discord/callback o /discord/callback)
       const callbackPath = DISCORD_REDIRECT_URI ? new URL(DISCORD_REDIRECT_URI).pathname : '/discord/callback';

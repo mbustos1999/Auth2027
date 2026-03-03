@@ -54,8 +54,5 @@ contextBridge.exposeInMainWorld('apiConfig', {
   supabaseAnonKey,
   discordInviteUrl,
   discordOAuthBaseUrl,
-  mercadopagoAccessToken,
-  mercadopagoAccessTokenChile,
-  mercadopagoAccessTokenArg,
   pcName
 });

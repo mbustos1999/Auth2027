@@ -441,292 +441,88 @@
     }
     const email = currentUser.user_email;
 
-    const tokensToUse = [];
-    if (mercadopagoAccessTokenChile) {
-      tokensToUse.push({ country: 'chile', token: mercadopagoAccessTokenChile });
-    }
-    if (mercadopagoAccessTokenArg) {
-      tokensToUse.push({ country: 'argentina', token: mercadopagoAccessTokenArg });
-    }
-
-    if (tokensToUse.length === 0 && !mercadopagoAccessToken) {
-      setMercadoPagoUI('error');
-      updateMercadoPagoHeaderIcon('error');
-      return;
-    }
-
     setMercadoPagoUI('loading');
 
-    const searchUrlBase = `https://api.mercadopago.com/preapproval/search?payer_email=${encodeURIComponent(email)}`;
-    let statusToSave = 'not_found';
-    let dataToSave = { results: [], sources: [], paging: null };
-    let anyError = false;
+    let statusToSave = 'error';
+    let dataToSave = null;
 
-    // Función auxiliar para consultar con un token concreto
-    async function queryWithToken(label, token) {
-      try {
-        const res = await fetch(searchUrlBase, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        });
-        const data = await res.json().catch(() => ({}));
+    try {
+      const mpUrl = `http://localhost:4000/mp/status?email=${encodeURIComponent(email)}`;
+      const res = await fetch(mpUrl);
+      const payload = await res.json().catch(() => ({}));
 
-        if (!res.ok) {
-          anyError = true;
-          return { ok: false, status: 'error', data: { error: data.message || res.status, source: label } };
+      if (!res.ok || !payload || !payload.success) {
+        setMercadoPagoUI('error');
+        statusToSave = 'error';
+      } else {
+        statusToSave = payload.mercadopago_status || 'not_found';
+        dataToSave = payload.mercadopago_data || null;
+
+        const meta = (dataToSave && dataToSave.meta) || {};
+        const effective = (meta.effective_status || statusToSave || '').toLowerCase();
+        const uiLabel = meta.ui_label || (effective === 'active' ? 'Sub activa' : effective || '-');
+
+        if (effective === 'active') {
+          setMercadoPagoUI('found', uiLabel);
+        } else if (statusToSave === 'not_found') {
+          setMercadoPagoUI('not_found');
+        } else {
+          setMercadoPagoUI('error');
         }
 
-        if (Array.isArray(data.results) && data.results.length > 0) {
-          return {
-            ok: true,
-            status: 'found',
-            data: { results: data.results, paging: data.paging, source: label }
-          };
-        }
+        // Rellenar detalles si tenemos datos
+        const results = Array.isArray(dataToSave?.results) ? dataToSave.results : [];
+        const first = results[0] || null;
+        if (first) {
+          const reason =
+            first.reason ||
+            (first.auto_recurring && first.auto_recurring.reason) ||
+            '-';
+          const chargedAmount =
+            first.charged_amount ||
+            (first.auto_recurring && first.auto_recurring.transaction_amount) ||
+            '-';
 
-        // Sin resultados pero sin error
-        return { ok: true, status: 'not_found', data: { results: [], paging: data.paging, source: label } };
-      } catch (_) {
-        anyError = true;
-        return { ok: false, status: 'error', data: { error: 'network_error', source: label } };
-      }
-    }
+          const payerFirstName =
+            first.payer_first_name ||
+            (first.payer && (first.payer.first_name || first.payer.name)) ||
+            '';
+          const payerLastName =
+            first.payer_last_name ||
+            (first.payer && (first.payer.last_name || first.payer.surname)) ||
+            '';
 
-    const queries = [];
+          const payerName =
+            (payerFirstName || payerLastName)
+              ? `${payerFirstName} ${payerLastName}`.trim()
+              : '-';
 
-    // Primero, usar los tokens específicos de país
-    for (const entry of tokensToUse) {
-      queries.push(queryWithToken(entry.country, entry.token));
-    }
+          const rawStatus =
+            first.status ||
+            meta.raw_status ||
+            '-';
 
-    // Compatibilidad: si existe un token unificado adicional, también consultarlo
-    if (mercadopagoAccessToken && tokensToUse.length === 0) {
-      queries.push(queryWithToken('legacy', mercadopagoAccessToken));
-    }
-
-    const results = [];
-    for (const q of queries) {
-      // Ejecutar en serie para evitar límites agresivos de rate limit
-      // eslint-disable-next-line no-await-in-loop
-      const r = await q;
-      if (r) results.push(r);
-    }
-
-    // Combinar resultados
-    const found = results.filter((r) => r.ok && r.status === 'found');
-    if (found.length > 0) {
-      const allPreapprovals = found.flatMap((r) =>
-        r.data && Array.isArray(r.data.results) ? r.data.results : []
-      );
-
-      // Elegir la mejor preaprobación: activa si end_date >= hoy aunque status sea cancelado
-      function pickBestPreapproval(preapprovals) {
-        if (!Array.isArray(preapprovals) || preapprovals.length === 0) return null;
-        const now = new Date();
-        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-        let bestActive = null;
-
-        for (const pre of preapprovals) {
-          const rawStatus = String(pre.status || '').toLowerCase();
-          const endDateStr =
-            pre.end_date ||
-            (pre.auto_recurring && pre.auto_recurring.end_date) ||
-            null;
-
-          let endDate = null;
-          let notExpired = false;
-          if (endDateStr) {
-            const d = new Date(endDateStr);
-            if (!Number.isNaN(d.getTime())) {
-              endDate = d;
-              notExpired = d >= now;
-            }
-          }
-
-          const isActive =
-            rawStatus === 'authorized' ||
-            (notExpired && (rawStatus === 'cancelled' || rawStatus === 'pending'));
-
-          if (isActive) {
-            if (!bestActive || (endDate && bestActive.endDate && endDate > bestActive.endDate)) {
-              bestActive = { pre, endDate, rawStatus, notExpired };
-            } else if (!bestActive) {
-              bestActive = { pre, endDate, rawStatus, notExpired };
-            }
-          }
-        }
-
-        if (bestActive) {
-          return {
-            preapproval: bestActive.pre,
-            effectiveStatus: 'active',
-            uiLabel: 'Sub activa',
-            rawStatus: bestActive.rawStatus,
-            endDate: bestActive.endDate,
-            daysLeft: bestActive.endDate
-              ? Math.max(0, Math.ceil((bestActive.endDate.getTime() - now.getTime()) / ONE_DAY_MS))
-              : null
-          };
-        }
-
-        // Si ninguna está "activa" según la lógica anterior, usar la primera como referencia
-        const first = preapprovals[0];
-        const rawStatus = String(first.status || '').toLowerCase();
-
-        const endDateStrFirst =
-          first.end_date ||
-          (first.auto_recurring && first.auto_recurring.end_date) ||
-          null;
-        let endDateFirst = null;
-        let daysLeftFirst = null;
-        if (endDateStrFirst) {
-          const d = new Date(endDateStrFirst);
-          if (!Number.isNaN(d.getTime()) && d >= now) {
-            endDateFirst = d;
-            daysLeftFirst = Math.max(0, Math.ceil((d.getTime() - now.getTime()) / ONE_DAY_MS));
-          }
-        }
-        let uiLabel = rawStatus || '-';
-        switch (rawStatus) {
-          case 'authorized':
-            uiLabel = 'Sub activa';
-            break;
-          case 'pending':
-            uiLabel = 'Sub pendiente';
-            break;
-          case 'cancelled':
-            uiLabel = 'Sub cancelada';
-            break;
-          case 'paused':
-            uiLabel = 'Sub pausada';
-            break;
-          case 'expired':
-            uiLabel = 'Sub expirada';
-            break;
-          default:
-            break;
-        }
-
-        return {
-          preapproval: first,
-          effectiveStatus: rawStatus || 'unknown',
-          uiLabel,
-          rawStatus,
-          endDate: endDateFirst,
-          daysLeft: daysLeftFirst
-        };
-      }
-
-      const decision = pickBestPreapproval(allPreapprovals);
-
-      statusToSave = decision ? decision.effectiveStatus : 'not_found';
-      dataToSave = {
-        results: allPreapprovals,
-        sources: found.map((r) => r.data?.source).filter(Boolean),
-        paging: null,
-        meta: {
-          effective_status: decision ? decision.effectiveStatus : null,
-          ui_label: decision ? decision.uiLabel : null,
-          raw_status: decision ? decision.rawStatus : null,
-          end_date: decision && decision.endDate ? decision.endDate.toISOString() : null,
-          days_left: decision && typeof decision.daysLeft === 'number' ? decision.daysLeft : null
-        }
-      };
-
-      const uiLabel = decision ? decision.uiLabel : 'Sub activa';
-      setMercadoPagoUI('found', uiLabel);
-
-      // Rellenar detalles en la tarjeta
-      if (decision && decision.preapproval) {
-        const pre = decision.preapproval;
-        const reason =
-          pre.reason ||
-          (pre.auto_recurring && pre.auto_recurring.reason) ||
-          '-';
-        const chargedAmount =
-          pre.charged_amount ||
-          (pre.auto_recurring && pre.auto_recurring.transaction_amount) ||
-          '-';
-
-        const payerFirstName =
-          pre.payer_first_name ||
-          (pre.payer && (pre.payer.first_name || pre.payer.name)) ||
-          '';
-        const payerLastName =
-          pre.payer_last_name ||
-          (pre.payer && (pre.payer.last_name || pre.payer.surname)) ||
-          '';
-
-        const payerName =
-          (payerFirstName || payerLastName)
-            ? `${payerFirstName} ${payerLastName}`.trim()
-            : '-';
-
-        const rawStatus =
-          pre.status ||
-          (decision.rawStatus ? decision.rawStatus : '-') ||
-          '-';
-
-        if (mercadopagoReasonEl) mercadopagoReasonEl.textContent = String(reason);
-        if (mercadopagoAmountEl) mercadopagoAmountEl.textContent = String(chargedAmount);
-        if (mercadopagoPayerNameEl) mercadopagoPayerNameEl.textContent = payerName;
-        if (mercadopagoStatusRawEl) mercadopagoStatusRawEl.textContent = String(rawStatus);
-        if (mercadopagoDaysLeftEl) {
           const daysLeft =
-            decision && typeof decision.daysLeft === 'number' ? decision.daysLeft : null;
-          mercadopagoDaysLeftEl.textContent =
-            daysLeft != null ? `${daysLeft} día${daysLeft === 1 ? '' : 's'}` : '-';
+            typeof meta.days_left === 'number' ? meta.days_left : null;
+
+          if (mercadopagoReasonEl) mercadopagoReasonEl.textContent = String(reason);
+          if (mercadopagoAmountEl) mercadopagoAmountEl.textContent = String(chargedAmount);
+          if (mercadopagoPayerNameEl) mercadopagoPayerNameEl.textContent = payerName;
+          if (mercadopagoStatusRawEl) mercadopagoStatusRawEl.textContent = String(rawStatus);
+          if (mercadopagoDaysLeftEl) {
+            mercadopagoDaysLeftEl.textContent =
+              daysLeft != null ? `${daysLeft} día${daysLeft === 1 ? '' : 's'}` : '-';
+          }
         }
       }
-    } else if (results.length > 0 && results.every((r) => r.status === 'not_found')) {
-      statusToSave = 'not_found';
-      dataToSave = {
-        results: [],
-        sources: results.map((r) => r.data?.source).filter(Boolean),
-        paging: null
-      };
-      setMercadoPagoUI('not_found');
-    } else if (anyError || results.length === 0) {
-      statusToSave = 'error';
-      dataToSave = {
-        error: 'error_consultando_mercadopago',
-        sources: results.map((r) => r.data?.source).filter(Boolean)
-      };
+    } catch (_) {
       setMercadoPagoUI('error');
+      statusToSave = 'error';
     }
 
     updateMercadoPagoHeaderIcon(statusToSave);
 
-    if (supabaseUrl && supabaseKey) {
-      try {
-        const base = supabaseUrl.replace(/\/$/, '');
-        let patchUrl = `${base}/rest/v1/user_discord_links?email=eq.${encodeURIComponent(email)}`;
-
-        // Si ya tenemos fila en memoria, usar id (evita problemas de mayúsculas/minúsculas en email)
-        if (currentDiscordRow && typeof currentDiscordRow.id === 'number') {
-          patchUrl = `${base}/rest/v1/user_discord_links?id=eq.${currentDiscordRow.id}`;
-        }
-
-        await fetch(patchUrl, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-            Prefer: 'return=minimal'
-          },
-          body: JSON.stringify({
-            mercadopago_status: statusToSave,
-            mercadopago_data: dataToSave,
-            updated_at: new Date().toISOString()
-          })
-        });
-      } catch (_) {}
-    }
+    // La actualización en Supabase ya la realiza el bot en /mp/status con service_role.
   }
 
   async function refreshDiscordFromSupabase() {
