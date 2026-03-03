@@ -68,10 +68,10 @@
             </div>
 
             <div class="login-footer-row">
-              <span class="login-link-small" onclick="window.open('https://argenmod.com', '_blank')">
+              <span class="login-link-small" id="forgotPasswordLink">
                 ¿Olvidaste tu contraseña?
               </span>
-              <span class="login-link-small" onclick="window.open('https://argenmod.com', '_blank')">
+              <span class="login-link-small" id="createAccountLink">
                 Crear cuenta en la web
               </span>
             </div>
@@ -105,6 +105,26 @@
         <button type="button" class="btn btn-ghost" id="btnLogout">Cerrar sesión</button>
       </div>
     </section>
+
+    <!-- Modal recuperación de contraseña -->
+    <div id="recoverModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content">
+        <h2>Recuperar contraseña</h2>
+        <p>Introduce el correo electrónico asociado a tu cuenta de ArgenMod.</p>
+        <input
+          type="email"
+          id="recoverEmail"
+          class="recover-input"
+          placeholder="tu-correo@ejemplo.com"
+          autocomplete="email"
+        />
+        <div class="recover-actions">
+          <button type="button" id="recoverCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
+          <button type="button" id="recoverSend" class="recover-btn recover-btn-primary">Enviar</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script src="renderer.js"></script>

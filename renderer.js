@@ -88,6 +88,37 @@
     }
   }
 
+  async function solicitarRecuperacionPassword(email) {
+    const recoverUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}/wp-json/argenmod/v1/recuperar-password` : '';
+    if (!recoverUrl) {
+      showError('Configura la URL de WordPress en config.js para recuperar la contraseña.');
+      return;
+    }
+
+    clearError();
+    try {
+      const res = await fetch(recoverUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.success) {
+        showError('Te hemos enviado un correo con instrucciones para restablecer tu contraseña.');
+        messageError.classList.remove('message-error');
+        messageError.classList.add('message-success');
+      } else {
+        messageError.classList.remove('message-success');
+        messageError.classList.add('message-error');
+        showError(data.message || 'No se pudo iniciar el proceso de recuperación.');
+      }
+    } catch (e) {
+      showError('Error de conexión al solicitar la recuperación de contraseña.');
+    }
+  }
+
   function showDashboard(user) {
     userNameEl.textContent = user.display_name || 'Usuario';
     userEmailEl.textContent = user.user_email || '';
@@ -119,6 +150,62 @@
   });
 
   btnLogout.addEventListener('click', showLogin);
+
+  const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+  const createAccountLink = document.getElementById('createAccountLink');
+  const recoverModal = document.getElementById('recoverModal');
+  const recoverEmailInput = document.getElementById('recoverEmail');
+  const recoverCancelBtn = document.getElementById('recoverCancel');
+  const recoverSendBtn = document.getElementById('recoverSend');
+
+  function openRecoverModal() {
+    if (!recoverModal) return;
+    clearError();
+    recoverModal.hidden = false;
+    const current = usernameInput.value.trim();
+    if (current && current.includes('@')) {
+      recoverEmailInput.value = current;
+    } else {
+      recoverEmailInput.value = '';
+    }
+    recoverEmailInput.focus();
+  }
+
+  function closeRecoverModal() {
+    if (!recoverModal) return;
+    recoverModal.hidden = true;
+  }
+
+  if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', () => {
+      openRecoverModal();
+    });
+  }
+
+  if (createAccountLink) {
+    createAccountLink.addEventListener('click', () => {
+      window.open('https://argenmod.com', '_blank');
+    });
+  }
+
+  if (recoverCancelBtn) {
+    recoverCancelBtn.addEventListener('click', () => {
+      closeRecoverModal();
+    });
+  }
+
+  if (recoverSendBtn) {
+    recoverSendBtn.addEventListener('click', async () => {
+      const email = (recoverEmailInput.value || '').trim();
+      if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        showError('Introduce un correo electrónico válido.');
+        return;
+      }
+      await solicitarRecuperacionPassword(email);
+      // si no hay error de conexión, cerramos modal (el mensaje se muestra en el panel)
+      closeRecoverModal();
+    });
+  }
 
   document.getElementById('btnMinimize').addEventListener('click', () => window.electronAPI.minimize());
   document.getElementById('btnClose').addEventListener('click', () => window.electronAPI.close());
