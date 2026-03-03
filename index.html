@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src *; img-src 'self' data:;" />
+  <title>Auth 2027</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="titlebar" id="titlebar">
+    <span class="titlebar-drag"></span>
+    <span class="titlebar-title">Auth 2027</span>
+    <div class="titlebar-actions">
+      <button type="button" class="titlebar-btn" id="btnMinimize" aria-label="Minimizar">
+        <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M0 5h12v2H0z"/></svg>
+      </button>
+      <button type="button" class="titlebar-btn titlebar-btn-close" id="btnClose" aria-label="Cerrar">
+        <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M1.41 0L6 4.58 10.59 0 12 1.41 7.41 6 12 10.59 10.59 12 6 7.41 1.41 12 0 10.59 4.59 6 0 1.41z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="app">
+    <!-- LOGIN tipo card GDPR/welcome -->
+    <section id="panelLogin">
+      <div class="login-card">
+        <div class="login-right">
+          <div class="login-right-header">
+            <h1>Welcome!</h1>
+            <p>Inicia sesión con tu cuenta de ArgenMod para continuar.</p>
+          </div>
+
+          <form id="formLogin" class="login-form" autocomplete="on">
+            <div class="login-input-group">
+              <div class="login-input-label">Usuario</div>
+              <div class="login-input-wrapper">
+                <div class="login-input-icon">@</div>
+                <input
+                  class="login-input"
+                  type="text"
+                  id="username"
+                  name="username"
+                  autocomplete="username"
+                  placeholder="Tu usuario o e‑mail"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="login-input-group">
+              <div class="login-input-label">Contraseña</div>
+              <div class="login-input-wrapper">
+                <div class="login-input-icon">••</div>
+                <input
+                  class="login-input"
+                  type="password"
+                  id="password"
+                  name="password"
+                  autocomplete="current-password"
+                  placeholder="Tu contraseña"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="login-footer-row">
+              <span class="login-link-small" onclick="window.open('https://argenmod.com', '_blank')">
+                ¿Olvidaste tu contraseña?
+              </span>
+              <span class="login-link-small" onclick="window.open('https://argenmod.com', '_blank')">
+                Crear cuenta en la web
+              </span>
+            </div>
+
+            <div class="login-buttons">
+              <button type="button" class="login-btn-primary" onclick="window.open('https://argenmod.com', '_blank')">
+                Crear cuenta
+              </button>
+              <button type="submit" class="login-btn-secondary" id="btnSubmit">
+                <span class="btn-text">Sign in</span>
+                <span class="btn-loader" aria-hidden="true"></span>
+              </button>
+            </div>
+
+            <div class="message message-error" id="messageError" role="alert" hidden></div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel panel-dashboard" id="panelDashboard" hidden>
+      <div class="panel-inner">
+        <div class="dashboard-header">
+          <div class="avatar" id="userAvatar">U</div>
+          <div class="user-info">
+            <h2 id="userName">Usuario</h2>
+            <p id="userEmail" class="user-email">email@ejemplo.com</p>
+          </div>
+        </div>
+        <p class="welcome-text">Has iniciado sesión correctamente.</p>
+        <button type="button" class="btn btn-ghost" id="btnLogout">Cerrar sesión</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
