@@ -206,15 +206,9 @@
       panel.classList.toggle('dash-tab--active', active);
       panel.hidden = !active;
     });
-    // Al abrir Perfil, refrescar desde Supabase y luego actualizar UI
+    // Al abrir Perfil, solo refrescamos la UI desde el estado actual en memoria
     if (tabName === 'profile') {
-      refreshDiscordFromSupabase()
-        .then(() => {
-          updateDiscordUI();
-        })
-        .catch(() => {
-          updateDiscordUI();
-        });
+      updateDiscordUI();
     }
   }
 
