@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 require('dotenv').config();
 // Cargar config aquí (main se ejecuta desde la carpeta de la app) y pasarla al preload vía env
 try {
@@ -10,6 +11,15 @@ try {
     process.env.AUTH_APP_AUTH_ENDPOINT = (config.AUTH_ENDPOINT != null) ? String(config.AUTH_ENDPOINT).trim() : '';
   }
 } catch (_) {}
+
+// Nombre del PC (para anclar cuenta a equipo)
+if (!process.env.AUTH_APP_PC_NAME) {
+  try {
+    process.env.AUTH_APP_PC_NAME = os.hostname();
+  } catch (_) {
+    process.env.AUTH_APP_PC_NAME = '';
+  }
+}
 if (!process.env.AUTH_APP_BASE_URL) process.env.AUTH_APP_BASE_URL = '';
 if (!process.env.AUTH_APP_AUTH_ENDPOINT) process.env.AUTH_APP_AUTH_ENDPOINT = '';
 

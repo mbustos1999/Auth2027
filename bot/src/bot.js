@@ -88,51 +88,71 @@ async function findLinkRowByDiscordId(discordId) {
 }
 
 async function findLinkRowByState(state) {
-  // Si el state es numérico, interpretarlo como ID
+  // 1) Intentar siempre por id (soporta UUID o numérico)
+  try {
+    const { data, error } = await supabase
+      .from('user_discord_links')
+      .select('*')
+      .eq('id', state)
+      .maybeSingle();
+
+    if (!error && data) {
+      return data;
+    }
+  } catch (err) {
+    console.error('Supabase error (findLinkRowByState/id-string):', err);
+  }
+
+  // 2) Si es numérico, reintentar casteando a Number (por compatibilidad con ids antiguos)
   if (/^\d+$/.test(state)) {
-    const { data, error } = await supabase
-      .from('user_discord_links')
-      .select('*')
-      .eq('id', Number(state))
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('user_discord_links')
+        .select('*')
+        .eq('id', Number(state))
+        .maybeSingle();
 
-    if (error) {
-      console.error('Supabase error (findLinkRowByState/id):', error);
-      return null;
+      if (!error && data) {
+        return data;
+      }
+    } catch (err) {
+      console.error('Supabase error (findLinkRowByState/id-number):', err);
     }
-
-    return data || null;
   }
 
-  // Si contiene @, interpretarlo como email
+  // 3) Si contiene @, interpretarlo como email
   if (state.includes('@')) {
+    try {
+      const { data, error } = await supabase
+        .from('user_discord_links')
+        .select('*')
+        .eq('email', state)
+        .maybeSingle();
+
+      if (!error && data) {
+        return data;
+      }
+    } catch (err) {
+      console.error('Supabase error (findLinkRowByState/email):', err);
+    }
+  }
+
+  // 4) Último intento: interpretar como link_code
+  try {
     const { data, error } = await supabase
       .from('user_discord_links')
       .select('*')
-      .eq('email', state)
+      .eq('link_code', state)
       .maybeSingle();
 
-    if (error) {
-      console.error('Supabase error (findLinkRowByState/email):', error);
-      return null;
+    if (!error && data) {
+      return data;
     }
-
-    return data || null;
+  } catch (err) {
+    console.error('Supabase error (findLinkRowByState/link_code):', err);
   }
 
-  // Si no es numérico ni email, interpretarlo como link_code
-  const { data, error } = await supabase
-    .from('user_discord_links')
-    .select('*')
-    .eq('link_code', state)
-    .maybeSingle();
-
-  if (error) {
-    console.error('Supabase error (findLinkRowByState/link_code):', error);
-    return null;
-  }
-
-  return data || null;
+  return null;
 }
 
 async function assignAncladoRoleAndGetRoles(member, roleName = 'Anclado') {
@@ -409,6 +429,13 @@ client.on('messageCreate', async (message) => {
       return;
     }
 
+    // Un Discord no puede estar anclado a dos cuentas diferentes
+    const existingByDiscord = await findLinkRowByDiscordId(message.author.id);
+    if (existingByDiscord && existingByDiscord.id !== row.id) {
+      await message.reply('❌ Este Discord ya está anclado a otra cuenta. Usa siempre la misma cuenta de Auth 2027.');
+      return;
+    }
+
     // Si ya estaba vinculado, avisar
     if (row.status === 'linked') {
       await message.reply('✅ Ese código ya está vinculado a una cuenta de Discord.');
@@ -582,6 +609,114 @@ function startOAuthServer() {
         console.error('No se encontró fila en user_discord_links para state (ni se pudo crear):', state);
         res.statusCode = 400;
         res.end('State inválido');
+        return;
+      }
+
+      // Un Discord no puede estar anclado a dos cuentas diferentes
+      const existingByDiscord = await findLinkRowByDiscordId(discordId);
+      if (existingByDiscord && existingByDiscord.id !== rowFromState.id) {
+        console.error('Discord ya anclado a otra cuenta. state:', state);
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end(`<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Discord ya vinculado</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: radial-gradient(circle at top left, #7f1d1d 0, #020617 45%, #000 100%);
+        color: #e5e7eb;
+      }
+      .card {
+        background: rgba(15, 23, 42, 0.96);
+        border-radius: 20px;
+        padding: 26px 30px 22px;
+        max-width: 420px;
+        width: 100%;
+        box-shadow:
+          0 18px 45px rgba(15, 23, 42, 0.95),
+          0 0 0 1px rgba(248, 113, 113, 0.5);
+        text-align: center;
+      }
+      .icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 999px;
+        margin: 0 auto 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at 30% 20%, #fecaca, #b91c1c);
+        color: #fef2f2;
+        font-size: 26px;
+        box-shadow: 0 0 0 1px rgba(252, 165, 165, 0.4), 0 18px 35px rgba(15, 23, 42, 0.9);
+      }
+      h1 {
+        font-size: 22px;
+        margin-bottom: 8px;
+      }
+      p {
+        font-size: 14px;
+        color: #e5e7eb;
+        margin-bottom: 16px;
+      }
+      .hint {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-top: 6px;
+      }
+      button {
+        margin-top: 4px;
+        padding: 9px 16px;
+        border-radius: 999px;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        background: linear-gradient(135deg, #f97373, #ef4444);
+        color: #111827;
+        box-shadow: 0 10px 25px rgba(248, 113, 113, 0.45);
+        transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+      }
+      button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.03);
+        box-shadow: 0 16px 35px rgba(248, 113, 113, 0.6);
+      }
+      button:active {
+        transform: translateY(0);
+        box-shadow: 0 8px 18px rgba(248, 113, 113, 0.45);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon">!</div>
+      <h1>Este Discord ya está anclado</h1>
+      <p>
+        Esta cuenta de Discord ya fue vinculada a otra cuenta de Auth 2027.<br />
+        Usa siempre la misma cuenta en la app para evitar problemas.
+      </p>
+      <button type="button" onclick="window.close()">Cerrar esta ventana</button>
+      <div class="hint">Si la ventana no se cierra sola, puedes cerrarla manualmente.</div>
+    </div>
+  </body>
+</html>`);
         return;
       }
 

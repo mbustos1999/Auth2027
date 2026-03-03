@@ -5,6 +5,7 @@
 CREATE TABLE IF NOT EXISTS public.user_discord_links (
   id BIGSERIAL PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
+  pc_name TEXT,
   link_code TEXT,
   wp_user_id BIGINT,
   discord_id TEXT,
@@ -46,6 +47,7 @@ CREATE POLICY "anon_update_user_discord_links"
 
 -- El bot usa service_role, que bypasea RLS; no hace falta política para él.
 
--- Si la tabla ya existía, añade columnas de MercadoPago (ejecutar solo si faltan):
+-- Si la tabla ya existía, añade columnas nuevas (ejecutar solo si faltan):
+-- ALTER TABLE public.user_discord_links ADD COLUMN IF NOT EXISTS pc_name TEXT;
 -- ALTER TABLE public.user_discord_links ADD COLUMN IF NOT EXISTS mercadopago_status TEXT;
 -- ALTER TABLE public.user_discord_links ADD COLUMN IF NOT EXISTS mercadopago_data JSONB;

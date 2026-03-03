@@ -24,6 +24,7 @@
     apiConfig.mercadopagoAccessTokenChile != null ? String(apiConfig.mercadopagoAccessTokenChile).trim() : '';
   const mercadopagoAccessTokenArg =
     apiConfig.mercadopagoAccessTokenArg != null ? String(apiConfig.mercadopagoAccessTokenArg).trim() : '';
+  const pcName = (apiConfig.pcName != null && apiConfig.pcName !== '') ? String(apiConfig.pcName).trim() : '';
   const dashTabs = Array.from(document.querySelectorAll('.dash-nav-item'));
   const dashPanels = Array.from(document.querySelectorAll('.dash-tab'));
   const discordLinkStatusEl = document.getElementById('discordLinkStatus');
@@ -166,10 +167,15 @@
     // Mostrar solo "Pendiente" hasta confirmar el estado real desde Supabase
     updateDiscordUI();
 
-    // Sincronizar usuario en Supabase y, cuando termine, consultar MercadoPago
-    syncUserWithSupabase()
+    // Crear/actualizar fila básica en Supabase (email + nombre de PC),
+    // luego sincronizar y consultar MercadoPago
+    ensureSupabaseUserRow()
+      .then(() => syncUserWithSupabase())
       .then(() => fetchMercadoPagoAndSave())
-      .catch(() => fetchMercadoPagoAndSave());
+      .catch(() => {
+        // Aunque falle Supabase, intentamos al menos consultar MercadoPago
+        fetchMercadoPagoAndSave().catch(() => {});
+      });
 
     // Al entrar al dashboard, ir directamente a la pestaña Perfil
     activateTab('profile');
@@ -223,6 +229,121 @@
     // Ya no intentamos crear/actualizar filas desde el front.
     // Solo leemos el estado actual desde Supabase.
     await refreshDiscordFromSupabase();
+  }
+
+  async function checkPcBindingForEmail(email) {
+    if (!supabaseUrl || !supabaseKey) return true;
+
+    const base = supabaseUrl.replace(/\/$/, '');
+    try {
+      const url = `${base}/rest/v1/user_discord_links?email=eq.${encodeURIComponent(
+        email
+      )}&select=id,pc_name`;
+      const res = await fetch(url, {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`
+        }
+      });
+      const rows = await res.json().catch(() => []);
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        // No hay fila aún: se creará luego, permitimos el login
+        return true;
+      }
+
+      const row = rows[0];
+      const storedPc = (row.pc_name || '').trim();
+      const currentPc = (pcName || '').trim();
+
+      // Si no tenemos nombre de PC actual, no bloqueamos
+      if (!currentPc) return true;
+
+      // Si no hay PC guardado, lo fijamos ahora
+      if (!storedPc) {
+        const patchUrl = `${base}/rest/v1/user_discord_links?id=eq.${row.id}`;
+        await fetch(patchUrl, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+            Prefer: 'return=minimal'
+          },
+          body: JSON.stringify({
+            pc_name: currentPc,
+            updated_at: new Date().toISOString()
+          })
+        });
+        return true;
+      }
+
+      // Si coincide, ok; si no, bloquear
+      return storedPc === currentPc;
+    } catch (_) {
+      // En caso de error de red/Supabase, no bloqueamos el login
+      return true;
+    }
+  }
+
+  async function ensureSupabaseUserRow() {
+    if (!currentUser || !currentUser.user_email || !supabaseUrl || !supabaseKey) return;
+
+    const email = currentUser.user_email;
+    const base = supabaseUrl.replace(/\/$/, '');
+
+    try {
+      const getUrl = `${base}/rest/v1/user_discord_links?email=eq.${encodeURIComponent(email)}&select=*`;
+      const res = await fetch(getUrl, {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`
+        }
+      });
+      const rows = await res.json().catch(() => []);
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        const row = rows[0];
+        if (!row.pc_name && pcName) {
+          const patchUrl = `${base}/rest/v1/user_discord_links?id=eq.${row.id}`;
+          await fetch(patchUrl, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: supabaseKey,
+              Authorization: `Bearer ${supabaseKey}`,
+              Prefer: 'return=minimal'
+            },
+            body: JSON.stringify({
+              pc_name: pcName,
+              updated_at: new Date().toISOString()
+            })
+          });
+        }
+        return;
+      }
+
+      // No existe fila: crearla con email y pc_name, resto vacío
+      const insertUrl = `${base}/rest/v1/user_discord_links`;
+      await fetch(insertUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+          Prefer: 'return=minimal'
+        },
+        body: JSON.stringify({
+          email,
+          pc_name: pcName || null,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+      });
+    } catch (_) {
+      // Ignorar errores silenciosamente: la app sigue funcionando sin Supabase
+    }
   }
 
   function setMercadoPagoUI(state, statusText) {
@@ -698,6 +819,17 @@
 
     const user = await login(username, password);
     if (user) {
+      // Validar que la cuenta esté anclada (o se ancle ahora) a este PC
+      let pcOk = true;
+      if (pcName && supabaseUrl && supabaseKey) {
+        pcOk = await checkPcBindingForEmail(user.user_email);
+      }
+
+      if (!pcOk) {
+        showError('Esta cuenta ya está anclada a otro PC. Solo puedes usarla en el equipo donde se registró.');
+        return;
+      }
+
       if (rememberMe && rememberMe.checked) {
         try {
           localStorage.setItem('auth2027_remember', JSON.stringify({ u: username, p: password }));
