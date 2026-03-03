@@ -382,63 +382,46 @@ async function assignRolesForLinkedUser(member, row, ancladoRoleName = 'Anclado'
   // 1) Obtener motivo "activo" actual
   const motivoRoleName = getMotivoRoleNameFromRow(rowWithMp);
 
-  // 2) Obtener todos los posibles nombres de motivo desde mercadopago_data.results
-  let allReasonNames = [];
-  try {
-    let data = rowWithMp.mercadopago_data;
-    if (typeof data === 'string') {
-      data = JSON.parse(data);
-    }
-    const results = Array.isArray(data?.results) ? data.results : [];
-    allReasonNames = Array.from(
-      new Set(
-        results
-          .map((pre) => {
-            const r =
-              pre.reason ||
-              (pre.auto_recurring && pre.auto_recurring.reason) ||
-              null;
-            return typeof r === 'string' ? r.trim() : null;
-          })
-          .filter(Boolean)
-      )
-    );
-  } catch (e) {
-    console.error('No se pudieron obtener todos los motivos desde mercadopago_data:', e);
-    allReasonNames = [];
-  }
+  // 2) Lista fija de posibles nombres de rol de suscripción (motivo)
+  const knownMotivoRoles = [
+    'arg-1m',
+    'arg-3m',
+    'arg-6m',
+    'Argenmod Argentina Mensual',
+    'Chile-1 mes'
+  ];
+  const knownMotivoLower = knownMotivoRoles.map((r) => r.toLowerCase());
+
+  const memberRoles = member.roles.cache;
 
   // 3) Limpiar/asignar roles de motivo en Discord:
-  //    - Si hay motivo activo: asegurar ese rol y quitar otros motivos antiguos
+  //    - Si hay motivo activo: asegurar ese rol y quitar otros motivos conocidos
   //    - Si no hay motivo activo: quitar todos los roles cuyo nombre sea un motivo conocido
-  if (allReasonNames.length > 0) {
-    const memberRoles = member.roles.cache;
+  if (motivoRoleName) {
+    const motivoLower = motivoRoleName.toLowerCase();
 
-    if (motivoRoleName) {
-      // Asegurar rol del motivo actual
-      await ensureRoleByName(member, motivoRoleName);
+    // Asegurar rol del motivo actual
+    await ensureRoleByName(member, motivoRoleName);
 
-      // Quitar otros motivos que ya no apliquen
-      for (const role of memberRoles.values()) {
-        if (
-          allReasonNames.includes(role.name) &&
-          role.name !== motivoRoleName
-        ) {
-          // eslint-disable-next-line no-await-in-loop
-          await member.roles.remove(role).catch((err) => {
-            console.error('No se pudo quitar rol de motivo antiguo:', role.name, err);
-          });
-        }
+    // Quitar otros motivos conocidos que ya no apliquen
+    for (const role of memberRoles.values()) {
+      const nameLower = role.name.toLowerCase();
+      if (knownMotivoLower.includes(nameLower) && nameLower !== motivoLower) {
+        // eslint-disable-next-line no-await-in-loop
+        await member.roles.remove(role).catch((err) => {
+          console.error('No se pudo quitar rol de motivo antiguo:', role.name, err);
+        });
       }
-    } else {
-      // Sin sub activa: quitar todos los roles que correspondan a motivos
-      for (const role of memberRoles.values()) {
-        if (allReasonNames.includes(role.name)) {
-          // eslint-disable-next-line no-await-in-loop
-          await member.roles.remove(role).catch((err) => {
-            console.error('No se pudo quitar rol de motivo (sub finalizada):', role.name, err);
-          });
-        }
+    }
+  } else {
+    // Sin sub activa: quitar todos los roles de motivo conocidos
+    for (const role of memberRoles.values()) {
+      const nameLower = role.name.toLowerCase();
+      if (knownMotivoLower.includes(nameLower)) {
+        // eslint-disable-next-line no-await-in-loop
+        await member.roles.remove(role).catch((err) => {
+          console.error('No se pudo quitar rol de motivo (sub finalizada):', role.name, err);
+        });
       }
     }
   }

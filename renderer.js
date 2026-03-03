@@ -215,7 +215,16 @@
   dashTabs.forEach((btn) => {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-tab');
-      if (tab) activateTab(tab);
+      if (!tab) return;
+
+      // Bloquear navegación si el ítem está marcado como bloqueado
+      if (btn.classList.contains('dash-nav-item--locked')) {
+        // Solo mostramos el tooltip (title) configurado en el botón.
+        // No abrimos ningún popup extra.
+        return;
+      }
+
+      activateTab(tab);
     });
   });
 
@@ -768,9 +777,11 @@
       discordHeaderUnlinkedEl.hidden = linked;
     }
 
+    // Actualizar panel de roles y permisos de menú
+    const roles = Array.isArray(row?.roles) ? row.roles.map((r) => String(r)) : [];
+
     if (linked) {
       discordUsernameLabel.textContent = row.discord_username || '(sin nombre)';
-      const roles = Array.isArray(row.roles) ? row.roles : [];
       discordRolesList.innerHTML = '';
       if (roles.length === 0) {
         const li = document.createElement('li');
@@ -784,6 +795,60 @@
         });
       }
     }
+
+    updateMenuAccess(linked, roles);
+  }
+
+  function updateMenuAccess(isLinked, roles) {
+    const normalizedRoles = roles.map((r) => r.toLowerCase());
+
+    const adminRoles = ['admin', '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️'.toLowerCase()];
+    const subscriptionRoles = [
+      'anclado',
+      'arg-6m',
+      'arg-1m',
+      'argenmod argentina mensual',
+      'arg-3m',
+      'chile-1 mes'
+    ].map((r) => r.toLowerCase());
+
+    const hasAdminRole = normalizedRoles.some((r) => adminRoles.includes(r));
+    const hasSubRole = normalizedRoles.some((r) => subscriptionRoles.includes(r));
+    const canAccessProtected = isLinked && (hasAdminRole || hasSubRole);
+
+    dashTabs.forEach((btn) => {
+      const tab = btn.getAttribute('data-tab');
+      if (!tab) return;
+
+      const isProfile = tab === 'profile';
+
+      // Perfil siempre accesible
+      if (isProfile) {
+        btn.classList.remove('dash-nav-item--locked');
+        btn.removeAttribute('data-locked');
+        btn.removeAttribute('title');
+        return;
+      }
+
+      if (!isLinked) {
+        btn.classList.add('dash-nav-item--locked');
+        btn.setAttribute('data-locked', 'unlinked');
+        btn.title = 'Debes vincular tu Discord para ver este menú.';
+        return;
+      }
+
+      if (!canAccessProtected) {
+        btn.classList.add('dash-nav-item--locked');
+        btn.setAttribute('data-locked', 'no-permission');
+        btn.title = 'No tienes los roles necesarios para este menú.';
+        return;
+      }
+
+      // Tiene permisos completos
+      btn.classList.remove('dash-nav-item--locked');
+      btn.removeAttribute('data-locked');
+      btn.removeAttribute('title');
+    });
   }
 
   const rememberMe = document.getElementById('rememberMe');

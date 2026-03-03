@@ -443,6 +443,17 @@ html, body {
   color: #f9fafb;
 }
 
+.dash-nav-item--locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dash-nav-item--locked:hover {
+  background: transparent;
+  color: #9ca3af;
+  transform: none;
+}
+
 .dash-nav-icon {
   width: 22px;
   text-align: center;
