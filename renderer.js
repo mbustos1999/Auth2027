@@ -38,6 +38,9 @@
   const mercadopagoPayerNameEl = document.getElementById('mercadopagoPayerName');
   const mercadopagoStatusRawEl = document.getElementById('mercadopagoStatusRaw');
   const mercadopagoDaysLeftEl = document.getElementById('mercadopagoDaysLeft');
+  const kofiPatreonCardEl = document.getElementById('kofiPatreonCard');
+  const kofiStatusBoxEl = document.getElementById('kofiStatusBox');
+  const patreonStatusBoxEl = document.getElementById('patreonStatusBox');
 
   let currentUser = null;
   let currentDiscordRow = null;
@@ -520,11 +523,65 @@
       }
     }
 
+    // DEBUG rápido para ver qué valores está usando la app en tiempo real.
+    // Puedes abrir las DevTools (Ctrl+Shift+I) y mirar la consola.
+    // eslint-disable-next-line no-console
+    console.log('DEBUG updateDiscordUI', {
+      linked,
+      roles,
+      kofiCardHidden: kofiPatreonCardEl ? kofiPatreonCardEl.hidden : null,
+      kofiBoxHidden: kofiStatusBoxEl ? kofiStatusBoxEl.hidden : null,
+      patreonBoxHidden: patreonStatusBoxEl ? patreonStatusBoxEl.hidden : null,
+    });
+
+    // Mostrar estado Ko-fi / Patreon según roles del servidor.
+    // Regla:
+    // - Si el usuario NO está vinculado a Discord -> ocultar todo, SIEMPRE.
+    // - Si tiene rol de Ko-fi -> mostrar solo Ko-fi.
+    // - Si tiene rol de Patreon -> mostrar solo Patreon.
+    // - Si tiene ambos -> mostrar ambos.
+    if (kofiPatreonCardEl && kofiStatusBoxEl && patreonStatusBoxEl) {
+      if (!linked) {
+        // No vinculado: forzamos a ocultar cualquier cosa.
+        kofiStatusBoxEl.hidden = true;
+        patreonStatusBoxEl.hidden = true;
+        kofiPatreonCardEl.hidden = true;
+        kofiStatusBoxEl.style.display = 'none';
+        patreonStatusBoxEl.style.display = 'none';
+        kofiPatreonCardEl.style.display = 'none';
+      } else {
+        const rolesStr = roles.map((r) => String(r));
+        const rolesLower = rolesStr.map((r) => r.toLowerCase());
+
+        // Soportar tanto nombres normales ("Ko-fi", "Patreon") como los estilizados del servidor.
+        const hasKofi =
+          rolesLower.some((r) => r.includes('ko-fi') || r.includes('kofi')) ||
+          rolesStr.some((r) => r.includes('𝙆𝙊𝙁𝙄'));
+
+        const hasPatreon =
+          rolesLower.some((r) => r.includes('patreon')) ||
+          rolesStr.some((r) => r.includes('𝙋𝘼𝙏𝙍𝙀𝙊𝙉'));
+
+        const showKofi = hasKofi;
+        const showPatreon = hasPatreon;
+        const showAny = showKofi || showPatreon;
+
+        kofiStatusBoxEl.hidden = !showKofi;
+        patreonStatusBoxEl.hidden = !showPatreon;
+        kofiPatreonCardEl.hidden = !showAny;
+
+        kofiStatusBoxEl.style.display = showKofi ? '' : 'none';
+        patreonStatusBoxEl.style.display = showPatreon ? '' : 'none';
+        kofiPatreonCardEl.style.display = showAny ? '' : 'none';
+      }
+    }
+
     updateMenuAccess(linked, roles);
   }
 
   function evaluateAccessFlags(isLinked, roles) {
-    const normalizedRoles = roles.map((r) => r.toLowerCase());
+    const rolesStr = roles.map((r) => String(r));
+    const normalizedRoles = rolesStr.map((r) => r.toLowerCase());
 
     const adminRoles = ['admin', '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️'.toLowerCase()];
     const subscriptionRoles = [
@@ -533,16 +590,31 @@
       'arg-1m',
       'argenmod argentina mensual',
       'arg-3m',
-      'chile-1 mes',
-      '☕・𝙈𝙄𝙀𝙈𝘽𝙍𝙊 𝙆𝙊𝙁𝙄',
-      '💲・ 𝙋𝘼𝙏𝙍𝙀𝙊𝙉・💲'
+      'chile-1 mes'
     ].map((r) => r.toLowerCase());
 
     const hasAdminRole = normalizedRoles.some((r) => adminRoles.includes(r));
-    const hasSubRole = normalizedRoles.some((r) => subscriptionRoles.includes(r));
+
+    // Considerar también roles de Ko-fi / Patreon como suscripción válida.
+    const hasKofiSub =
+      normalizedRoles.some((r) => r.includes('ko-fi') || r.includes('kofi')) ||
+      rolesStr.some((r) => r.includes('𝙆𝙊𝙁𝙄'));
+
+    const hasPatreonSub =
+      normalizedRoles.some((r) => r.includes('patreon')) ||
+      rolesStr.some((r) => r.includes('𝙋𝘼𝙏𝙍𝙀𝙊𝙉'));
+
+    const hasBaseSubRole = normalizedRoles.some((r) => subscriptionRoles.includes(r));
+    const hasSubRole = hasBaseSubRole || hasKofiSub || hasPatreonSub;
+
     const canAccessProtected = isLinked && (hasAdminRole || hasSubRole);
 
-    return { normalizedRoles, hasAdminRole, hasSubRole, canAccessProtected };
+    return {
+      normalizedRoles,
+      hasAdminRole,
+      hasSubRole,
+      canAccessProtected
+    };
   }
 
   function updateMenuAccess(isLinked, roles) {
