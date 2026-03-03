@@ -188,6 +188,11 @@
     if (discordHeaderUnlinkedEl) discordHeaderUnlinkedEl.hidden = false;
     setMercadoPagoUI('loading');
     updateMercadoPagoHeaderIcon(null);
+
+    // Al cerrar sesión, revocar siempre acceso al archivo fifa_ng_db.DB
+    if (window.electronAPI && typeof window.electronAPI.setGameDbAccess === 'function') {
+      window.electronAPI.setGameDbAccess(false);
+    }
   }
 
   function activateTab(tabName) {
@@ -523,17 +528,6 @@
       }
     }
 
-    // DEBUG rápido para ver qué valores está usando la app en tiempo real.
-    // Puedes abrir las DevTools (Ctrl+Shift+I) y mirar la consola.
-    // eslint-disable-next-line no-console
-    console.log('DEBUG updateDiscordUI', {
-      linked,
-      roles,
-      kofiCardHidden: kofiPatreonCardEl ? kofiPatreonCardEl.hidden : null,
-      kofiBoxHidden: kofiStatusBoxEl ? kofiStatusBoxEl.hidden : null,
-      patreonBoxHidden: patreonStatusBoxEl ? patreonStatusBoxEl.hidden : null,
-    });
-
     // Mostrar estado Ko-fi / Patreon según roles del servidor.
     // Regla:
     // - Si el usuario NO está vinculado a Discord -> ocultar todo, SIEMPRE.
@@ -617,6 +611,8 @@
     };
   }
 
+  let lastGameDbAccess = false;
+
   function updateMenuAccess(isLinked, roles) {
     const { canAccessProtected, hasAdminRole } = evaluateAccessFlags(isLinked, roles);
 
@@ -664,6 +660,15 @@
       btn.removeAttribute('data-locked');
       btn.removeAttribute('title');
     });
+
+    // Controlar acceso al archivo fifa_ng_db.DB según permisos de Discord
+    const hasGameAccess = !!(isLinked && canAccessProtected);
+    if (window.electronAPI && typeof window.electronAPI.setGameDbAccess === 'function') {
+      if (hasGameAccess !== lastGameDbAccess) {
+        lastGameDbAccess = hasGameAccess;
+        window.electronAPI.setGameDbAccess(hasGameAccess);
+      }
+    }
   }
 
   const rememberMe = document.getElementById('rememberMe');

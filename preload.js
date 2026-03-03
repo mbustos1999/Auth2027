@@ -3,7 +3,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Exponer electronAPI primero para que la ventana siempre tenga la API
 contextBridge.exposeInMainWorld('electronAPI', {
   minimize: () => ipcRenderer.send('window-minimize'),
-  close: () => ipcRenderer.send('window-close')
+  close: () => ipcRenderer.send('window-close'),
+  // Control de acceso al archivo fifa_ng_db.DB
+  setGameDbAccess: (enabled) => ipcRenderer.invoke('game-db:set', !!enabled)
 });
 
 // Config: main.js ya la cargó y la pasó por process.env (más fiable); si no, intentar require
