@@ -166,13 +166,13 @@
     // Mostrar solo "Pendiente" hasta confirmar el estado real desde Supabase
     updateDiscordUI();
 
+    // Sincronizar usuario en Supabase y, cuando termine, consultar MercadoPago
+    syncUserWithSupabase()
+      .then(() => fetchMercadoPagoAndSave())
+      .catch(() => fetchMercadoPagoAndSave());
+
     // Al entrar al dashboard, ir directamente a la pestaña Perfil
     activateTab('profile');
-
-    // Sincronizar usuario en Supabase
-    syncUserWithSupabase().catch(() => {});
-    // Consultar MercadoPago por correo y guardar status en DB
-    fetchMercadoPagoAndSave().catch(() => {});
   }
 
   function showLogin() {
@@ -200,8 +200,16 @@
       panel.classList.toggle('dash-tab--active', active);
       panel.hidden = !active;
     });
-    // Al abrir Perfil, refrescar visibilidad Discord (ocultar "Discord vinculado" si no lo está)
-    if (tabName === 'profile') updateDiscordUI();
+    // Al abrir Perfil, refrescar desde Supabase y luego actualizar UI
+    if (tabName === 'profile') {
+      refreshDiscordFromSupabase()
+        .then(() => {
+          updateDiscordUI();
+        })
+        .catch(() => {
+          updateDiscordUI();
+        });
+    }
   }
 
   dashTabs.forEach((btn) => {
@@ -536,7 +544,14 @@
 
     if (supabaseUrl && supabaseKey) {
       try {
-        const patchUrl = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/user_discord_links?email=eq.${encodeURIComponent(email)}`;
+        const base = supabaseUrl.replace(/\/$/, '');
+        let patchUrl = `${base}/rest/v1/user_discord_links?email=eq.${encodeURIComponent(email)}`;
+
+        // Si ya tenemos fila en memoria, usar id (evita problemas de mayúsculas/minúsculas en email)
+        if (currentDiscordRow && typeof currentDiscordRow.id === 'number') {
+          patchUrl = `${base}/rest/v1/user_discord_links?id=eq.${currentDiscordRow.id}`;
+        }
+
         await fetch(patchUrl, {
           method: 'PATCH',
           headers: {
@@ -593,6 +608,10 @@
         row && row.discord_id && String(row.status || '').toLowerCase() === 'linked';
 
       if (linked || attempts >= maxAttempts) {
+        // Si se vinculó, volver a consultar MercadoPago y guardar en Supabase
+        if (linked) {
+          fetchMercadoPagoAndSave().catch(() => {});
+        }
         discordLinkPolling = false;
         return;
       }

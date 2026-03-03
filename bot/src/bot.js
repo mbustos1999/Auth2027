@@ -13,7 +13,10 @@ const {
   DISCORD_CLIENT_ID,
   DISCORD_CLIENT_SECRET,
   DISCORD_REDIRECT_URI,
-  OAUTH_SERVER_PORT
+  OAUTH_SERVER_PORT,
+  MERCADOPAGO_ACCESS_TOKEN_CHILE,
+  MERCADOPAGO_ACCESS_TOKEN_ARG,
+  MERCADOPAGO_ACCESS_TOKEN
 } = process.env;
 
 if (!DISCORD_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -137,17 +140,232 @@ async function assignAncladoRoleAndGetRoles(member, roleName = 'Anclado') {
   if (!member?.guild) return roles;
 
   try {
-    const ancladoRole = member.guild.roles.cache.find((r) => r.name === roleName) || null;
-    if (ancladoRole && !member.roles.cache.has(ancladoRole.id)) {
-      await member.roles.add(ancladoRole).catch((err) => {
-        console.error('No se pudo asignar rol Anclado:', err);
-      });
+    // Asegura que exista el rol y lo asigna (lo crea si falta)
+    const ensuredRole = await ensureRoleByName(member, roleName);
+    if (ensuredRole) {
+      roles = await getUserRolesInGuild(member);
+    } else {
+      roles = await getUserRolesInGuild(member);
     }
-    roles = await getUserRolesInGuild(member);
   } catch (err) {
     console.error('Error al asignar rol Anclado:', err);
   }
 
+  return roles;
+}
+
+async function ensureRoleByName(member, roleName) {
+  if (!member?.guild || !roleName) return null;
+  try {
+    let role = member.guild.roles.cache.find((r) => r.name === roleName) || null;
+    if (!role) {
+      role = await member.guild.roles
+        .create({
+          name: roleName,
+          reason: 'Rol de suscripción (Motivo) desde Auth 2027'
+        })
+        .catch((err) => {
+          console.error(`No se pudo crear el rol "${roleName}":`, err);
+          return null;
+        });
+    }
+    if (role && !member.roles.cache.has(role.id)) {
+      await member.roles.add(role).catch((err) => {
+        console.error(`No se pudo asignar el rol "${roleName}":`, err);
+      });
+    }
+    return role;
+  } catch (err) {
+    console.error(`Error en ensureRoleByName("${roleName}"):`, err);
+    return null;
+  }
+}
+
+async function ensureMercadoPagoDataOnRow(row) {
+  if (!row || !row.email || !row.id) return row;
+
+  const hasStatus = !!row.mercadopago_status;
+  const hasData = !!row.mercadopago_data;
+
+  const tokensToUse = [];
+  if (MERCADOPAGO_ACCESS_TOKEN_CHILE) {
+    tokensToUse.push({ country: 'chile', token: MERCADOPAGO_ACCESS_TOKEN_CHILE });
+  }
+  if (MERCADOPAGO_ACCESS_TOKEN_ARG) {
+    tokensToUse.push({ country: 'argentina', token: MERCADOPAGO_ACCESS_TOKEN_ARG });
+  }
+  if (tokensToUse.length === 0 && MERCADOPAGO_ACCESS_TOKEN) {
+    tokensToUse.push({ country: 'legacy', token: MERCADOPAGO_ACCESS_TOKEN });
+  }
+
+  // Si ya tenemos datos y no hay tokens configurados, no hacemos nada
+  if ((hasStatus || hasData) || tokensToUse.length === 0) {
+    return row;
+  }
+
+  const email = row.email;
+  const searchUrlBase = `https://api.mercadopago.com/preapproval/search?payer_email=${encodeURIComponent(email)}`;
+
+  async function queryWithToken(label, token) {
+    try {
+      const res = await fetch(searchUrlBase, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.error('Error consultando MercadoPago desde bot:', label, data);
+        return { ok: false, status: 'error', data: { error: data.message || res.status, source: label } };
+      }
+
+      if (Array.isArray(data.results) && data.results.length > 0) {
+        return {
+          ok: true,
+          status: 'found',
+          data: { results: data.results, paging: data.paging, source: label }
+        };
+      }
+
+      return { ok: true, status: 'not_found', data: { results: [], paging: data.paging, source: label } };
+    } catch (e) {
+      console.error('Error de red consultando MercadoPago desde bot:', e);
+      return { ok: false, status: 'error', data: { error: 'network_error', source: label } };
+    }
+  }
+
+  const results = [];
+  for (const entry of tokensToUse) {
+    // eslint-disable-next-line no-await-in-loop
+    const r = await queryWithToken(entry.country, entry.token);
+    if (r) results.push(r);
+  }
+
+  const found = results.filter((r) => r.ok && r.status === 'found');
+  if (found.length === 0) {
+    return row;
+  }
+
+  const allPreapprovals = found.flatMap((r) =>
+    r.data && Array.isArray(r.data.results) ? r.data.results : []
+  );
+
+  if (!Array.isArray(allPreapprovals) || allPreapprovals.length === 0) {
+    return row;
+  }
+
+  const first = allPreapprovals[0];
+  const rawStatus = String(first.status || '').toLowerCase() || 'unknown';
+
+  const dataToSave = {
+    results: allPreapprovals,
+    sources: found.map((r) => r.data?.source).filter(Boolean),
+    paging: null,
+    meta: {
+      effective_status: rawStatus,
+      ui_label: rawStatus === 'authorized' ? 'Sub activa' : rawStatus,
+      raw_status: rawStatus
+    }
+  };
+
+  const statusToSave = rawStatus;
+
+  try {
+    const { data: updated, error } = await supabase
+      .from('user_discord_links')
+      .update({
+        mercadopago_status: statusToSave,
+        mercadopago_data: dataToSave,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', row.id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      console.error('No se pudo actualizar mercadopago_data desde el bot:', error);
+      return row;
+    }
+
+    return updated || row;
+  } catch (e) {
+    console.error('Error inesperado actualizando mercadopago_data desde el bot:', e);
+    return row;
+  }
+}
+
+function getMotivoRoleNameFromRow(row) {
+  if (!row || !row.mercadopago_data) return null;
+
+  let data = row.mercadopago_data;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch (e) {
+      console.error('mercadopago_data no es JSON válido en fila user_discord_links:', e);
+      return null;
+    }
+  }
+
+  const results = Array.isArray(data.results) ? data.results : [];
+  if (results.length === 0) return null;
+
+  const now = new Date();
+
+  function isPreapprovalActive(pre) {
+    const rawStatus = String(pre.status || '').toLowerCase();
+    const endDateStr =
+      pre.end_date ||
+      (pre.auto_recurring && pre.auto_recurring.end_date) ||
+      null;
+
+    let notExpired = false;
+    if (endDateStr) {
+      const d = new Date(endDateStr);
+      if (!Number.isNaN(d.getTime())) {
+        notExpired = d >= now;
+      }
+    }
+
+    return (
+      rawStatus === 'authorized' ||
+      (notExpired && (rawStatus === 'cancelled' || rawStatus === 'pending'))
+    );
+  }
+
+  // Buscar alguna preaprobación "activa" según la lógica de la app
+  const activePre = results.find((pre) => isPreapprovalActive(pre));
+  if (!activePre) return null;
+
+  const reason =
+    activePre.reason ||
+    (activePre.auto_recurring && activePre.auto_recurring.reason) ||
+    null;
+
+  if (!reason || typeof reason !== 'string') return null;
+  return reason.trim();
+}
+
+async function assignRolesForLinkedUser(member, row, ancladoRoleName = 'Anclado') {
+  if (!member) return [];
+
+  // Asegurarnos de tener datos de MercadoPago (si hay tokens en el bot)
+  const rowWithMp = await ensureMercadoPagoDataOnRow(row);
+
+  // Siempre rol Anclado
+  await assignAncladoRoleAndGetRoles(member, ancladoRoleName);
+
+  // Si tiene sub activa, rol Motivo (nombre = reason)
+  const motivoRoleName = getMotivoRoleNameFromRow(rowWithMp);
+  if (motivoRoleName) {
+    await ensureRoleByName(member, motivoRoleName);
+  }
+
+  // Devolver listado actualizado de roles
+  const roles = await getUserRolesInGuild(member);
   return roles;
 }
 
@@ -204,9 +422,9 @@ client.on('messageCreate', async (message) => {
     if (message.guild) {
       member = await message.guild.members.fetch(message.author.id).catch(() => null);
 
-      // Asignar rol "Anclado" en el servidor
       if (member) {
-        roles = await assignAncladoRoleAndGetRoles(member, ancladoRoleName);
+        // Siempre rol "Anclado", y si tiene sub activa, rol "Motivo"
+        roles = await assignRolesForLinkedUser(member, row, ancladoRoleName);
       }
     }
 
@@ -245,7 +463,7 @@ client.on('guildMemberAdd', async (member) => {
 
     if (!row) return;
 
-    const roles = await assignAncladoRoleAndGetRoles(member, 'Anclado');
+    const roles = await assignRolesForLinkedUser(member, row, 'Anclado');
 
     await updateDiscordLinkRow(row.id, {
       discordId: member.id,
@@ -381,7 +599,7 @@ function startOAuthServer() {
           const guild = await client.guilds.fetch(GUILD_ID);
           const member = await guild.members.fetch(discordId).catch(() => null);
           if (member) {
-            const roles = await assignAncladoRoleAndGetRoles(member, 'Anclado');
+            const roles = await assignRolesForLinkedUser(member, rowFromState, 'Anclado');
             await updateDiscordLinkRow(rowId, {
               discordId,
               discordUsername,
