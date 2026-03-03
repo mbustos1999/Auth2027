@@ -18,23 +18,18 @@
   const authUrl = baseUrl && authEndpoint ? `${baseUrl.replace(/\/$/, '')}${authEndpoint}` : '';
   const supabaseUrl = (apiConfig.supabaseUrl != null && apiConfig.supabaseUrl !== '') ? String(apiConfig.supabaseUrl).trim() : '';
   const supabaseKey = (apiConfig.supabaseAnonKey != null && apiConfig.supabaseAnonKey !== '') ? String(apiConfig.supabaseAnonKey).trim() : '';
-  const discordInviteUrl = (apiConfig.discordInviteUrl != null && apiConfig.discordInviteUrl !== '') ? String(apiConfig.discordInviteUrl).trim() : '';
   const discordOAuthBaseUrl = (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '';
   const dashTabs = Array.from(document.querySelectorAll('.dash-nav-item'));
   const dashPanels = Array.from(document.querySelectorAll('.dash-tab'));
-  const discordLinkCodeEl = document.getElementById('discordLinkCode');
   const discordLinkStatusEl = document.getElementById('discordLinkStatus');
   const discordLinkedBoxEl = document.getElementById('discordLinkedBox');
   const discordUsernameLabel = document.getElementById('discordUsernameLabel');
   const discordRolesList = document.getElementById('discordRolesList');
-  const btnCopyDiscordCode = document.getElementById('btnCopyDiscordCode');
-  const btnRefreshDiscordLink = document.getElementById('btnRefreshDiscordLink');
-  const btnRefreshDiscordLink2 = document.getElementById('btnRefreshDiscordLink2');
-  const btnOpenDiscord = document.getElementById('btnOpenDiscord');
   const btnConnectDiscord = document.getElementById('btnConnectDiscord');
 
   let currentUser = null;
   let currentDiscordRow = null;
+  let discordLinkPolling = false;
 
   function showError(msg) {
     messageError.textContent = msg;
@@ -141,6 +136,7 @@
 
   function showDashboard(user) {
     currentUser = user;
+    currentDiscordRow = null; // Hasta que Supabase responda, considerar no vinculado
     userNameEl.textContent = user.display_name || 'Usuario';
     userEmailEl.textContent = user.user_email || '';
     userAvatarEl.textContent = (user.display_name || user.user_email || 'U').charAt(0).toUpperCase();
@@ -152,6 +148,9 @@
     panelLogin.style.display = 'none';
     panelDashboard.hidden = false;
     panelDashboard.style.display = 'block';
+
+    // Mostrar solo "Pendiente" hasta confirmar el estado real desde Supabase
+    updateDiscordUI();
 
     // Al entrar al dashboard, ir directamente a la pestaña Perfil
     activateTab('profile');
@@ -185,6 +184,8 @@
       panel.classList.toggle('dash-tab--active', active);
       panel.hidden = !active;
     });
+    // Al abrir Perfil, refrescar visibilidad Discord (ocultar "Discord vinculado" si no lo está)
+    if (tabName === 'profile') updateDiscordUI();
   }
 
   dashTabs.forEach((btn) => {
@@ -221,16 +222,49 @@
     updateDiscordUI();
   }
 
+  function startDiscordLinkPolling() {
+    if (discordLinkPolling) return;
+    discordLinkPolling = true;
+
+    const maxAttempts = 20; // ~60s si usamos 3s entre intentos
+    const delayMs = 3000;
+    let attempts = 0;
+
+    const poll = async () => {
+      attempts += 1;
+      await refreshDiscordFromSupabase().catch(() => {});
+
+      const row = currentDiscordRow;
+      const linked =
+        row && row.discord_id && String(row.status || '').toLowerCase() === 'linked';
+
+      if (linked || attempts >= maxAttempts) {
+        discordLinkPolling = false;
+        return;
+      }
+
+      setTimeout(poll, delayMs);
+    };
+
+    setTimeout(poll, delayMs);
+  }
+
   function updateDiscordUI() {
-    if (!discordLinkCodeEl || !discordLinkStatusEl || !discordLinkedBoxEl) return;
+    if (!discordLinkStatusEl || !discordLinkedBoxEl) return;
 
     const row = currentDiscordRow;
-    const code = row?.link_code || '••••••';
-    discordLinkCodeEl.textContent = code;
+    const hasRow = !!row;
+    // Solo "Discord vinculado" cuando hay fila, discord_id rellenado y estado linked
+    const linked = hasRow && !!row.discord_id && String(row.status).toLowerCase() === 'linked';
 
-    const linked = !!row && (row.status === 'linked' || !!row.discord_id);
+    // Mostrar solo una caja: Pendiente O Discord vinculado, nunca las dos
     discordLinkStatusEl.hidden = linked;
     discordLinkedBoxEl.hidden = !linked;
+
+    if (btnConnectDiscord) {
+      btnConnectDiscord.hidden = linked;
+      btnConnectDiscord.disabled = linked;
+    }
 
     if (discordTopSummaryEl) {
       if (linked && row) {
@@ -484,34 +518,6 @@
     registerSendBtn.addEventListener('click', crearCuenta);
   }
 
-  if (btnCopyDiscordCode && navigator.clipboard) {
-    btnCopyDiscordCode.addEventListener('click', async () => {
-      const code = discordLinkCodeEl.textContent || '';
-      try {
-        await navigator.clipboard.writeText(code);
-      } catch (_) {}
-    });
-  }
-
-  if (btnRefreshDiscordLink) {
-    btnRefreshDiscordLink.addEventListener('click', () => {
-      refreshDiscordFromSupabase().catch(() => {});
-    });
-  }
-
-  if (btnRefreshDiscordLink2) {
-    btnRefreshDiscordLink2.addEventListener('click', () => {
-      refreshDiscordFromSupabase().catch(() => {});
-    });
-  }
-
-  if (btnOpenDiscord) {
-    btnOpenDiscord.addEventListener('click', () => {
-      const url = discordInviteUrl || 'https://discord.com/app';
-      window.open(url, '_blank');
-    });
-  }
-
   if (btnConnectDiscord) {
     btnConnectDiscord.addEventListener('click', async () => {
       if (!discordOAuthBaseUrl) {
@@ -539,6 +545,10 @@
       const sep = hasQuery ? '&' : '?';
       const url = `${discordOAuthBaseUrl}${sep}state=${encodeURIComponent(String(stateValue))}`;
       window.open(url, '_blank');
+
+      // Después de abrir la ventana de autorización, empezamos a consultar Supabase
+      // para detectar cuándo se complete la vinculación y refrescar la vista.
+      startDiscordLinkPolling();
     });
   }
 
