@@ -533,7 +533,9 @@
       'arg-1m',
       'argenmod argentina mensual',
       'arg-3m',
-      'chile-1 mes'
+      'chile-1 mes',
+      '☕・𝙈𝙄𝙀𝙈𝘽𝙍𝙊 𝙆𝙊𝙁𝙄',
+      '💲・ 𝙋𝘼𝙏𝙍𝙀𝙊𝙉・💲'
     ].map((r) => r.toLowerCase());
 
     const hasAdminRole = normalizedRoles.some((r) => adminRoles.includes(r));
