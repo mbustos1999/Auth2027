@@ -583,11 +583,20 @@
 
     let bestRow = null;
     if (Array.isArray(rows) && rows.length > 0) {
-      // Preferir la fila que ya tenga discord_id (ya vinculado); si no, la primera
-      bestRow = rows.find((r) => r && r.discord_id) || rows[0];
+      // Si hay varias filas, preferir la que tenga discord_id y el updated_at más reciente
+      const withDiscord = rows.filter((r) => r && r.discord_id);
+      const candidates = withDiscord.length > 0 ? withDiscord : rows;
+
+      candidates.sort((a, b) => {
+        const da = a && a.updated_at ? new Date(a.updated_at).getTime() : 0;
+        const db = b && b.updated_at ? new Date(b.updated_at).getTime() : 0;
+        return db - da;
+      });
+
+      bestRow = candidates[0] || null;
     }
 
-    currentDiscordRow = bestRow || null;
+    currentDiscordRow = bestRow;
     updateDiscordUI();
   }
 
