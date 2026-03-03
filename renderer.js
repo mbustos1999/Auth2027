@@ -197,6 +197,8 @@
   }
 
   function activateTab(tabName) {
+    // Seguridad adicional: no permitir abrir pestañas restringidas
+    if (!canAccessTab(tabName)) return;
     dashTabs.forEach((btn) => {
       const t = btn.getAttribute('data-tab');
       btn.classList.toggle('dash-nav-item--active', t === tabName);
@@ -228,6 +230,20 @@
       activateTab(tab);
     });
   });
+
+  function canAccessTab(tabName) {
+    // Perfil siempre accesible
+    if (tabName === 'profile') return true;
+
+    const row = currentDiscordRow;
+    const hasRow = !!row;
+    const linked = hasRow && !!row.discord_id && String(row.status).toLowerCase() === 'linked';
+    const roles = Array.isArray(row?.roles) ? row.roles.map((r) => String(r)) : [];
+
+    const { canAccessProtected } = evaluateAccessFlags(linked, roles);
+    // Cualquier pestaña distinta de "profile" se considera protegida
+    return canAccessProtected;
+  }
 
   async function syncUserWithSupabase() {
     // Ya no intentamos crear/actualizar filas desde el front.
@@ -818,7 +834,7 @@
     updateMenuAccess(linked, roles);
   }
 
-  function updateMenuAccess(isLinked, roles) {
+  function evaluateAccessFlags(isLinked, roles) {
     const normalizedRoles = roles.map((r) => r.toLowerCase());
 
     const adminRoles = ['admin', '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️'.toLowerCase()];
@@ -834,6 +850,12 @@
     const hasAdminRole = normalizedRoles.some((r) => adminRoles.includes(r));
     const hasSubRole = normalizedRoles.some((r) => subscriptionRoles.includes(r));
     const canAccessProtected = isLinked && (hasAdminRole || hasSubRole);
+
+    return { normalizedRoles, hasAdminRole, hasSubRole, canAccessProtected };
+  }
+
+  function updateMenuAccess(isLinked, roles) {
+    const { canAccessProtected } = evaluateAccessFlags(isLinked, roles);
 
     dashTabs.forEach((btn) => {
       const tab = btn.getAttribute('data-tab');
