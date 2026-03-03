@@ -178,10 +178,14 @@
 
   function showLogin() {
     panelLogin.hidden = false;
+    panelLogin.style.display = '';
     panelDashboard.hidden = true;
+    panelDashboard.style.display = 'none';
     usernameInput.value = '';
     passwordInput.value = '';
     clearError();
+    // Si el usuario marcó "Recordar usuario y contraseña", restaurar desde localStorage
+    restoreRememberedCredentials();
     currentUser = null;
     currentDiscordRow = null;
     if (discordHeaderLinkedEl) discordHeaderLinkedEl.hidden = true;
@@ -193,6 +197,13 @@
     if (window.electronAPI && typeof window.electronAPI.setGameDbAccess === 'function') {
       window.electronAPI.setGameDbAccess(false);
     }
+
+    // Pequeña animación al volver a mostrar el login
+    panelLogin.classList.remove('panel-login-animate');
+    // forzar reflujo para reiniciar la animación
+    // eslint-disable-next-line no-unused-expressions
+    panelLogin.offsetHeight;
+    panelLogin.classList.add('panel-login-animate');
   }
 
   function activateTab(tabName) {
@@ -673,18 +684,23 @@
 
   const rememberMe = document.getElementById('rememberMe');
 
-  // Cargar credenciales guardadas (si el usuario eligió recordarlas)
-  try {
-    const savedRaw = localStorage.getItem('auth2027_remember');
-    if (savedRaw) {
+  function restoreRememberedCredentials() {
+    // Cargar credenciales guardadas (si el usuario eligió recordarlas)
+    try {
+      const savedRaw = localStorage.getItem('auth2027_remember');
+      if (!savedRaw) return;
       const saved = JSON.parse(savedRaw);
-      if (saved && typeof saved === 'object') {
-        if (saved.u) usernameInput.value = saved.u;
-        if (saved.p) passwordInput.value = saved.p;
-        if (rememberMe) rememberMe.checked = true;
-      }
+      if (!saved || typeof saved !== 'object') return;
+      if (saved.u) usernameInput.value = saved.u;
+      if (saved.p) passwordInput.value = saved.p;
+      if (rememberMe) rememberMe.checked = true;
+    } catch (_) {
+      // ignorar errores de JSON / storage
     }
-  } catch (_) {}
+  }
+
+  // Al iniciar la app, rellenar si había "Recordar usuario y contraseña"
+  restoreRememberedCredentials();
 
   formLogin.addEventListener('submit', async (e) => {
     e.preventDefault();
