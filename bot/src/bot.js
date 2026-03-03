@@ -395,9 +395,102 @@ function startOAuthServer() {
 
       res.statusCode = 200;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.end(
-        '<!doctype html><html><head><meta charset="utf-8"><title>Discord conectado</title></head><body style="font-family:sans-serif;text-align:center;padding:2rem;background:#111;color:#eee;"><h1>Discord conectado correctamente</h1><p>Ya puedes volver a Auth 2027 y pulsar en "Comprobar estado".</p></body></html>'
-      );
+      res.end(`<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Discord conectado</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: radial-gradient(circle at top left, #4f46e5 0, #020617 45%, #000 100%);
+        color: #e5e7eb;
+      }
+      .card {
+        background: rgba(15, 23, 42, 0.95);
+        border-radius: 20px;
+        padding: 28px 32px 24px;
+        max-width: 420px;
+        width: 100%;
+        box-shadow:
+          0 18px 45px rgba(15, 23, 42, 0.9),
+          0 0 0 1px rgba(148, 163, 184, 0.35);
+        text-align: center;
+      }
+      .icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 999px;
+        margin: 0 auto 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at 30% 20%, #a5b4fc, #4f46e5);
+        color: #ecfeff;
+        font-size: 26px;
+        box-shadow: 0 0 0 1px rgba(191, 219, 254, 0.3), 0 18px 35px rgba(15, 23, 42, 0.9);
+      }
+      h1 {
+        font-size: 22px;
+        margin-bottom: 8px;
+      }
+      p {
+        font-size: 14px;
+        color: #9ca3af;
+        margin-bottom: 18px;
+      }
+      .hint {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 6px;
+      }
+      button {
+        margin-top: 4px;
+        padding: 9px 16px;
+        border-radius: 999px;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        background: linear-gradient(135deg, #22c55e, #4ade80);
+        color: #022c22;
+        box-shadow: 0 10px 25px rgba(34, 197, 94, 0.45);
+        transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+      }
+      button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.03);
+        box-shadow: 0 16px 35px rgba(34, 197, 94, 0.6);
+      }
+      button:active {
+        transform: translateY(0);
+        box-shadow: 0 8px 18px rgba(34, 197, 94, 0.45);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon">✓</div>
+      <h1>Discord conectado correctamente</h1>
+      <p>Tu cuenta de Discord se ha vinculado. Ya puedes volver a Auth 2027; la app comprobará tu estado automáticamente en unos segundos.</p>
+      <button type="button" onclick="window.close()">Cerrar esta ventana</button>
+      <div class="hint">Si la ventana no se cierra, puedes hacerlo manualmente.</div>
+    </div>
+  </body>
+</html>`);
     } catch (err) {
       console.error('Error en servidor OAuth de Discord:', err);
       res.statusCode = 500;
