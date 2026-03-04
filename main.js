@@ -844,3 +844,19 @@ ipcMain.on('update:quitAndInstall', () => {
   if (autoUpdater) autoUpdater.quitAndInstall(false, true);
 });
 ipcMain.handle('app:getVersion', () => app.getVersion());
+
+// Config leída por main (siempre encuentra config.js en desarrollo e instalador) para que el renderer la use
+ipcMain.handle('app:getConfig', () => {
+  try {
+    const c = require('./config.js');
+    return {
+      baseUrl: (c.API_BASE_URL != null) ? String(c.API_BASE_URL).trim() : '',
+      authEndpoint: (c.AUTH_ENDPOINT != null) ? String(c.AUTH_ENDPOINT).trim() : '',
+      discordOAuthBaseUrl: (c.DISCORD_OAUTH_BASE_URL != null) ? String(c.DISCORD_OAUTH_BASE_URL).trim() : '',
+      pcName: (process.env.AUTH_APP_PC_NAME != null) ? String(process.env.AUTH_APP_PC_NAME).trim() : (os.hostname ? os.hostname() : ''),
+      botSharedSecret: (c.BOT_SHARED_SECRET != null) ? String(c.BOT_SHARED_SECRET).trim() : ''
+    };
+  } catch (e) {
+    return {};
+  }
+});

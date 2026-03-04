@@ -18,12 +18,10 @@
   const authEndpoint = (apiConfig.authEndpoint != null && apiConfig.authEndpoint !== '') ? String(apiConfig.authEndpoint).trim() : '';
   const authUrl = baseUrl && authEndpoint ? `${baseUrl.replace(/\/$/, '')}${authEndpoint}` : '';
   const pcName = (apiConfig.pcName != null && apiConfig.pcName !== '') ? String(apiConfig.pcName).trim() : '';
-  const botSharedSecret = (apiConfig.botSharedSecret != null && apiConfig.botSharedSecret !== '')
-    ? String(apiConfig.botSharedSecret).trim()
-    : '';
-  // Discord OAuth: se rellena desde apiConfig o desde GET /config del bot (app empaquetada sin .env)
+  // Config que puede actualizarse desde main (app empaquetada) o desde el bot (/config)
   const appConfig = {
-    discordOAuthBaseUrl: (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : ''
+    discordOAuthBaseUrl: (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '',
+    botSharedSecret: (apiConfig.botSharedSecret != null && apiConfig.botSharedSecret !== '') ? String(apiConfig.botSharedSecret).trim() : ''
   };
   // Bot remoto desplegado en Railway
   const BOT_BASE_URL = 'https://auth2027-production.up.railway.app';
@@ -114,8 +112,9 @@
 
   function buildBotHeaders(extra = {}) {
     const headers = { ...extra };
-    if (botSharedSecret) {
-      headers['X-Auth2027-Secret'] = botSharedSecret;
+    const secret = appConfig.botSharedSecret;
+    if (secret) {
+      headers['X-Auth2027-Secret'] = secret;
     }
     return headers;
   }
@@ -712,7 +711,18 @@
     }
   }
 
-  function showDashboard(user) {
+  async function showDashboard(user) {
+    // En la app empaquetada la config viene del main (config.js); así el bot recibe X-Auth2027-Secret
+    if (window.electronAPI && typeof window.electronAPI.getConfig === 'function') {
+      try {
+        const c = await window.electronAPI.getConfig();
+        if (c && typeof c === 'object') {
+          if (c.botSharedSecret) appConfig.botSharedSecret = String(c.botSharedSecret).trim();
+          if (c.discordOAuthBaseUrl) appConfig.discordOAuthBaseUrl = String(c.discordOAuthBaseUrl).trim();
+        }
+      } catch (_) {}
+    }
+
     currentUser = user;
     currentDiscordRow = null; // Hasta que Supabase responda, considerar no vinculado
     userNameEl.textContent = user.display_name || 'Usuario';

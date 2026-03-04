@@ -1,6 +1,6 @@
 {
   "name": "auth-2027",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Aplicación Electron con autenticación WordPress",
   "main": "main.js",
   "repository": {
