@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src *; img-src 'self' data:;" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.bunny.net; font-src https://fonts.gstatic.com https://fonts.bunny.net; connect-src *; img-src 'self' data: https://raw.githubusercontent.com;" />
   <title>Auth 2027</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.bunny.net/css?family=big-shoulders-text:400,700|inconsolata:400" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -263,57 +264,130 @@
 
           <!-- HOME -->
           <div class="dash-grid dash-tab dash-tab--active" data-tab-panel="home">
-            <section class="dash-card dash-card-wide">
-              <h3>Estado de tu cuenta</h3>
-              <div class="dash-status-row">
-                <div class="dash-status-pill dash-status-pill--ok">
-                  <span class="dot"></span>
-                  <span>Login verificado</span>
+            <!-- Menú Star Trek -->
+            <div class="star-trek-menu">
+              <div class="star-trek-logo">
+                <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/ster-trek-logo.png" alt="Star Trek">
+              </div>
+
+              <div class="star-trek-names">
+                <h2>El</h2>
+                <h2>Mejor</h2>
+                <h2>Mod</h2>
+                <h2>De</h2>
+                <h2>Sudamerica</h2>
+                <h2>Viva</h2>
+                <h2>ArgenMod!</h2>
+              </div>
+
+              <div class="star-trek-wrapper">
+                <div class="star-trek-character">
+                  <img src="assets/jug1.png" width="300" alt="Kirk">
+                  <div class="star-trek-data">
+                    <h3>James T. Kirk</h3>
+                    <div>
+                      <label>Actor:</label>
+                      <p>William Shatner</p>
+                      <label>Role:</label>
+                      <p>Captain of the USS Enterprise</p>
+                      <label>Known for:</label>
+                      <p>"Beam me up, Scotty."</p>
+                    </div>
+                    <p class="star-trek-notes">Bold, charismatic, impulsive, strategic thinker, morally driven, thrives under pressure.</p>
+                  </div>
                 </div>
-                <div class="dash-status-pill">
-                  <span class="dot dot--muted"></span>
-                  <span>PC vinculado</span>
+                <div class="star-trek-character">
+                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/spock-2.png" width="300" alt="Spock">
+                  <div class="star-trek-data">
+                    <h3>Spock</h3>
+                    <div>
+                      <label>Actor:</label>
+                      <p>Leonard Nimoy</p>
+                      <label>Role:</label>
+                      <p>First Officer & Science Officer</p>
+                      <label>Known for:</label>
+                      <p>"Live long and prosper." 🖖</p>
+                    </div>
+                    <p class="star-trek-notes">Logical, restrained, intellectually brilliant, emotionally conflicted (human/Vulcan duality), dry wit.</p>
+                  </div>
+                </div>
+                <div class="star-trek-character">
+                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/mccoy.png?v=1" width="300" alt="Bones">
+                  <div class="star-trek-data">
+                    <h3>Dr. Leonard "Bones" McCoy</h3>
+                    <div>
+                      <label>Actor:</label>
+                      <p>DeForest Kelley</p>
+                      <label>Role:</label>
+                      <p>Chief Medical Officer</p>
+                      <label>Known for:</label>
+                      <p>"I'm a doctor, not a…"</p>
+                    </div>
+                    <p class="star-trek-notes">Compassionate, sarcastic, emotional counterbalance to Spock, deeply loyal to Kirk.</p>
+                  </div>
+                </div>
+                <div class="star-trek-character">
+                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/scotty.png?v=1" width="300" alt="Scotty">
+                  <div class="star-trek-data">
+                    <h3>Montgomery "Scotty" Scott</h3>
+                    <div>
+                      <label>Actor:</label>
+                      <p>James Doohan</p>
+                      <label>Role:</label>
+                      <p>Chief Engineer</p>
+                      <label>Known for:</label>
+                      <p>"I canna change the laws of physics!"</p>
+                    </div>
+                    <p class="star-trek-notes">Brilliant engineer, resourceful, stubbornly optimistic about impossible repairs, quietly heroic.</p>
+                  </div>
+                </div>
+                <div class="star-trek-character">
+                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/uhura.png" width="300" alt="Uhura">
+                  <div class="star-trek-data">
+                    <h3>Nyota Uhura</h3>
+                    <div>
+                      <label>Actor:</label>
+                      <p>Nichelle Nichols</p>
+                      <label>Role:</label>
+                      <p>Communications Officer</p>
+                      <label>Known for:</label>
+                      <p>Multilingual communications mastery</p>
+                    </div>
+                    <p class="star-trek-notes">Intelligent, poised, confident, culturally aware, trailblazing representation.</p>
+                  </div>
+                </div>
+                <div class="star-trek-character">
+                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/sulu.png" width="300" alt="Sulu">
+                  <div class="star-trek-data">
+                    <h3>Hikaru Sulu</h3>
+                    <div>
+                      <label>Actor:</label>
+                      <p>George Takei</p>
+                      <label>Role:</label>
+                      <p>Helmsman</p>
+                      <label>Known for:</label>
+                      <p>Sword fighting in "The Naked Time"</p>
+                    </div>
+                    <p class="star-trek-notes">Calm under pressure, skilled pilot, disciplined, occasionally playful edge.</p>
+                  </div>
+                </div>
+                <div class="star-trek-character">
+                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/chekov.png" width="300" alt="Chekov">
+                  <div class="star-trek-data">
+                    <h3>Pavel Chekov</h3>
+                    <div>
+                      <label>Actor:</label>
+                      <p>Walter Koenig</p>
+                      <label>Role:</label>
+                      <p>Navigator</p>
+                      <label>Known for:</label>
+                      <p>Claiming everything was "invented in Russia."</p>
+                    </div>
+                    <p class="star-trek-notes">Eager, youthful, patriotic, ambitious, quick-thinking.</p>
+                  </div>
                 </div>
               </div>
-              <p class="dash-card-text">
-                Este panel se activa solo después de un inicio de sesión válido.
-              </p>
-            </section>
-
-            <section class="dash-card">
-              <h3>Actividad reciente</h3>
-              <ul class="dash-list">
-                <li>
-                  <span class="dash-list-title">Último inicio de sesión</span>
-                  <span class="dash-list-meta">Hace unos segundos</span>
-                </li>
-                <li>
-                  <span class="dash-list-title">Versión de Auth</span>
-                  <span class="dash-list-meta">2027.1</span>
-                </li>
-                <li>
-                  <span class="dash-list-title">Sitio conectado</span>
-                  <span class="dash-list-meta">argenmod.com</span>
-                </li>
-              </ul>
-            </section>
-
-            <section class="dash-card">
-              <h3>Consejos de seguridad</h3>
-              <ul class="dash-list dash-list--bullets">
-                <li>Usa una contraseña única y de al menos 8 caracteres.</li>
-                <li>No compartas tu cuenta con otras personas.</li>
-                <li>Si sospechas actividad extraña, cambia tu contraseña.</li>
-              </ul>
-            </section>
-
-            <section class="dash-card dash-card-tall">
-              <h3>Próximas mejoras</h3>
-              <p class="dash-card-text">
-                Pronto podrás ver aquí más detalles de tu suscripción, historial de inicios de sesión
-                y gestión avanzada de dispositivos vinculados.
-              </p>
-            </section>
+            </div>
           </div>
 
           <!-- PERFIL / DISCORD + MERCADOPAGO -->
