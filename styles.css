@@ -1635,6 +1635,24 @@ html, body {
     0 0 0 1px rgba(129, 140, 248, 0.9);
 }
 
+.switcher-play-btn {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+  color: #fff !important;
+  border-color: rgba(34, 197, 94, 0.9) !important;
+  font-weight: 600;
+  box-shadow:
+    0 4px 14px rgba(34, 197, 94, 0.45),
+    0 0 0 1px rgba(34, 197, 94, 0.5) !important;
+}
+
+.switcher-play-btn:hover {
+  background: linear-gradient(135deg, #2dd36f 0%, #22c55e 100%) !important;
+  border-color: rgba(34, 197, 94, 1) !important;
+  box-shadow:
+    0 6px 20px rgba(34, 197, 94, 0.55),
+    0 0 20px rgba(34, 197, 94, 0.35) !important;
+}
+
 .switcher-squad-btn {
   min-width: 180px;
 }
@@ -2227,12 +2245,22 @@ html, body {
   grid-column: 1 / -1;
   position: relative;
   margin: 0 -2px 0 -2px;
-  padding: 1.25rem 1.5rem 1.5rem;
+  padding: 2.5rem 2rem 2.5rem;
+  min-height: 420px;
   font-family: 'Inconsolata', monospace;
   --st-primary: rgb(255, 210, 48);
   --st-secondary: rgb(0 184 219);
+  --st-neon-cyan: rgba(0, 184, 219, 0.9);
+  --st-neon-gold: rgba(255, 210, 48, 0.9);
+  --banner-bg-image: url("assets/fondo libertadores.png");
+  --banner-bg-opacity: 0.85;
   border-radius: var(--radius, 16px);
   overflow: hidden;
+  border: 1px solid rgba(0, 184, 219, 0.5);
+  box-shadow:
+    0 0 20px rgba(0, 184, 219, 0.35),
+    0 0 40px rgba(0, 184, 219, 0.2),
+    inset 0 0 60px rgba(0, 184, 219, 0.06);
 }
 
 .star-trek-menu::before {
@@ -2240,12 +2268,38 @@ html, body {
   position: absolute;
   inset: 0;
   z-index: 0;
-  opacity: 0.25;
-  background-image:
+  opacity: var(--banner-bg-opacity, 0.3);
+  background-image: var(--banner-bg-image,
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0, 184, 219, 0.15), transparent 50%),
     radial-gradient(var(--st-secondary), transparent),
-    url("https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/space.webp");
+    url("https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/space.webp"));
   background-size: cover;
-  background-color: #0a0a0f;
+  background-position: center;
+  background-color: var(--banner-bg-color, #06060a);
+}
+
+/*
+ * Fondo del banner (desarrollador): en .star-trek-menu puedes definir:
+ *   --banner-bg-image: url("ruta/o-url.jpg");   → tu imagen (sustituye el fondo por defecto)
+ *   --banner-bg-color: #0a0a12;                 → color de fondo
+ *   --banner-bg-opacity: 0.85;                   → opacidad de la capa (por defecto 0.3)
+ * Ejemplo solo color: --banner-bg-image: none; --banner-bg-color: #111;
+ */
+
+.star-trek-menu::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 80px rgba(0, 184, 219, 0.08);
+  animation: starTrekNeonPulse 4s ease-in-out infinite;
+}
+
+@keyframes starTrekNeonPulse {
+  0%, 100% { opacity: 1; box-shadow: inset 0 0 80px rgba(0, 184, 219, 0.08); }
+  50% { opacity: 0.7; box-shadow: inset 0 0 100px rgba(0, 184, 219, 0.12); }
 }
 
 .star-trek-logo,
@@ -2256,14 +2310,14 @@ html, body {
 }
 
 .star-trek-logo {
-  width: min(60%, 320px);
-  margin: 0 auto 0.75rem;
+  width: min(75%, 420px);
+  margin: 0 auto 1.25rem;
 }
 
 .star-trek-logo img {
   width: 100%;
   object-fit: contain;
-  filter: drop-shadow(2px 0 0 var(--st-secondary));
+  filter: drop-shadow(0 0 8px var(--st-secondary)) drop-shadow(0 0 20px rgba(0, 184, 219, 0.6)) drop-shadow(2px 0 0 var(--st-secondary));
 }
 
 .star-trek-names {
@@ -2271,18 +2325,22 @@ html, body {
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.35rem 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .star-trek-names h2 {
   font-family: 'Big Shoulders Text', display;
-  font-size: clamp(1rem, 2.5vw, 1.35rem);
+  font-size: clamp(1.2rem, 3vw, 1.6rem);
   font-weight: 700;
   text-transform: uppercase;
   font-style: italic;
   color: var(--st-primary);
-  filter: drop-shadow(1px 0 0 var(--st-secondary));
   margin: 0;
+  text-shadow:
+    0 0 10px var(--st-neon-gold),
+    0 0 20px rgba(255, 210, 48, 0.5),
+    0 0 2px var(--st-secondary),
+    1px 0 0 var(--st-secondary);
 }
 
 .star-trek-names h2:not(:last-child)::after {
@@ -2303,7 +2361,7 @@ html, body {
 .star-trek-character {
   position: relative;
   flex: 0 0 auto;
-  width: clamp(72px, 10vw, 96px);
+  width: clamp(96px, 14vw, 128px);
   transition: transform 0.25s ease, filter 0.25s ease;
 }
 
@@ -2322,7 +2380,19 @@ html, body {
   height: auto;
   object-fit: cover;
   border-radius: 8px;
-  border: 1px solid rgba(0 184 219 / 0.4);
+  border: 1px solid rgba(0, 184, 219, 0.5);
+  box-shadow:
+    0 0 12px rgba(0, 184, 219, 0.4),
+    inset 0 0 12px rgba(0, 184, 219, 0.08);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.star-trek-character:hover img {
+  border-color: rgba(0, 184, 219, 0.9);
+  box-shadow:
+    0 0 16px rgba(0, 184, 219, 0.7),
+    0 0 28px rgba(0, 184, 219, 0.4),
+    inset 0 0 16px rgba(0, 184, 219, 0.12);
 }
 
 .star-trek-data {
@@ -2335,7 +2405,7 @@ html, body {
   padding: 0.75rem 1rem;
   border-radius: 10px;
   border: 1px solid var(--st-secondary);
-  background: rgb(0 184 219 / 0.25);
+  background: rgba(0, 20, 30, 0.85);
   backdrop-filter: sepia(1) brightness(15%);
   opacity: 0;
   pointer-events: none;
@@ -2346,7 +2416,10 @@ html, body {
     'title title'
     'info info'
     'notes notes';
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(0, 184, 219, 0.25),
+    inset 0 0 30px rgba(0, 184, 219, 0.08);
 }
 
 .star-trek-character:hover .star-trek-data {

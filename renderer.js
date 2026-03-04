@@ -78,7 +78,6 @@
   const btnApplySquad = document.getElementById('btnApplySquad');
   const squadStatusText = document.getElementById('squadStatusText');
   const btnPlayModManager = document.getElementById('btnPlayModManager');
-
   let currentUser = null;
   let currentDiscordRow = null;
   let discordLinkPolling = false;
