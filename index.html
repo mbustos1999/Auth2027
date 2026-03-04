@@ -409,21 +409,48 @@
             </div>
           </div>
 
-          <!-- SWITCHER: pantalla CRT "No input signal" -->
+          <!-- SWITCHER: pantalla CRT "No input signal" + selector de marcador -->
           <div class="dash-tab" data-tab-panel="Switcher" hidden>
             <section class="dash-card dash-card-wide switcher-panel">
               <div id="switcherWrapper" class="switcher-wrapper on">
                 <div id="switcherScreen">
+                  <img id="switcherTvImage" alt="TV seleccionada" hidden />
                   <div id="switcherContentHolder">
                     <div id="switcherContent">
                       <div id="switcherApp">
-                        <div id="switcherChannel">AV1</div>
+                        <div id="switcherChannel">
+                          <span id="switcherChannelLabel">AV1</span>
+                          <img id="switcherChannelImage" alt="Marcador seleccionado" hidden />
+                        </div>
                         <div id="switcherText">No input signal.</div>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div id="switcherPower" aria-label="Power" role="button" tabindex="0"></div>
+              </div>
+
+              <div class="switcher-combobox">
+                <div class="switcher-combobox-column">
+                  <button type="button" id="switcherDropdown" class="switcher-dropdown-btn">
+                    <div class="switcher-dropdown-selected">
+                      <img id="switcherSelectedLogo" class="switcher-logo" alt="" hidden />
+                      <span id="switcherSelectedName">Selecciona un marcador</span>
+                    </div>
+                    <span class="switcher-dropdown-arrow">▾</span>
+                  </button>
+                  <div id="switcherDropdownMenu" class="switcher-dropdown-menu" hidden></div>
+                </div>
+                <div class="switcher-combobox-column">
+                  <button type="button" id="switcherTvDropdown" class="switcher-dropdown-btn">
+                    <div class="switcher-dropdown-selected">
+                      <img id="switcherSelectedTvLogo" class="switcher-logo" alt="" hidden />
+                      <span id="switcherSelectedTvName">Selecciona una TV</span>
+                    </div>
+                    <span class="switcher-dropdown-arrow">▾</span>
+                  </button>
+                  <div id="switcherTvDropdownMenu" class="switcher-dropdown-menu" hidden></div>
+                </div>
               </div>
             </section>
           </div>

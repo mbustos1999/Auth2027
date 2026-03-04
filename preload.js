@@ -15,7 +15,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-status', handler);
     return () => ipcRenderer.removeListener('update-status', handler);
   },
-  getAppVersion: () => ipcRenderer.invoke('app:getVersion')
+  getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+  listSwitcherMarkers: () => ipcRenderer.invoke('switcher:listMarkers'),
+  applySwitcherMarker: (markerId) => ipcRenderer.invoke('switcher:applyMarker', markerId),
+  clearSwitcherOverlay: () => ipcRenderer.invoke('switcher:clearOverlay'),
+  listSwitcherTvs: () => ipcRenderer.invoke('switcher:listTvs'),
+  applySwitcherTv: (tvId) => ipcRenderer.invoke('switcher:applyTv', tvId),
+  clearSwitcherTvOverlay: () => ipcRenderer.invoke('switcher:clearTvOverlay')
 });
 
 // Config: main.js ya la cargó y la pasó por process.env (más fiable); si no, intentar require

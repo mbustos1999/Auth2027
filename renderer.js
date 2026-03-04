@@ -49,12 +49,29 @@
   const patreonStatusBoxEl = document.getElementById('patreonStatusBox');
   const switcherWrapper = document.getElementById('switcherWrapper');
   const switcherPower = document.getElementById('switcherPower');
+  const switcherChannelLabel = document.getElementById('switcherChannelLabel');
+  const switcherChannelImage = document.getElementById('switcherChannelImage');
+  const switcherTvImage = document.getElementById('switcherTvImage');
+  const switcherDropdown = document.getElementById('switcherDropdown');
+  const switcherDropdownMenu = document.getElementById('switcherDropdownMenu');
+  const switcherSelectedLogo = document.getElementById('switcherSelectedLogo');
+  const switcherSelectedName = document.getElementById('switcherSelectedName');
+  const switcherTvDropdown = document.getElementById('switcherTvDropdown');
+  const switcherTvDropdownMenu = document.getElementById('switcherTvDropdownMenu');
+  const switcherSelectedTvLogo = document.getElementById('switcherSelectedTvLogo');
+  const switcherSelectedTvName = document.getElementById('switcherSelectedTvName');
 
   let currentUser = null;
   let currentDiscordRow = null;
   let discordLinkPolling = false;
   let loginCooldownUntil = 0;
   let loginCooldownTimeoutId = null;
+  let switcherMarkers = [];
+  let switcherMarkersLoaded = false;
+  let switcherSelectedId = null;
+  let switcherTvs = [];
+  let switcherTvsLoaded = false;
+  let switcherSelectedTvId = null;
 
   function showError(msg) {
     messageError.textContent = msg;
@@ -121,6 +138,259 @@
         event.preventDefault();
         toggleSwitcher();
       }
+    });
+  }
+
+  async function loadSwitcherMarkersOnce() {
+    if (switcherMarkersLoaded) return;
+    if (!window.electronAPI || !window.electronAPI.listSwitcherMarkers) return;
+    try {
+      const list = await window.electronAPI.listSwitcherMarkers();
+      if (!Array.isArray(list) || list.length === 0 || !switcherDropdownMenu) {
+        switcherMarkersLoaded = true;
+        return;
+      }
+      switcherMarkers = list;
+      switcherDropdownMenu.innerHTML = '';
+
+      // Opción "Ninguno" para limpiar marcador y borrar overlay
+      const noneBtn = document.createElement('button');
+      noneBtn.type = 'button';
+      noneBtn.className = 'switcher-dropdown-item';
+      const noneSpan = document.createElement('span');
+      noneSpan.textContent = 'Ninguno';
+      noneBtn.appendChild(noneSpan);
+      noneBtn.addEventListener('click', () => {
+        clearSwitcherSelection();
+        switcherDropdownMenu.hidden = true;
+      });
+      switcherDropdownMenu.appendChild(noneBtn);
+
+      list.forEach((marker) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'switcher-dropdown-item';
+        btn.dataset.markerId = marker.id;
+
+        const img = document.createElement('img');
+        img.className = 'switcher-logo';
+        if (marker.logoSrc) {
+          img.src = marker.logoSrc;
+        } else {
+          img.hidden = true;
+        }
+
+        const span = document.createElement('span');
+        span.textContent = marker.name || marker.id;
+
+        btn.appendChild(img);
+        btn.appendChild(span);
+
+        btn.addEventListener('click', () => {
+          applySwitcherSelection(marker);
+          switcherDropdownMenu.hidden = true;
+        });
+
+        switcherDropdownMenu.appendChild(btn);
+      });
+      switcherMarkersLoaded = true;
+    } catch (_) {
+      switcherMarkersLoaded = true;
+    }
+  }
+
+  function updateSwitcherChannel(marker) {
+    if (!switcherChannelLabel || !switcherChannelImage) return;
+    if (marker && marker.markerSrc) {
+      switcherChannelLabel.hidden = true;
+      switcherChannelImage.hidden = false;
+      switcherChannelImage.src = marker.markerSrc;
+    } else {
+      switcherChannelImage.hidden = true;
+      switcherChannelLabel.hidden = false;
+      switcherChannelLabel.textContent = 'AV1';
+    }
+  }
+
+  async function applySwitcherSelection(marker) {
+    const idLower = String(marker?.name || marker?.id || '').trim().toLowerCase();
+    if (idLower === 'ninguno') {
+      await clearSwitcherSelection();
+      return;
+    }
+    switcherSelectedId = marker.id;
+    if (switcherSelectedName) {
+      switcherSelectedName.textContent = marker.name || marker.id;
+    }
+    if (switcherSelectedLogo) {
+      if (marker.logoSrc) {
+        switcherSelectedLogo.hidden = false;
+        switcherSelectedLogo.src = marker.logoSrc;
+      } else {
+        switcherSelectedLogo.hidden = true;
+      }
+    }
+    updateSwitcherChannel(marker);
+
+    if (window.electronAPI && window.electronAPI.applySwitcherMarker) {
+      try {
+        await window.electronAPI.applySwitcherMarker(marker.id);
+      } catch (_) {
+        // ignorar errores silenciosamente, la UI sigue funcionando
+      }
+    }
+  }
+
+  async function clearSwitcherSelection() {
+    switcherSelectedId = null;
+    if (switcherSelectedName) {
+      switcherSelectedName.textContent = 'Ninguno';
+    }
+    if (switcherSelectedLogo) {
+      switcherSelectedLogo.hidden = true;
+    }
+    updateSwitcherChannel(null);
+
+    if (window.electronAPI && window.electronAPI.clearSwitcherOverlay) {
+      try {
+        await window.electronAPI.clearSwitcherOverlay();
+      } catch (_) {
+        // ignorar errores
+      }
+    }
+  }
+
+  async function loadSwitcherTvsOnce() {
+    if (switcherTvsLoaded) return;
+    if (!window.electronAPI || !window.electronAPI.listSwitcherTvs) return;
+    try {
+      const list = await window.electronAPI.listSwitcherTvs();
+      if (!Array.isArray(list) || list.length === 0 || !switcherTvDropdownMenu) {
+        switcherTvsLoaded = true;
+        return;
+      }
+      switcherTvs = list;
+      switcherTvDropdownMenu.innerHTML = '';
+
+      const noneBtn = document.createElement('button');
+      noneBtn.type = 'button';
+      noneBtn.className = 'switcher-dropdown-item';
+      const noneSpan = document.createElement('span');
+      noneSpan.textContent = 'Ninguno';
+      noneBtn.appendChild(noneSpan);
+      noneBtn.addEventListener('click', () => {
+        clearSwitcherTvSelection();
+        switcherTvDropdownMenu.hidden = true;
+      });
+      switcherTvDropdownMenu.appendChild(noneBtn);
+
+      list.forEach((tv) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'switcher-dropdown-item';
+        btn.dataset.tvId = tv.id;
+
+        const img = document.createElement('img');
+        img.className = 'switcher-logo';
+        if (tv.imageSrc) {
+          img.src = tv.imageSrc;
+        } else {
+          img.hidden = true;
+        }
+
+        const span = document.createElement('span');
+        span.textContent = tv.name || tv.id;
+
+        btn.appendChild(img);
+        btn.appendChild(span);
+
+        btn.addEventListener('click', () => {
+          applySwitcherTvSelection(tv);
+          switcherTvDropdownMenu.hidden = true;
+        });
+
+        switcherTvDropdownMenu.appendChild(btn);
+      });
+
+      switcherTvsLoaded = true;
+    } catch (_) {
+      switcherTvsLoaded = true;
+    }
+  }
+
+  function updateSwitcherTvImage(tv) {
+    if (!switcherTvImage) return;
+    if (tv && tv.imageSrc) {
+      switcherTvImage.hidden = false;
+      switcherTvImage.src = tv.imageSrc;
+    } else {
+      switcherTvImage.hidden = true;
+    }
+  }
+
+  async function applySwitcherTvSelection(tv) {
+    const idLower = String(tv?.name || tv?.id || '').trim().toLowerCase();
+    if (idLower === 'ninguno') {
+      await clearSwitcherTvSelection();
+      return;
+    }
+    switcherSelectedTvId = tv.id;
+    if (switcherSelectedTvName) {
+      switcherSelectedTvName.textContent = tv.name || tv.id;
+    }
+    if (switcherSelectedTvLogo) {
+      if (tv.imageSrc) {
+        switcherSelectedTvLogo.hidden = false;
+        switcherSelectedTvLogo.src = tv.imageSrc;
+      } else {
+        switcherSelectedTvLogo.hidden = true;
+      }
+    }
+    updateSwitcherTvImage(tv);
+
+    if (window.electronAPI && window.electronAPI.applySwitcherTv) {
+      try {
+        await window.electronAPI.applySwitcherTv(tv.id);
+      } catch (_) {
+        // ignorar errores
+      }
+    }
+  }
+
+  async function clearSwitcherTvSelection() {
+    switcherSelectedTvId = null;
+    if (switcherSelectedTvName) {
+      switcherSelectedTvName.textContent = 'Ninguno';
+    }
+    if (switcherSelectedTvLogo) {
+      switcherSelectedTvLogo.hidden = true;
+    }
+    updateSwitcherTvImage(null);
+
+    if (window.electronAPI && window.electronAPI.clearSwitcherTvOverlay) {
+      try {
+        await window.electronAPI.clearSwitcherTvOverlay();
+      } catch (_) {
+        // ignorar errores
+      }
+    }
+  }
+
+  if (switcherDropdown) {
+    switcherDropdown.addEventListener('click', async () => {
+      await loadSwitcherMarkersOnce();
+      if (!switcherDropdownMenu) return;
+      const isHidden = switcherDropdownMenu.hidden;
+      switcherDropdownMenu.hidden = !isHidden;
+    });
+  }
+
+  if (switcherTvDropdown) {
+    switcherTvDropdown.addEventListener('click', async () => {
+      await loadSwitcherTvsOnce();
+      if (!switcherTvDropdownMenu) return;
+      const isHidden = switcherTvDropdownMenu.hidden;
+      switcherTvDropdownMenu.hidden = !isHidden;
     });
   }
 
@@ -280,6 +550,16 @@
       window.electronAPI.setGameDbAccess(false);
     }
 
+    // Al cerrar sesión, limpiar también overlays seleccionados
+    if (window.electronAPI) {
+      if (typeof window.electronAPI.clearSwitcherOverlay === 'function') {
+        window.electronAPI.clearSwitcherOverlay();
+      }
+      if (typeof window.electronAPI.clearSwitcherTvOverlay === 'function') {
+        window.electronAPI.clearSwitcherTvOverlay();
+      }
+    }
+
     // Pequeña animación al volver a mostrar el login
     panelLogin.classList.remove('panel-login-animate');
     // forzar reflujo para reiniciar la animación
@@ -304,6 +584,11 @@
     // Al abrir Perfil, solo refrescamos la UI desde el estado actual en memoria
     if (tabName === 'profile') {
       updateDiscordUI();
+    }
+    // Al abrir Switcher, cargamos marcadores y TVs (si no se han cargado ya)
+    if (tabName === 'Switcher') {
+      loadSwitcherMarkersOnce();
+      loadSwitcherTvsOnce();
     }
   }
 
