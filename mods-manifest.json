@@ -1,7 +1,9 @@
 {
   "version": "1.0.1",
   "required": true,
-  "downloadUrl": "https://drive.google.com/file/d/1WM7bcA50orR1o40_dhIt0ZzpfqDgmlRM/view?usp=sharing",
-  "sizeHint": "~10 GB",
-  "instructions": "Puedes usar «Descargar automáticamente» o descargar a mano y colocar los .fifamod en modManager/Mods/FC26/."
+  "downloadUrls": [
+    "https://drive.google.com/file/d/1FxZwKNg8WXn0QMaTWDAu5K5XS5bX08bq/view?usp=drive_link"
+  ],
+  "sizeHint": "~15 GB (5 archivos)",
+  "instructions": "Descargar automáticamente o a mano en modManager/Mods/FC26/."
 }

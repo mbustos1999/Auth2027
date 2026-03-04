@@ -871,6 +871,13 @@
   let lastModsManifest = null;
   let lastModsRequiredVersion = '';
 
+  function toDirectDownloadUrl(url) {
+    if (typeof url !== 'string') return url;
+    const m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) return `https://drive.google.com/uc?export=download&id=${m[1]}`;
+    return url;
+  }
+
   function formatBytes(bytes) {
     if (bytes == null || bytes === 0) return '';
     if (bytes < 1024) return bytes + ' B';
@@ -893,8 +900,14 @@
     const statsEl = document.getElementById('modsDownloadStats');
     if (!modal || !msgEl) return;
     try {
-      const res = await fetch(MODS_MANIFEST_URL + '?t=' + Date.now(), { cache: 'no-store' });
-      const manifest = await res.json().catch(() => null);
+      let manifest = null;
+      if (window.electronAPI?.getModsManifestLocal) {
+        manifest = await window.electronAPI.getModsManifestLocal();
+      }
+      if (!manifest || typeof manifest !== 'object') {
+        const res = await fetch(MODS_MANIFEST_URL + '?t=' + Date.now(), { cache: 'no-store' });
+        manifest = await res.json().catch(() => null);
+      }
       if (!manifest) return;
       if (!forceShow && !manifest.required) return;
       const requiredVersion = String(manifest.version || '0').trim();
@@ -912,7 +925,8 @@
       if (barFill) barFill.style.width = '0%';
       if (openLinkBtn) {
         openLinkBtn.onclick = () => {
-          const url = lastModsManifest?.downloadUrl;
+          const urls = lastModsManifest?.downloadUrls;
+          const url = Array.isArray(urls) && urls.length ? urls[0] : lastModsManifest?.downloadUrl;
           if (url && window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
         };
       }
@@ -924,18 +938,23 @@
       }
       if (autoDownloadBtn && window.electronAPI?.downloadMods) {
         autoDownloadBtn.onclick = async () => {
-          const url = lastModsManifest?.downloadUrl;
-          if (!url || url.includes('example.com') || url.includes('REEMPLAZA')) {
-            alert('El enlace de descarga aún no está configurado en mods-manifest.json. Usa un enlace directo a un .zip.');
+          const urls = lastModsManifest?.downloadUrls;
+          const singleUrl = lastModsManifest?.downloadUrl;
+          const hasMultiple = Array.isArray(urls) && urls.length > 0;
+          const hasSingle = singleUrl && !singleUrl.includes('example.com') && !singleUrl.includes('REEMPLAZA');
+          if (!hasMultiple && !hasSingle) {
+            alert('Configura downloadUrl o downloadUrls en mods-manifest.json (enlaces directos a .zip o a archivos .fifamod).');
             return;
           }
+          const toDownload = hasMultiple ? urls.map(u => toDirectDownloadUrl(u)) : [toDirectDownloadUrl(singleUrl)];
           if (progressWrap) progressWrap.hidden = false;
           if (actionsWrap) actionsWrap.style.pointerEvents = 'none';
-          if (phaseEl) phaseEl.textContent = 'Descargando…';
+          if (phaseEl) phaseEl.textContent = toDownload.length > 1 ? 'Descargando archivo 1/' + toDownload.length + '…' : 'Descargando…';
           if (barFill) barFill.style.width = '0%';
           if (statsEl) statsEl.textContent = '';
           const unsub = window.electronAPI.onModsDownloadProgress((data) => {
-            if (phaseEl) phaseEl.textContent = data.phase === 'extract' ? 'Extrayendo…' : 'Descargando…';
+            const fileLabel = (data.fileIndex != null && data.totalFiles != null) ? `Archivo ${data.fileIndex}/${data.totalFiles} · ` : '';
+            if (phaseEl) phaseEl.textContent = data.phase === 'extract' ? 'Extrayendo…' : (fileLabel + (data.phase === 'download' ? 'Descargando…' : 'Descargando…'));
             const pct = data.percent != null ? data.percent : 0;
             if (barFill) barFill.style.width = pct + '%';
             if (statsEl && data.bytesReceived != null) {
@@ -944,7 +963,7 @@
             }
           });
           try {
-            const result = await window.electronAPI.downloadMods(url);
+            const result = await window.electronAPI.downloadMods(toDownload.length > 1 ? toDownload : toDownload[0]);
             unsub();
             if (result && result.ok) {
               if (requiredVersion) try { localStorage.setItem(MODS_VERSION_KEY, requiredVersion); } catch (_) {}
@@ -952,19 +971,20 @@
             } else {
               const reason = result?.reason || '';
               const isNotZip = reason === 'not_zip' || String(reason).includes('invalid signature');
-              if (isNotZip && lastModsManifest?.downloadUrl && window.electronAPI?.openExternal) {
-                window.electronAPI.openExternal(lastModsManifest.downloadUrl);
-                alert('Transfer.it requiere descargar desde el navegador. Se ha abierto el enlace.\n\nDescarga el .zip, descomprímelo en modManager/Mods/FC26/ y pulsa «Ya los descargué».');
+              const openUrl = hasMultiple ? urls[0] : singleUrl;
+              if (isNotZip && openUrl && window.electronAPI?.openExternal) {
+                window.electronAPI.openExternal(openUrl);
+                alert('Se ha abierto el enlace en el navegador.\n\nDescarga el archivo (o los archivos), colócalos en modManager/Mods/FC26/ y pulsa «Ya los descargué».');
               } else {
                 const msg = reason === 'invalid_url' ? 'URL no válida.'
-                  : (reason === 'fetch failed' || reason === 'download_error') ? 'No se pudo conectar con el servidor. Usa «Abrir enlace en el navegador» y descarga el archivo a mano.'
+                  : (reason === 'fetch failed' || reason === 'download_error') ? 'No se pudo conectar con el servidor. Usa «Abrir enlace en el navegador» y descarga a mano.'
                   : (reason || 'Error al descargar o extraer.');
                 alert(msg);
               }
             }
           } catch (e) {
             unsub();
-            alert('No se pudo conectar con el servidor. Usa «Abrir enlace en el navegador» para descargar el archivo manualmente.');
+            alert('No se pudo conectar con el servidor. Usa «Abrir enlace en el navegador» para descargar manualmente.');
           }
           if (actionsWrap) actionsWrap.style.pointerEvents = '';
         };

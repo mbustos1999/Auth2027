@@ -944,6 +944,19 @@ ipcMain.handle('app:getVersion', () => app.getVersion());
 // Devolver la config cargada al arranque (evita require en el handler por si falla en el instalador)
 ipcMain.handle('app:getConfig', () => Promise.resolve(sharedAppConfig || {}));
 
+// En desarrollo (npm run electron) usar el manifest local; en app empaquetada el renderer usa GitHub
+ipcMain.handle('mods:getManifest', () => {
+  if (app.isPackaged) return Promise.resolve(null);
+  try {
+    const p = path.join(__dirname, 'mods-manifest.json');
+    if (fs.existsSync(p)) {
+      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+      return Promise.resolve(data && typeof data === 'object' ? data : null);
+    }
+  } catch (_) {}
+  return Promise.resolve(null);
+});
+
 ipcMain.handle('shell:openExternal', (_event, url) => {
   if (typeof url !== 'string' || !url.startsWith('http')) return Promise.resolve({ ok: false });
   return shell.openExternal(url).then(() => ({ ok: true })).catch((e) => ({ ok: false, error: e?.message }));
@@ -955,10 +968,71 @@ function safeHeaderValue(str) {
   return str.replace(/[\x00-\x1F\x7F]/g, '').trim();
 }
 
+function isGoogleDriveUrl(u) {
+  return typeof u === 'string' && u.includes('drive.google.com') && (u.includes('/uc?') || u.includes('export=download') || u.includes('/file/d/'));
+}
+
+// Normaliza cualquier enlace de Drive (view, uc?export=download) a formato de descarga para que se trate como Drive
+function normalizeDriveUrl(u) {
+  if (typeof u !== 'string' || !u.includes('drive.google.com')) return u;
+  const id = extractDriveFileId(u);
+  if (!id) return u;
+  return `https://drive.google.com/uc?export=download&id=${id}`;
+}
+
+const LARGE_FILE_THRESHOLD = 25 * 1024 * 1024; // 25 MB: si Content-Length > esto, es archivo binario, no HTML de aviso
+
+function extractDriveConfirmToken(responseBody, setCookieHeader) {
+  if (setCookieHeader) {
+    const m = String(setCookieHeader).match(/download_warning[^=]*=([^;]+)/);
+    if (m) return decodeURIComponent(m[1].trim());
+  }
+  if (responseBody && responseBody.length < 100000) {
+    const body = typeof responseBody === 'string' ? responseBody : responseBody.toString('utf8');
+    const m = body.match(/confirm=([0-9A-Za-z_-]+)/);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function getDriveUserContentUrl(fileId) {
+  return `https://drive.usercontent.google.com/download?id=${encodeURIComponent(fileId)}&confirm=t`;
+}
+
+function extractDriveFileId(u) {
+  if (typeof u !== 'string') return null;
+  const byId = u.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (byId) return byId[1];
+  const byPath = u.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (byPath) return byPath[1];
+  return null;
+}
+
+function parseContentDisposition(header) {
+  if (!header) return null;
+  const m = String(header).match(/filename\*?=(?:UTF-8'')?([^;]+)|filename=["']?([^"';]+)["']?/i);
+  if (m) {
+    const name = (m[1] || m[2] || '').trim().replace(/^["']|["']$/g, '');
+    return decodeURIComponent(name) || null;
+  }
+  return null;
+}
+
+function safeBasename(name) {
+  if (!name || typeof name !== 'string') return null;
+  const base = path.basename(name.replace(/[/\\]/g, ''));
+  return base.replace(/[^\w.\-()\s]/gi, '_').slice(0, 200) || null;
+}
+
 // Descarga automática de mods FC26: descarga el .zip desde url y lo extrae en modManager/Mods/FC26/
-ipcMain.handle('mods:download', async (event, url) => {
-  url = safeHeaderValue(String(url));
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+// Si se pasa un array de URLs (downloadUrls), descarga cada una como archivo directo en destDir (sin ZIP).
+ipcMain.handle('mods:download', async (event, urlOrUrls) => {
+  const isMultiple = Array.isArray(urlOrUrls);
+  let urls = isMultiple ? urlOrUrls.filter(u => u && String(u).startsWith('http')) : [urlOrUrls];
+  urls = urls.map(u => normalizeDriveUrl(safeHeaderValue(String(u))));
+  if (urls.length === 0) return { ok: false, reason: 'invalid_url' };
+  const singleUrl = !isMultiple && urls.length === 1 ? urls[0] : null;
+  if (singleUrl && (!singleUrl.startsWith('http://') && !singleUrl.startsWith('https://'))) {
     return { ok: false, reason: 'invalid_url' };
   }
   const baseDir = app.isPackaged ? process.resourcesPath : __dirname;
@@ -969,23 +1043,23 @@ ipcMain.handle('mods:download', async (event, url) => {
       if (event.sender && !event.sender.isDestroyed()) event.sender.send('mods-download-progress', data);
     } catch (_) {}
   };
-  try {
-    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-    sendProgress({ phase: 'download', percent: 0, bytesReceived: 0, totalBytes: null });
-    await new Promise((resolve, reject) => {
-      const file = fs.createWriteStream(tempZip);
+  const doDownload = (downloadUrl, cookieHeader, outputPath) => {
+    const out = outputPath || tempZip;
+    return new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(out);
       let received = 0;
-      const request = net.request({
+      const req = net.request({
         method: 'GET',
-        url: url,
+        url: downloadUrl,
         redirect: 'follow'
       });
-      request.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-      request.setHeader('Accept', 'application/zip,*/*');
-      request.on('response', (response) => {
+      req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      req.setHeader('Accept', 'application/zip,*/*');
+      if (cookieHeader) req.setHeader('Cookie', cookieHeader);
+      req.on('response', (response) => {
         if (response.statusCode < 200 || response.statusCode >= 300) {
           file.close();
-          fs.unlink(tempZip, () => {});
+          if (out === tempZip) fs.unlink(out, () => {});
           reject(new Error('download_failed'));
           return;
         }
@@ -1001,28 +1075,315 @@ ipcMain.handle('mods:download', async (event, url) => {
         file.on('finish', resolve);
         file.on('error', reject);
       });
-      request.on('error', (err) => {
+      req.on('error', (err) => {
         file.close();
-        fs.unlink(tempZip, () => {});
+        if (out === tempZip) fs.unlink(out, () => {});
         reject(err);
       });
-      request.end();
+      req.end();
     });
+  };
+  try {
+    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+    // Múltiples URLs: descarga cada una directamente a destDir (sin ZIP)
+    if (isMultiple) {
+      for (let i = 0; i < urls.length; i++) {
+        const url = safeHeaderValue(String(urls[i]));
+        if (!url.startsWith('http')) continue;
+        sendProgress({ phase: 'download', fileIndex: i + 1, totalFiles: urls.length, percent: 0, bytesReceived: 0, totalBytes: null });
+        const defaultName = `mod_${i + 1}.fifamod`;
+        let outputPath = null;
+        if (isGoogleDriveUrl(url)) {
+          const driveResult = await new Promise((resolve, reject) => {
+            const req = net.request({ method: 'GET', url, redirect: 'follow' });
+            req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+            req.setHeader('Accept', 'application/octet-stream,*/*');
+            req.on('response', (res) => {
+              if (res.statusCode < 200 || res.statusCode >= 300) {
+                resolve({ action: 'retry', token: null, cookie: null });
+                return;
+              }
+              const cd = res.headers['content-disposition'];
+              const name = safeBasename(parseContentDisposition(cd)) || defaultName;
+              outputPath = path.join(destDir, name);
+              const cookieStr = Array.isArray(res.headers['set-cookie']) ? res.headers['set-cookie'].join('; ') : (res.headers['set-cookie'] || '');
+              const total = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : null;
+              const MAX_HTML_SIZE = 5 * 1024 * 1024;
+              let pending = [];
+              let pendingLen = 0;
+              const htmlChunks = [];
+              let fileStream = null;
+              let received = 0;
+              let decided = false;
+              if (total !== null && total > LARGE_FILE_THRESHOLD) {
+                fileStream = fs.createWriteStream(outputPath);
+                decided = true;
+              }
+              function peek2() {
+                if (pending.length === 0 || pendingLen < 2) return null;
+                if (pending[0].length >= 2) return [pending[0][0], pending[0][1]];
+                if (pending[0].length === 1 && pending.length > 1) return [pending[0][0], pending[1][0]];
+                return null;
+              }
+              res.on('data', (chunk) => {
+                if (!decided) {
+                  pending.push(chunk);
+                  pendingLen += chunk.length;
+                  if (pendingLen >= 2) {
+                    const two = peek2();
+                    decided = true;
+                    if (two && two[0] === 0x50 && two[1] === 0x4b) {
+                      fileStream = fs.createWriteStream(outputPath);
+                      for (const c of pending) {
+                        fileStream.write(c);
+                        received += c.length;
+                        sendProgress({ phase: 'download', fileIndex: i + 1, totalFiles: urls.length, percent: total ? Math.min(100, Math.round((received / total) * 100)) : null, bytesReceived: received, totalBytes: total });
+                      }
+                      pending = [];
+                      pendingLen = 0;
+                    } else {
+                      if (pendingLen > MAX_HTML_SIZE) {
+                        res.destroy();
+                        resolve({ action: 'retry', token: null, cookie: null });
+                        return;
+                      }
+                      for (const c of pending) htmlChunks.push(c);
+                      pending = [];
+                      pendingLen = 0;
+                    }
+                  }
+                  return;
+                }
+                if (fileStream) {
+                  received += chunk.length;
+                  sendProgress({ phase: 'download', fileIndex: i + 1, totalFiles: urls.length, percent: total ? Math.min(100, Math.round((received / total) * 100)) : null, bytesReceived: received, totalBytes: total });
+                  fileStream.write(chunk);
+                } else {
+                  let htmlSize = 0;
+                  for (const c of htmlChunks) htmlSize += c.length;
+                  if (htmlSize + chunk.length > MAX_HTML_SIZE) {
+                    res.destroy();
+                    resolve({ action: 'retry', token: null, cookie: null });
+                    return;
+                  }
+                  htmlChunks.push(chunk);
+                }
+              });
+              res.on('end', () => {
+                if (fileStream) {
+                  fileStream.end();
+                  fileStream.on('finish', () => resolve({ action: 'done' }));
+                  fileStream.on('error', () => resolve({ action: 'retry', token: null, cookie: null }));
+                  return;
+                }
+                if (!decided && pendingLen > 0) {
+                  if (pendingLen > MAX_HTML_SIZE) {
+                    resolve({ action: 'retry', token: null, cookie: null });
+                    return;
+                  }
+                  const buf = Buffer.concat(pending);
+                  if (buf.length >= 2 && buf[0] === 0x50 && buf[1] === 0x4b) {
+                    fs.writeFileSync(outputPath, buf);
+                    resolve({ action: 'done' });
+                    return;
+                  }
+                  htmlChunks.push(buf);
+                }
+                const totalHtml = htmlChunks.reduce((a, c) => a + c.length, 0);
+                if (totalHtml > MAX_HTML_SIZE) {
+                  resolve({ action: 'retry', token: null, cookie: null });
+                  return;
+                }
+                const body = Buffer.concat(htmlChunks).toString('utf8');
+                const token = extractDriveConfirmToken(body, cookieStr);
+                resolve({ action: 'retry', token, cookie: cookieStr || null });
+              });
+              res.on('error', () => {
+                if (fileStream) fileStream.destroy();
+                resolve({ action: 'retry', token: null, cookie: null });
+              });
+            });
+            req.on('error', () => reject(new Error('download_failed')));
+            req.end();
+          });
+          if (driveResult.action === 'done') {
+            // listo
+          } else if (driveResult.token) {
+            const sep = url.includes('?') ? '&' : '?';
+            await doDownload(url + sep + 'confirm=' + encodeURIComponent(driveResult.token), driveResult.cookie, outputPath);
+          } else {
+            const fileId = extractDriveFileId(url);
+            const fallbackUrl = fileId ? getDriveUserContentUrl(fileId) : url;
+            await doDownload(fallbackUrl, undefined, outputPath);
+          }
+        } else {
+          await doDownload(url, undefined, path.join(destDir, defaultName));
+        }
+      }
+      return { ok: true, path: destDir };
+    }
+
+    sendProgress({ phase: 'download', percent: 0, bytesReceived: 0, totalBytes: null });
+    if (isGoogleDriveUrl(singleUrl)) {
+      const driveResult = await new Promise((resolve, reject) => {
+        const req = net.request({ method: 'GET', url: singleUrl, redirect: 'follow' });
+        req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        req.setHeader('Accept', 'application/zip,*/*');
+        req.on('response', (res) => {
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            resolve({ action: 'retry', token: null, cookie: null });
+            return;
+          }
+          const cookie = res.headers['set-cookie'];
+          const cookieStr = Array.isArray(cookie) ? cookie.join('; ') : (cookie || '');
+          const total = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : null;
+          const MAX_HTML_SIZE = 5 * 1024 * 1024; // 5 MB: la página de aviso de Drive es pequeña
+          let pending = []; // acumular hasta tener 2 bytes para decidir PK vs HTML
+          let pendingLen = 0;
+          const htmlChunks = [];
+          let fileStream = null;
+          let received = 0;
+          let decided = false;
+          // Si Content-Length es grande, es el archivo binario (no la página HTML de aviso): stream directo
+          if (total !== null && total > LARGE_FILE_THRESHOLD) {
+            fileStream = fs.createWriteStream(tempZip);
+            decided = true;
+          }
+          function peek2() {
+            if (pending.length === 0 || pendingLen < 2) return null;
+            if (pending[0].length >= 2) return [pending[0][0], pending[0][1]];
+            if (pending[0].length === 1 && pending.length > 1) return [pending[0][0], pending[1][0]];
+            return null;
+          }
+          res.on('data', (chunk) => {
+            if (!decided) {
+              pending.push(chunk);
+              pendingLen += chunk.length;
+              if (pendingLen >= 2) {
+                const two = peek2();
+                decided = true;
+                if (two && two[0] === 0x50 && two[1] === 0x4b) {
+                  fileStream = fs.createWriteStream(tempZip);
+                  for (const c of pending) {
+                    fileStream.write(c);
+                    received += c.length;
+                    const percent = total ? Math.min(100, Math.round((received / total) * 100)) : null;
+                    sendProgress({ phase: 'download', percent, bytesReceived: received, totalBytes: total });
+                  }
+                  pending = [];
+                  pendingLen = 0;
+                } else {
+                  if (pendingLen > MAX_HTML_SIZE) {
+                    res.destroy();
+                    resolve({ action: 'retry', token: null, cookie: null });
+                    return;
+                  }
+                  for (const c of pending) htmlChunks.push(c);
+                  pending = [];
+                  pendingLen = 0;
+                }
+              }
+              return;
+            }
+            if (fileStream) {
+              received += chunk.length;
+              const percent = total ? Math.min(100, Math.round((received / total) * 100)) : null;
+              sendProgress({ phase: 'download', percent, bytesReceived: received, totalBytes: total });
+              fileStream.write(chunk);
+            } else {
+              let htmlSize = 0;
+              for (const c of htmlChunks) htmlSize += c.length;
+              if (htmlSize + chunk.length > MAX_HTML_SIZE) {
+                res.destroy();
+                resolve({ action: 'retry', token: null, cookie: null });
+                return;
+              }
+              htmlChunks.push(chunk);
+            }
+          });
+          res.on('end', () => {
+            if (fileStream) {
+              fileStream.end();
+              fileStream.on('finish', () => resolve({ action: 'done' }));
+              fileStream.on('error', () => resolve({ action: 'retry', token: null, cookie: null }));
+              return;
+            }
+            if (!decided && pendingLen > 0) {
+              if (pendingLen > MAX_HTML_SIZE) {
+                resolve({ action: 'retry', token: null, cookie: null });
+                return;
+              }
+              const buf = Buffer.concat(pending);
+              if (buf.length >= 2 && buf[0] === 0x50 && buf[1] === 0x4b) {
+                fs.writeFileSync(tempZip, buf);
+                resolve({ action: 'done' });
+                return;
+              }
+              htmlChunks.push(buf);
+            }
+            const totalHtml = htmlChunks.reduce((a, c) => a + c.length, 0);
+            if (totalHtml > MAX_HTML_SIZE) {
+              resolve({ action: 'retry', token: null, cookie: null });
+              return;
+            }
+            const body = Buffer.concat(htmlChunks).toString('utf8');
+            const token = extractDriveConfirmToken(body, cookieStr);
+            resolve({ action: 'retry', token, cookie: cookieStr || null });
+          });
+          res.on('error', () => {
+            if (fileStream) fileStream.destroy();
+            resolve({ action: 'retry', token: null, cookie: null });
+          });
+        });
+        req.on('error', () => reject(new Error('download_failed')));
+        req.end();
+      });
+      if (driveResult.action === 'done') {
+        // ya escrito en tempZip
+      } else if (driveResult.token) {
+        const sep = singleUrl.includes('?') ? '&' : '?';
+        const urlWithConfirm = singleUrl + sep + 'confirm=' + encodeURIComponent(driveResult.token);
+        await doDownload(urlWithConfirm, driveResult.cookie || undefined);
+      } else {
+        const fileId = extractDriveFileId(singleUrl);
+        const fallbackUrl = fileId ? getDriveUserContentUrl(fileId) : singleUrl;
+        await doDownload(fallbackUrl);
+      }
+    } else {
+      await doDownload(singleUrl);
+    }
     const fd = fs.openSync(tempZip, 'r');
     const zipHeader = Buffer.alloc(4);
     fs.readSync(fd, zipHeader, 0, 4, 0);
     fs.closeSync(fd);
     if (zipHeader[0] !== 0x50 || zipHeader[1] !== 0x4b) {
-      try { fs.unlinkSync(tempZip); } catch (_) {}
-      return { ok: false, reason: 'not_zip' };
+      // Archivo no es ZIP (ej. .fifamod): guardarlo en destDir como mod único
+      const destFile = path.join(destDir, 'mod_1.fifamod');
+      try {
+        fs.renameSync(tempZip, destFile);
+      } catch (e) {
+        try { fs.copyFileSync(tempZip, destFile); fs.unlinkSync(tempZip); } catch (_) {}
+      }
+      sendProgress({ phase: 'extract', percent: 100 });
+      return { ok: true, path: destDir };
     }
     sendProgress({ phase: 'extract', percent: 0 });
-    await new Promise((resolve, reject) => {
-      fs.createReadStream(tempZip)
-        .pipe(unzipper.Extract({ path: destDir }))
-        .on('close', () => resolve())
-        .on('error', reject);
-    });
+    const zipSize = fs.statSync(tempZip).size;
+    const usePowerShell = process.platform === 'win32' && zipSize > 1024 * 1024 * 1024; // > 1 GB: extraer con PowerShell para no saturar RAM
+    if (usePowerShell) {
+      await new Promise((resolve, reject) => {
+        const ps = spawn('powershell', [
+          '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+          `Expand-Archive -LiteralPath '${tempZip.replace(/'/g, "''")}' -DestinationPath '${destDir.replace(/'/g, "''")}' -Force`
+        ], { stdio: 'ignore', windowsHide: true });
+        ps.on('close', (code) => code === 0 ? resolve() : reject(new Error('Expand-Archive failed: ' + code)));
+        ps.on('error', reject);
+      });
+    } else {
+      const directory = await unzipper.Open.file(tempZip);
+      await directory.extract({ path: destDir });
+    }
     const entries = fs.readdirSync(destDir, { withFileTypes: true });
     if (entries.length === 1 && entries[0].isDirectory()) {
       const singleDir = path.join(destDir, entries[0].name);
