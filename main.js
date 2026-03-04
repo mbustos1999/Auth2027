@@ -51,6 +51,17 @@ const gameDbTargetPath = path.join(
   'fifa_ng_db.DB'
 );
 
+const teamsSourcePath = path.join(__dirname, 'DB', 'LE_CM_SUPPORTED_LEAGUES_AND_TEAMS.CSV');
+
+const teamsTargetPath = path.join(
+  'C:',
+  'FC 26 Live Editor',
+  'mods',
+  'legacy',
+  'data',
+  'LE_CM_SUPPORTED_LEAGUES_AND_TEAMS.CSV'
+);
+
 const overlayTargetDir = path.join(
   'C:',
   'FC 26 Live Editor',
@@ -105,6 +116,14 @@ const fchubTargetDir = path.join(
   'fchub'
 );
 
+const eaSettingsDir = path.join(
+  os.homedir(),
+  'AppData',
+  'Local',
+  'EA SPORTS FC 26',
+  'settings'
+);
+
 function ensureGameDbPresent() {
   try {
     if (!fs.existsSync(gameDbSourcePath)) {
@@ -133,6 +152,36 @@ function removeGameDbIfExists() {
     return { ok: true };
   } catch (e) {
     console.error('Error al eliminar fifa_ng_db.DB de destino:', e);
+    return { ok: false, error: e.message || 'delete_error' };
+  }
+}
+
+function ensureTeamsPresent() {
+  try {
+    if (!fs.existsSync(teamsSourcePath)) {
+      console.warn('Archivo LE_CM_SUPPORTED_LEAGUES_AND_TEAMS.CSV de origen no encontrado:', teamsSourcePath);
+      return { ok: false, error: 'missing_source' };
+    }
+    const targetDir = path.dirname(teamsTargetPath);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    fs.copyFileSync(teamsSourcePath, teamsTargetPath);
+    return { ok: true };
+  } catch (e) {
+    console.error('Error al copiar LE_CM_SUPPORTED_LEAGUES_AND_TEAMS.CSV:', e);
+    return { ok: false, error: e.message || 'copy_error' };
+  }
+}
+
+function removeTeamsIfExists() {
+  try {
+    if (fs.existsSync(teamsTargetPath)) {
+      fs.unlinkSync(teamsTargetPath);
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('Error al eliminar LE_CM_SUPPORTED_LEAGUES_AND_TEAMS.CSV de destino:', e);
     return { ok: false, error: e.message || 'delete_error' };
   }
 }
@@ -414,6 +463,25 @@ function scanPublicities() {
   return result;
 }
 
+function scanSquadFile() {
+  const basePath = path.join(__dirname, 'aplicarSquad');
+  try {
+    if (!fs.existsSync(basePath)) return null;
+    const entries = fs.readdirSync(basePath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (entry.name.startsWith('.')) continue;
+      return {
+        name: entry.name,
+        fullPath: path.join(basePath, entry.name)
+      };
+    }
+  } catch (e) {
+    console.error('Error al escanear aplicarSquad:', e);
+  }
+  return null;
+}
+
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const iconPath = path.join(__dirname, 'assets', 'icon.png');
@@ -479,6 +547,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   // Al cerrar todas las ventanas, aseguramos que se elimine el archivo de la ruta de destino
   removeGameDbIfExists();
+  removeTeamsIfExists();
   clearOverlayTargetDir();
   clearPublicityContent();
   if (process.platform !== 'darwin') app.quit();
@@ -493,6 +562,7 @@ ipcMain.on('window-minimize', () => mainWindow?.minimize());
 ipcMain.on('window-close', () => {
   // Al cerrar desde el botón personalizado también limpiamos el archivo
   removeGameDbIfExists();
+  removeTeamsIfExists();
   clearOverlayTargetDir();
   clearPublicityContent();
   mainWindow?.close();
@@ -501,9 +571,21 @@ ipcMain.on('window-close', () => {
 // Control desde el renderer del acceso al archivo fifa_ng_db.DB
 ipcMain.handle('game-db:set', async (_event, enabled) => {
   if (enabled) {
-    return ensureGameDbPresent();
+    const dbRes = ensureGameDbPresent();
+    const teamsRes = ensureTeamsPresent();
+    return {
+      ok: !!(dbRes?.ok && teamsRes?.ok),
+      db: dbRes,
+      teams: teamsRes
+    };
   }
-  return removeGameDbIfExists();
+  const dbRes = removeGameDbIfExists();
+  const teamsRes = removeTeamsIfExists();
+  return {
+    ok: !!(dbRes?.ok && teamsRes?.ok),
+    db: dbRes,
+    teams: teamsRes
+  };
 });
 
 ipcMain.handle('switcher:listMarkers', async () => {
@@ -648,6 +730,56 @@ ipcMain.handle('switcher:applyPublicity', async (_event, pubId) => {
 ipcMain.handle('switcher:clearPublicity', async () => {
   clearPublicityContent();
   return { ok: true };
+});
+
+ipcMain.handle('switcher:checkSquad', async () => {
+  try {
+    const squad = scanSquadFile();
+    if (!squad) {
+      return { ok: false, reason: 'no_squad' };
+    }
+    let applied = false;
+    if (fs.existsSync(eaSettingsDir)) {
+      const files = fs.readdirSync(eaSettingsDir).filter((f) => !f.startsWith('.'));
+      const target = squad.name.toLowerCase();
+      applied = files.some((f) => f.toLowerCase() === target);
+    }
+    return {
+      ok: true,
+      applied,
+      fileName: squad.name,
+      targetDir: eaSettingsDir
+    };
+  } catch (e) {
+    console.error('Error en switcher:checkSquad:', e);
+    return { ok: false, reason: e.message || 'check_error' };
+  }
+});
+
+ipcMain.handle('switcher:applySquad', async () => {
+  try {
+    const squad = scanSquadFile();
+    if (!squad) {
+      return { ok: false, reason: 'no_squad' };
+    }
+    ensureDirExists(eaSettingsDir);
+    const targetPath = path.join(eaSettingsDir, squad.name);
+    fs.copyFileSync(squad.fullPath, targetPath);
+    return { ok: true, fileName: squad.name, targetDir: eaSettingsDir };
+  } catch (e) {
+    console.error('Error en switcher:applySquad:', e);
+    return { ok: false, reason: e.message || 'apply_error' };
+  }
+});
+
+ipcMain.handle('teams:getStatus', async () => {
+  try {
+    const present = fs.existsSync(teamsTargetPath);
+    return { ok: true, present };
+  } catch (e) {
+    console.error('Error en teams:getStatus:', e);
+    return { ok: false, present: false, reason: e.message || 'status_error' };
+  }
 });
 
 // Auto-actualización (solo en app empaquetada)

@@ -1,0 +1,1330 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<root DATE="" VERSION="2">
+	<hub_settings NAME="FCHub" HUB_VERSION="3" WIDTH="1920" HEIGHT="1080">
+		<artasset_paths DEFAULT_TILES_ASSETTYPE="fchub" />
+		<helper_class_name CLASSNAME="game.fluxHelpers.BaseDataHelper" />
+		<tile_path TILE_PATH="FluxTile_Exported" TILE_NAME="TILE" />
+		<tile_path TILE_PATH="FluxTile_Expandable_Exported" TILE_NAME="TILE_EXPANDABLE" />
+		<tile_path TILE_PATH="FluxTile_List_Exported" TILE_NAME="TILE_LIST" />
+		<tile_path TILE_PATH="FluxTile_Nested_Exported" TILE_NAME="TILE_NESTED" />
+		<tile_path TILE_PATH="game/components/FluxTiles/mainmenu/MoviePlayerTile.swf" TILE_NAME="TILE_MOVIE_PLAYER" />
+		<screen_transitions interPanel="mask" />
+		<panel_edge_switch>none</panel_edge_switch>
+	</hub_settings>
+	<libraries>
+		<library path="data/ui/layout/library/fchublibrary.xml" />
+		<library path="data/ui/layout/library/fcloyaltylibrary.xml" />
+	</libraries>
+	<variable_set id="variables">
+		<variable id="mDefaultTileId" type="int" source="dataBinding"/>
+		<variable id="mIsServerConnectionAlive" type="bool" source="dataBinding"/>
+		<variable id="mGamerTag" type="string" source="dataBinding"/>
+		<variable id="mRightStickRemapEnabled" type="bool" source="dataBinding"/>
+		<variable id="mNestedTileCycleStyle" type="string" source="dataBinding"/>
+		<!-- carousel variables -->
+		<variable id="mSelectedModeDescription" type="string" source="dataBinding" />
+		<variable id="mSelectedModeAttributes" type="string" source="dataBinding" />
+		<variable id="mSelectedModeCTA" type="string" source="dataBinding" />
+		<variable id="mCarouselIndex" type="int" source="dataBinding" />
+		<variable id="mNumLiveContentPanels" type="int" source="dataBinding" />
+		<variable id="mNumCarouselTiles" type="int" source="dataBinding" />
+		<variable id="mLiveContentBgs" type="stringVector" source="dataBinding" />
+		<variable id="mLiveContentFgs" type="stringVector" source="dataBinding" />
+		<variable id="mLiveContentFgsVisibility" type="boolVector" source="dataBinding" />
+		<variable id="mLiveContentVideoVisibility" type="boolVector" source="dataBinding" />
+		<variable id="mLiveContentVideoIds" type="stringVector" source="dataBinding" />
+		<variable id="mLiveContentVideoStates" type="intVector" source="dataBinding" />
+		<variable id="mLiveContentTitles" type="stringVector" source="dataBinding" />
+		<variable id="mLiveContentSubtitles" type="stringVector" source="dataBinding" />
+		<variable id="mLiveContentTemplate" type="stringVector" source="dataBinding" />
+		<variable id="mLiveContentBodies" type="stringVector" source="dataBinding" />
+		<variable id="mLiveContentLinks" type="stringVector" source="dataBinding" />
+		<variable id="mLiveContentLink2s" type="stringVector" source="dataBinding" />
+		<variable id="mLiveContentTimerLabels" type="stringVector" source="dataBinding" />
+		<variable id="mLiveContentIndex" type="int" source="dataBinding"/>
+		<variable id="mHasLiveContentTiles" type="ref">@#GreaterThan(@mNumLiveContentPanels,0)</variable>
+		<variable id="mCTALinkLabels" type="string" source="dataBinding" juice="true" />
+		<variable id="mCTALinkHighlightedIndex" type="int" source="dataBinding" juice="true" />
+		<variable id="mCTALinksCount" type="int" source="dataBinding" />
+		<variable id="mCTALinksListItemWidth" type="int" source="constant">400</variable>
+		<variable id="mCTALinksListWidth" type="ref">@#Product(@mCTALinksCount,@mCTALinksListItemWidth)</variable>
+		<variable id="mCTALinksActive" type="bool" source="dataBinding" />
+		<variable id="mCTALinksTranslationRequired" type="bool" source="dataBinding" />
+		<variable id="mCountDownTimerVisible" type="bool" source="dataBinding" />
+		<variable id="mCountDownTimerTimeLeft" type="string" source="dataBinding" />
+		<variable id="mCountDownTimerTitle" type="string" source="dataBinding" />
+		<variable id="mCountDownTimerVerticalOffset" type="int" source="constant">-280</variable>
+		<variable id="mObjectiveProgressWidgetVisible" type="bool" source="dataBinding" />
+		<variable id="mLoyaltyProgressWidgetVisible" type="bool" source="dataBinding" />
+<!-- data tile variables -->
+		<variable id="mDifficultyAsset" type="string" source="dataBinding" />
+		<variable id="mDifficultyLabel" type="string" source="dataBinding" />
+		<variable id="mControllerAsset" type="string" source="dataBinding" />
+		<variable id="mControllerPreset" type="string" source="dataBinding" />
+		<variable id="mClubNameLabel" type="string" source="dataBinding" />
+		<variable id="mClubEstablishedDateLabel" type="string" source="dataBinding" />
+		<variable id="mClubTeamId" type="int" source="dataBinding" />
+		<variable id="mClubCrestPath" type="string" source="dataBinding" />
+		<variable id="mClubCurrentDivision" type="int" source="dataBinding" />
+		<variable id="mClubMenuInfo1" type="string" source="dataBinding" />
+		<variable id="mClubMenuInfo2" type="string" source="dataBinding" />
+		<variable id="mPlayerOverall" type="int" source="dataBinding" />
+		<variable id="mPlayerName" type="string" source="dataBinding" />
+		<variable id="mPlayerPosition" type="string" source="dataBinding" />
+		<variable id="mPlayStyle" type="string" source="dataBinding" />
+		<variable id="mProClubs_statusTypes" type="stringVector">[Club,Status]</variable>
+		<variable id="mProClubs_playersOnlineTag" type="stringVector">[TXT_CLUBS_WIDGET_ONLINE_STATUS_LABEL,ALL_PLAYERS_ONLINE_LABEL]</variable>
+		<variable id="mProClubs_clubMemberOrFreeAgentIndex"	type="ref">@#IfElse(@#DoesNotEqual(@mClubTeamId,-1),0,1)</variable>
+		<variable id="mProClubs_playersOnlineCount" type="string" source="dataBinding" />
+		<variable id="mTranslatedPlayerCountLabel" type="string" source="dataBinding" />
+		<variable id="mPlayerCountLabel" type="string" source="dataBinding" />
+		<variable id="mSeasonsRankingLabel" type="string" source="dataBinding" />
+		<variable id="mSeasonsRankingCrest" type="string" source="dataBinding" />
+		<variable id="mLogoMenuAsset" type="string" source="dataBinding" />
+		<variable id="mIsSmallModeLogo" type="ref">@#EqualAny(@mLogoMenuAsset,badge_kickoff,badge_learn,badge_tournament,badge_coopseasons,badge_seasons,badge_friendlies,badge_adhoc)</variable>
+		<variable id="mIsVideoFullscreen" type="bool" source="dataBinding"/>
+<!-- Career mode tile variables  -->
+		<variable id="mPlayerCurrentOverall" type="int" source="dataBinding" />
+		<variable id="mPlayerOvr" type="string" source="dataBinding" />
+		<variable id="mCMFirstName" type="string" source="dataBinding" />
+		<variable id="mCMSurName" type="string" source="dataBinding" />
+		<variable id="mNexOpponentCrestId" type="int" source="dataBinding" />
+		<variable id="mNexOpponentCrestPath" type="string" source="dataBinding" />
+		<variable id="mNextOpponentName" type="string" source="dataBinding" />
+		<variable id="mLeagueCrestId" type="string" source="dataBinding" />
+		<variable id="mLeagueCrestPath" type="string" source="dataBinding" />
+		<variable id="mLeagueStanding" type="string" source="dataBinding" />
+		<variable id="mManagerRatingCrestId" type="string" source="dataBinding" />
+		<variable id="mManagerRatingCrestPath" type="string" source="dataBinding" />
+		<variable id="mManagerRating" type="string" source="dataBinding" />
+<!-- FUT mode tile variables  -->
+		<variable id="mUltimateTeam_XPRequired" type="int" source="dataBinding" />
+		<variable id="mUltimateTeam_XPAccumulated" type="int" source="dataBinding" />
+		<variable id="mUltimateTeam_XPPercentLocalized" type="string" source="dataBinding" />
+		<variable id="mUltimateTeam_XPSliderCurrentValue" type="int" source="dataBinding" />
+		<variable id="mUltimateTeam_XPSliderMaxValue" type="int" source="dataBinding" />
+		<variable id="mUltimateTeam_levelSliderConfig"	type="ref">@#MultiPattern(0|{0}|{1}|0|1,@mUltimateTeam_XPSliderMaxValue,@mUltimateTeam_XPSliderCurrentValue)</variable>
+		<variable id="mUltimateTeam_isSeasonActive" type="bool" source="dataBinding" />
+		<variable id="mUltimateTeam_nextLevel" type="int" source="dataBinding" />
+		<variable id="mUltimateTeam_currentLevel" type="int" source="dataBinding"/>
+		<variable id="mUltimateTeam_RivalsRankIcon" type="string" source="dataBinding" />
+		<variable id="mUltimateTeam_RivalsRankName" type="string" source="dataBinding" />
+		<variable id="mUltimateTeam_ChampsRankIcon" type="string" source="dataBinding" />
+		<variable id="mUltimateTeam_ChampsRankName" type="string" source="dataBinding" />
+		<variable id="mUltimateTeam_RivalsTitle" type="string" source="dataBinding" />
+		<variable id="mUltimateTeam_ChampsTitle" type="string" source="dataBinding" />
+		<variable id="mUltimateTeam_SquadBattleTitle" type="string" source="dataBinding" />
+		<variable id="mUltimateTeam_RivalsDesc" type="string" source="dataBinding" />
+		<variable id="mUltimateTeam_ChampsDesc" type="string" source="dataBinding" />
+		<variable id="mUltimateTeam_SquadBattleDesc" type="string" source="dataBinding" />
+<!-- crossplay widget -->
+		<variable id="mCrossplayWidgetNotification" type="bool" source="dataBinding"/>
+		<variable id="mCrossplayWidgetNotificationTitleStr" type="string" source="dataBinding"/>
+		<variable id="mCrossplayWidgetNotificationDescStr" type="string" source="dataBinding"/>
+		<variable id="mCrossplayWidgetNotificationCalloutStr" type="string" source="dataBinding"/>
+<!-- founder widget -->
+		<variable id="mIsSeasonPassEnabled" type="bool" source="dataBinding"/>
+		<variable id="mIsFounder" type="bool" source="dataBinding"/>
+		<variable id="mIsClubMember" type="bool" source="dataBinding"/>
+		<variable id="mClubMembershipDuration" type="int" source="dataBinding"/>
+		<variable id="mShowWelcomeFounder" type="bool" source="dataBinding"/>
+		<variable id="mFounderAnimFinished" type="bool" source="dataBinding"/>
+		<variable id="mLoyalty_XPAccumulated" type="string" source="dataBinding"/>
+		<variable id="mLoyalty_XPRequired" type="string" source="dataBinding"/>
+		<variable id="mLoyalty_XPPercentageToNextLevel" type="int" source="dataBinding"/>
+		<variable id="mLoyalty_currentLevel" type="string" source="dataBinding" />
+		<variable id="mLoyalty_nextLevel" type="int" source="dataBinding"/>
+		<variable id="mLoyalty_nextReward" type="string" source="dataBinding"/>
+		<variable id="mLoyalty_timeLeft" type="string" source="dataBinding" />
+		<variable id="mLoyalty_isSeasonAvailable" type="bool" source="dataBinding"/>
+<!-- EATV Video -->
+		<variable id="mVideoStatus" type="int" source="dataBinding"/>
+		<variable id="mVideoQuality" type="int" source="dataBinding"/>
+		<variable id="mVideoUrl" type="string" source="dataBinding"/>
+		<variable id="mVideoPlayIcon" type="ref">2</variable>
+		<variable id="mVideoLoadingIcon" type="ref">3</variable>
+		<variable id="mIsVideoPaused" type="bool">false</variable>
+		<variable id="mStaticVideoPaths" type="stringVector">[,SUDAMERICANA_IntroVideo,CONMEBOL_IntroVideo,UCL_IntroVideo,WelcomeMovie,CONMEBOL_IntroVideo,]</variable>
+		<variable id="mLiveContentFTTUpgradeCarouselTitles" type="stringVector" source="dataBinding"/>
+		<variable id="mLiveContentFTTUpgradeCarouselBodies" type="stringVector" source="dataBinding"/>
+		<variable id="mLiveContentFTTUpgradeCarouselBgs" type="stringVector" source="dataBinding"/>
+		<variable id="mLiveContentFTTUpgradeCarouselFgs" type="stringVector" source="dataBinding"/>
+		<variable id="mLiveContentFTTUpgradeHighlightableItems" type="boolVector" source="dataBinding"/>
+		<variable id="mLiveContentFTTUpgradeNumItems" type="int" source="dataBinding"/>
+		<variable id="mHighlightableVideos" type="boolVector">[false,true,true,true,true,true,false]</variable>
+		<variable id="mFTTHighlightedIndex" type="int">1</variable>
+	</variable_set>
+	<buttons>
+		<button ID="RAS_LR" HINT="" ACTION="ACTION_UPDATE_SCREEN" />
+		<button ID="RAS_UD" HINT="Scroll" />
+		<button ID="BACK" HINT="Exit" ACTION="ACTION_NAV" SOUND_ONPRESS="MENU_NAV_BACK_SELECT" DESTINATION="exitTitle" />
+		<button ID="R3" EVENT_ONPRESS="reconnect" SOUND_ONPRESS="NONE" />
+	</buttons>
+	<events>
+		<event id="togglePauseVideo">
+			<effect type="variable" target="mIsVideoPaused" param="@#Not(@mIsVideoPaused)"/>
+		</event>
+		<event id="changeStreamResolution">
+			<effect type="variable" target="mIsVideoPaused" param="false"/>
+			<effect type="nav" param="changeStreamResolution" />
+		</event>
+		<event id="leaveFullScreenVideo">
+			<effect type="variable" target="mIsVideoPaused" param="false"/>
+			<effect type="nav" param="back" />
+		</event>
+		<event id="triggerMovieFullscreen">
+			<effect type="variable" target="mIsVideoPaused" param="false"/>
+			<effect type="nav" param="triggerMovieFullscreen" />
+		</event>
+		<event id="initFounderAnimComplete">
+			<effect type="animation" target="animEvt_initFounderAnimComplete"/>
+		</event>
+		<event id="welcomeFounderShown"/>
+		<event id="textboxScroll"/>
+		<event id="reconnect">
+			<effect type="nav" param="loginFromLegacyFlow" enable="@#Not(@mIsServerConnectionAlive)" />
+			<effect type="sound" param="PRIMARY_SELECT" enable="@#Not(@mIsServerConnectionAlive)" />
+		</event>
+		<event id="onFTTListHighlight">
+			<effect type="variable" target="mFTTHighlightedIndex" param="@g_param"/>
+		</event>
+	</events>
+	<panel_set>
+		<panel NAME="FCHUB_FCLIVE_PANEL" DEFAULT_LAYOUT="FCHUB_FCLIVE_LAYOUT">
+			<layout NAME="FCHUB_FCLIVE_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_FCLIVE_CONTENT" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_FCLIVE_WELCOME_PANEL" DEFAULT_LAYOUT="FCHUB_FCLIVE_WELCOME_LAYOUT">
+			<layout NAME="FCHUB_FCLIVE_WELCOME_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_FCLIVE_WELCOME_TILE">
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_LIVE_CONTENT_PANEL" DEFAULT_LAYOUT="FCHUB_LIVE_CONTENT_LAYOUT">
+			<buttons>
+				<button ID="START" HINT="TXT_TOGGLE_FULLSCREEN" TRANSLATE="TRUE" EVENT_ONPRESS="triggerMovieFullscreen" />
+			</buttons>
+			<layout NAME="FCHUB_LIVE_CONTENT_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_LIVE_CONTENT_TILE">
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+			<layout NAME="FCHUB_FULLSCREEN_VIDEO_LAYOUT" WIDTH="1920" HEIGHT="1080">
+				<tile NAME="FCHUB_LIVE_CONTENT_VIDEO_TILE" />
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_LIVE_CONTENT_PANEL_ALT" DEFAULT_LAYOUT="FCHUB_LIVE_CONTENT_LAYOUT_ALT">
+			<buttons>
+				<button ID="START" HINT="TXT_TOGGLE_FULLSCREEN" TRANSLATE="TRUE" EVENT_ONPRESS="triggerMovieFullscreen" />
+			</buttons>
+			<layout NAME="FCHUB_LIVE_CONTENT_LAYOUT_ALT" WIDTH="1920" HEIGHT="1080">
+				<tile NAME="FCHUB_LIVE_CONTENT_TILE2">
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+			<layout NAME="FCHUB_FULLSCREEN_VIDEO_LAYOUT_ALT" WIDTH="1920" HEIGHT="1080">
+				<tile NAME="FCHUB_LIVE_CONTENT_VIDEO_TILE" />
+			</layout>
+		</panel>
+		
+		<panel NAME="FCHUB_DEFAULT_NO_DATA_PANEL" DEFAULT_LAYOUT="FCHUB_DEFAULT_NO_DATA_LAYOUT">
+			<layout NAME="FCHUB_DEFAULT_NO_DATA_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_DEFAULT_MODE_DATA_TILE" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_DEFAULT_NO_DATA_PANEL_ALT" DEFAULT_LAYOUT="FCHUB_DEFAULT_NO_DATA_LAYOUT_ALT">
+			<layout NAME="FCHUB_DEFAULT_NO_DATA_LAYOUT_ALT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_DEFAULT_MODE_DATA_TILE_ALT" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_FUT_DATA_PANEL" DEFAULT_LAYOUT="FCHUB_FUT_DATA_LAYOUT">
+			<layout NAME="FCHUB_FUT_DATA_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_FUT_DATA_TILE" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_FUT_DATA_PANEL_RIVALS" DEFAULT_LAYOUT="FCHUB_FUT_DATA_LAYOUT_RIVALS">
+			<layout NAME="FCHUB_FUT_DATA_LAYOUT_RIVALS" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_FUT_DATA_TILE_RIVALS">
+                    <align ELEMENT_ATTRIBUTE="CENTER" />
+                    <align ELEMENT_ATTRIBUTE="MIDDLE" OFFSET="-250" />
+                </tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_FUT_DATA_PANEL_CHAMPS" DEFAULT_LAYOUT="FCHUB_FUT_DATA_LAYOUT_CHAMPS">
+			<layout NAME="FCHUB_FUT_DATA_LAYOUT_CHAMPS" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_FUT_DATA_TILE_CHAMPS">
+                    <align ELEMENT_ATTRIBUTE="CENTER" />
+                    <align ELEMENT_ATTRIBUTE="MIDDLE" OFFSET="-250" />
+                </tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_FUT_DATA_PANEL_SQUADBATTLE" DEFAULT_LAYOUT="FCHUB_FUT_DATA_LAYOUT_SQUADBATTLE">
+			<layout NAME="FCHUB_FUT_DATA_LAYOUT_SQUADBATTLE" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_FUT_DATA_TILE_SQUADBATTLE">
+                    <align ELEMENT_ATTRIBUTE="CENTER" />
+                    <align ELEMENT_ATTRIBUTE="MIDDLE" OFFSET="-250" />
+                </tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_PLAYER_CAREER_DATA_PANEL" DEFAULT_LAYOUT="FCHUB_PLAYER_CAREER_DATA_LAYOUT">
+			<layout NAME="FCHUB_PLAYER_CAREER_DATA_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_PLAYER_CAREER_DATA_TILE" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_PLAYER_CAREER_DATA_PANEL2" DEFAULT_LAYOUT="FCHUB_PLAYER_CAREER_DATA_LAYOUT2">
+			<layout NAME="FCHUB_PLAYER_CAREER_DATA_LAYOUT2" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_PLAYER_CAREER_DATA_TILE2" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_MANAGER_CAREER_DATA_PANEL" DEFAULT_LAYOUT="FCHUB_MANAGER_CAREER_DATA_LAYOUT">
+			<layout NAME="FCHUB_MANAGER_CAREER_DATA_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_MANAGER_CAREER_DATA_TILE" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_MANAGER_CAREER_DATA_PANEL2" DEFAULT_LAYOUT="FCHUB_MANAGER_CAREER_DATA_LAYOUT2">
+			<layout NAME="FCHUB_MANAGER_CAREER_DATA_LAYOUT2" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_MANAGER_CAREER_DATA_TILE2" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_PRO_CLUBS_DATA_PANEL" DEFAULT_LAYOUT="FCHUB_PRO_CLUBS_DATA_LAYOUT">
+			<layout NAME="FCHUB_PRO_CLUBS_DATA_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_PRO_CLUBS_DATA_TILE" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_PRO_CLUBS_DATA_PANEL2" DEFAULT_LAYOUT="FCHUB_PRO_CLUBS_DATA_LAYOUT2">
+			<layout NAME="FCHUB_PRO_CLUBS_DATA_LAYOUT2" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_PRO_CLUBS_DATA_TILE2" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_SEASONS_OR_FRIENDLIES_DATA_PANEL" DEFAULT_LAYOUT="FCHUB_SEASONS_OR_FRIENDLIES_DATA_LAYOUT">
+			<layout NAME="FCHUB_SEASONS_OR_FRIENDLIES_DATA_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_SEASONS_OR_FRIENDLIES_DATA_TILE" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_SEASONS_OR_FRIENDLIES_DATA_PANEL_ALT" DEFAULT_LAYOUT="FCHUB_SEASONS_OR_FRIENDLIES_DATA_LAYOUT_ALT">
+			<layout NAME="FCHUB_SEASONS_OR_FRIENDLIES_DATA_LAYOUT_ALT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_SEASONS_OR_FRIENDLIES_DATA_TILE_ALT" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_SEASONS_DATA_PANEL" DEFAULT_LAYOUT="FCHUB_SEASONS_DATA_LAYOUT">
+			<layout NAME="FCHUB_SEASONS_DATA_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_SEASONS_DATA_TILE" Y="281">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_DEBUG_PANEL" DEFAULT_LAYOUT="FCHUB_DEBUG_LAYOUT">
+			<layout NAME="FCHUB_DEBUG_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FC_LOYALTY_WIDGET"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-226" />
+				</tile>
+				<tile NAME="FCHUB_CONTENT_PAGINATOR">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-118" />
+				</tile>
+				<tile NAME="FC_HUB_LETTER_C_TILE">
+					<align ELEMENT_ATTRIBUTE="TOP" OFFSET="0"/>
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+				</tile>
+			</layout>
+		</panel>
+		<panel NAME="FCHUB_FTT_UPGRADE_PANEL" DEFAULT_LAYOUT="FCHUB_FTT_UPGRADE_LAYOUT">
+			<buttons>
+				<button ID="RAS_LR" HINT="TXT_NAVIGATE_THUMBNAILS" />
+			</buttons>
+			<layout NAME="FCHUB_FTT_UPGRADE_LAYOUT" WIDTH="1920" HEIGHT="1080" HELP_BAR_Y="1000">
+				<tile NAME="FCHUB_FTT_STATIC_CONTENT" Y="0">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION"/>
+				<tile NAME="FCHUB_FTT_MODES_LIST" WIDTH="930" HEIGHT="144" >
+					<align ELEMENT_ATTRIBUTE="CENTER" OFFSET="-224" />
+					<align ELEMENT_ATTRIBUTE="MIDDLE" TARGET_ATTRIBUTE="BOTTOM" OFFSET="-280"/>
+				</tile>
+				<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR"/>
+				<tile NAME="FCHUB_BLAZE_RECONNECT"/>
+				<tile NAME="FCHUB_CTA_LIST">
+					<align ELEMENT_ATTRIBUTE="CENTER" />
+					<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-450" />
+				</tile>
+				<tile NAME="FCHUB_FTT_DATA_TILE">
+					<align ELEMENT_ATTRIBUTE="WIDTH" />
+					<align ELEMENT_ATTRIBUTE="HEIGHT" />
+				</tile>
+			</layout>
+		</panel>
+	</panel_set>
+	<panel NAME="FCHUB_FTT_UPGRADE_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_FTT_STATIC_CONTENT" TYPE="TILE" RENDER_TYPE="mask" HIGHLIGHTABLE="FALSE" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+			<properties WIDTH="1920" HEIGHT="1080" />
+			<data ID="backPanel" TYPE="rectangle" COLOR="COLOR_FILL_NESTED_BACKGROUND">
+				<align ELEMENT_ATTRIBUTE="WIDTH" />
+				<align ELEMENT_ATTRIBUTE="HEIGHT"/>
+			</data>
+			<data ID="fttVideoBg" TYPE="component" PATH="game/components/FluxComponents/FluxMoviePlayer.swf" PARAM="@mVideoUrl" >
+				<properties>
+					<property id="Looping" type="bool" value="true"/>
+					<property id="IsStreamVerified" type="bool" value="true" />
+				</properties>
+				<align ELEMENT_ATTRIBUTE="WIDTH" />
+				<align ELEMENT_ATTRIBUTE="HEIGHT" />
+			</data>
+		</tile>
+		<tile NAME="FCHUB_FTT_MODES_LIST" TYPE="TILE_LIST" GLOBAL_INPUT="TRUE" RENDER_TYPE="mask" ANIMATE_ON_HIGHLIGHT="FALSE" MOVE_TO_FRONT_ON_HIGHLIGHT="FALSE" DECORATORS_RANGE="NO_BACKGROUND" HIGHLIGHTABLE="FALSE" SELECTABLE="FALSE">
+			<properties WIDTH="930" HEIGHT="144" />
+			<listProperties LIST_TYPE="TILE" LIST_WIDTH="1344" ITEM_WIDTH="448" ITEM_HEIGHT="144" ROWS="1" COLUMNS="@mLiveContentFTTUpgradeNumItems" TOTAL_ITEMS="@mLiveContentFTTUpgradeNumItems" COLUMN_SPACING="0" SHOW_HORIZONTAL_SCROLLBAR="FALSE" USE_MASK="FALSE" ITEM_HIGHLIGHT_EVENT="onFTTListHighlight" ITEMS_HIGHLIGHTABLE="@mLiveContentFTTUpgradeHighlightableItems[]" USE_RAS="TRUE" />
+			<data ID="image" TYPE="image" WIDTH="@#IfElse(@#Equal(@g_index[i],@mFTTHighlightedIndex),448:388)" HEIGHT="@#IfElse(@#Equal(@g_index[i],@mFTTHighlightedIndex),144:125)" PATH="@mLiveContentFTTUpgradeCarouselFgs[i]" KEEP_SCALE="TRUE" VISIBLE="@#Not(@#EqualAny(@g_index[i],0,@#Diff(@mLiveContentFTTUpgradeNumItems,1)))">
+				<align ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="CENTER" />
+				<align ELEMENT_ATTRIBUTE="MIDDLE" TARGET_ATTRIBUTE="MIDDLE" />
+				<transitions>
+			        <transition property="width" duration="70" delay="0" ease="Elastic" />
+			        <transition property="height" duration="70" delay="0" ease="Elastic" />
+			    </transitions>
+			</data>
+		</tile>
+		<tile NAME="FCHUB_FTT_DATA_TILE" TYPE="TILE" DECORATORS_RANGE="NO_BACKGROUND" HIGHLIGHTABLE="FALSE" DESTINATION="NONE">
+			<properties WIDTH="1920" HEIGHT="1080" />
+			<data ID="gradient" TYPE="asset" PATH="ftt" PARAM="leftScrim" KEEP_SCALE="TRUE">
+				<align ELEMENT_ATTRIBUTE="WIDTH" />
+				<align ELEMENT_ATTRIBUTE="HEIGHT" />
+			</data>
+			<data ID="defaultPanel" TYPE="group" PARAM="modeDefaultGenericTile" HEIGHT="430" Y="100">
+				<properties>
+					<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+					<property id="isSmallLogo" type="string" value="true" />
+					<property id="description" type="ref" value="@mLiveContentFTTUpgradeCarouselTitles[@mFTTHighlightedIndex]" />
+					<property id="attributes" type="ref" value="@mLiveContentFTTUpgradeCarouselBodies[@mFTTHighlightedIndex]" />
+					<property id="showFTTBrand" type="bool" value="false" />
+				</properties>
+			</data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_FCLIVE_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_FCLIVE_CONTENT" TYPE="TILE" HIGHLIGHTABLE="FALSE" DESTINATION="NONE" RENDER_TYPE="mask" DECORATORS_RANGE="NO_BACKGROUND">
+			<properties WIDTH="800" HEIGHT="300"/>
+			<data ID="MODE_DESC" TYPE="text" FORMAT="FONT_HEADER_M" COLOR="COLOR_TEXT_UNHIGHLIGHT_FLUX_TITLE" ALIGN="center" TRANSLATE="TRUE" PARAM="@mSelectedModeDescription" />
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_FCLIVE_WELCOME_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_FCLIVE_WELCOME_TILE" TYPE="TILE" HIGHLIGHTABLE="FALSE" RENDER_TYPE="mask" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND" SELECTABLE="FALSE">
+			<properties WIDTH="1920" HEIGHT="1080" />
+			<data ID="title" TYPE="text" PARAM="TXT_FCHUB_WELCOME_TITLE" ALIGN="center" COLOR="COLOR_TEXT_UNHIGHLIGHT_FLUX_TITLE" FORMAT="FONT_HEADER_M" >
+				<align ELEMENT_ATTRIBUTE="CENTER" />
+				<align ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="TOP" OFFSET="176" />
+			</data>
+			<data ID="body" TYPE="text" PARAM="TXT_FCHUB_WELCOME_BODY" ALIGN="center" COLOR="COLOR_TEXT_BACKGROUND_ALTERNATE" FORMAT="FONT_LABEL_M" >
+				<align ELEMENT_ATTRIBUTE="CENTER" />
+				<align ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="BOTTOM" OFFSET="24" TARGET="title" />
+			</data>
+			<data ID="backPanel" TYPE="rectangle" COLOR="COLOR_FILL_PANEL_PREVIEW" ALPHA="ALPHA_PANEL_PREVIEW" WIDTH="880" HEIGHT="384">
+				<align ELEMENT_ATTRIBUTE="CENTER" />
+				<align ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="BOTTOM" OFFSET="67" TARGET="body"/>
+			</data>
+			<data ID="difficultyLabel" TYPE="text" PARAM="DifficultyLevel" FORMAT="FONT_LABEL_M_BOLD" COLOR="COLOR_TEXT_ALT_PREVIEW" WIDTH="200" HEIGHT="50" ALIGN="center">
+				<align ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="LEFT" TARGET="backPanel" OFFSET="145" />
+				<align ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="TOP" TARGET="backPanel" OFFSET="44"/>
+			</data>
+			<data ID="controllerLabel" TYPE="text" PARAM="ControllerPreset" FORMAT="FONT_LABEL_M_BOLD" COLOR="COLOR_TEXT_ALT_PREVIEW" WIDTH="200" HEIGHT="50" ALIGN="center">
+				<align ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="CENTER" TARGET="backPanel"/>
+				<align ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="TOP" TARGET="backPanel" OFFSET="44"/>
+			</data>
+			<data ID="favouriteTeamLabel" TYPE="text" PARAM="FavouriteTeam" FORMAT="FONT_LABEL_M_BOLD" COLOR="COLOR_TEXT_ALT_PREVIEW" WIDTH="200" HEIGHT="50" ALIGN="center">
+				<align ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="RIGHT" TARGET="backPanel" OFFSET="-145"/>
+				<align ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="TOP" TARGET="backPanel" OFFSET="44"/>
+			</data>
+			<data ID="difficulty" TYPE="text" PARAM="@mDifficultyLabel" FORMAT="FONT_BODY_M" COLOR="COLOR_TEXT_PREVIEW" WIDTH="200" HEIGHT="30" ALIGN="center" TRANSLATE="FALSE">
+				<align ELEMENT_ATTRIBUTE="BOTTOM" TARGET="backPanel" OFFSET="-44"/>
+				<align TARGET="backPanel" ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="LEFT" OFFSET="146"/>
+			</data>
+			<data ID="controllerPreset" TYPE="text" PARAM="@mControllerPreset" FORMAT="FONT_BODY_M" COLOR="COLOR_TEXT_PREVIEW" WIDTH="200" HEIGHT="30" ALIGN="center">
+				<align ELEMENT_ATTRIBUTE="BOTTOM" TARGET="backPanel" OFFSET="-44"/>
+				<align ELEMENT_ATTRIBUTE="CENTER" TARGET="controllerLabel"/>
+			</data>
+			<data ID="favouriteTeam" TYPE="text" PARAM="@mClubNameLabel" FORMAT="FONT_BODY_M" COLOR="COLOR_TEXT_PREVIEW" WIDTH="200" HEIGHT="30" ALIGN="center" TRANSLATE="FALSE">
+				<align ELEMENT_ATTRIBUTE="BOTTOM" TARGET="backPanel" OFFSET="-44"/>
+				<align TARGET="backPanel" ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="RIGHT" OFFSET="-146"/>
+			</data>
+			<data ID="difficultyIcon" TYPE="asset" PARAM="@mDifficultyAsset" PATH="silhouettes" COLOR="COLOR_FILL_ICON_PREVIEW" KEEP_SCALE="TRUE" HEIGHT="128">
+				<align TARGET="backPanel" ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="LEFT" OFFSET="152"/>
+				<align TARGET="difficultyLabel" ELEMENT_ATTRIBUTE="TOP" OFFSET="77" />
+			</data>
+			<data ID="controllerIcon" TYPE="asset" PARAM="@mControllerAsset" PATH="controllerImage" KEEP_SCALE="TRUE" HEIGHT="140">
+				<align TARGET="controllerLabel" ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="CENTER"/>
+				<align TARGET="controllerLabel" ELEMENT_ATTRIBUTE="TOP" OFFSET="71" />
+			</data>
+			<data ID="teamCrest" TYPE="asset" PARAM="@mClubTeamId" PATH="crest/light" KEEP_SCALE="TRUE" HEIGHT="140">
+				<align TARGET="backPanel" ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="RIGHT" OFFSET="-146"/>
+				<align TARGET="favouriteTeamLabel" ELEMENT_ATTRIBUTE="TOP" OFFSET="71" />
+			</data>
+			<data ID="separator1" TYPE="rectangle" HEIGHT="296" WIDTH="2" COLOR="COLOR_FILL_SEPARATOR_PREVIEW" ALPHA="ALPHA_SEPARATOR_PREVIEW">
+				<align ELEMENT_ATTRIBUTE="LEFT" TARGET="backPanel" OFFSET="296" />
+				<align ELEMENT_ATTRIBUTE="TOP" TARGET="backPanel" OFFSET="44" />
+			</data>
+			<data ID="separator2" TYPE="rectangle" HEIGHT="296" WIDTH="2" COLOR="COLOR_FILL_SEPARATOR_PREVIEW" ALPHA="ALPHA_SEPARATOR_PREVIEW">
+				<align ELEMENT_ATTRIBUTE="RIGHT" TARGET="backPanel" OFFSET="-296" />
+				<align ELEMENT_ATTRIBUTE="TOP" TARGET="backPanel" OFFSET="44" />
+			</data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_LIVE_CONTENT_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_LIVE_CONTENT_TILE" TYPE="TILE" RENDER_TYPE="mask" DESTINATION="" SELECTABLE="FALSE" HIGHLIGHTABLE="FALSE" GLOBAL_INPUT="TRUE" DECORATORS_RANGE="NO_BACKGROUND" >
+			<properties WIDTH="1920" HEIGHT="1080" />
+			<data ID="LiveContentMessage" TYPE="group" PARAM="liveContentDataGroup" VISIBLE="@#Equal(@mLiveContentTemplate[@mLiveContentIndex],DEFAULT)">
+				<properties>
+					<property id="backgroundImagePath" type="string" value="@mLiveContentBgs[@mLiveContentIndex]" />
+					<property id="foregroundImagePath" type="string" value="@mLiveContentFgs[@mLiveContentIndex]" />
+					<property id="titleText" type="string" value="@mLiveContentTitles[@mLiveContentIndex]" />
+					<property id="bodyText" type="string" value="@mLiveContentBodies[@mLiveContentIndex]" />
+					<property id="showVideoSpinner" type="ref" value="@#Equal(@mLiveContentVideoStates[@mLiveContentIndex],1)" />
+					<property id="spinnerState" type="ref" value="@#Enumerated(@mLiveContentVideoStates[@mLiveContentIndex],@mVideoPlayIcon,@mVideoLoadingIcon,0)" />
+					<property id="videoUrl" type="ref" value="@mVideoUrl" /> 
+				</properties>
+			</data>
+
+			<data ID="timer" TYPE="group" PARAM="countdownTimer" VISIBLE="@mCountDownTimerVisible">
+				<properties>
+					<property id="title" type="string" value="@mCountDownTimerTitle" />
+					<property id="time" type="string" value="@mCountDownTimerTimeLeft" /> 
+				</properties>
+			</data>
+
+			<data ID="futSeasonWidget" TYPE="group" PARAM="futSeasonWidget" VISIBLE="@mObjectiveProgressWidgetVisible">
+				<properties>
+					<property id="title" type="string" value="@mCountDownTimerTitle" />
+					<property id="time" type="string" value="@mCountDownTimerTimeLeft" /> 
+					<property id="sliderConfig" type="string" value="@mUltimateTeam_levelSliderConfig" />
+					<property id="xpAccumulated" type="string" value="@mUltimateTeam_XPAccumulated" />
+					<property id="xpRequired" type="string" value="@mUltimateTeam_XPRequired" />
+					<property id="xpPercentLocalized" type="string" value="@mUltimateTeam_XPPercentLocalized" />
+					<property id="nextLevel" type="int" value="@mUltimateTeam_nextLevel" />
+					<property id="currentLevel" type="int" value="@mUltimateTeam_currentLevel" />
+				</properties>
+			</data>	
+
+			<data ID="LoyaltyLiveContentMessage" TYPE="group" PARAM="loyaltyLiveContentDataGroup" VISIBLE="@#Equal(@mLiveContentTemplate[@mLiveContentIndex],LOYALTY)">
+				<properties>
+					<property id="foregroundImagePath" type="string" value="@mLiveContentFgs[@mLiveContentIndex]" />
+					<property id="foregroundImageVisible" type="bool" value="@mLiveContentFgsVisibility[@mLiveContentIndex]" />
+					<property id="titleText" type="string" value="@mLiveContentTitles[@mLiveContentIndex]" />
+					<property id="bodyText" type="string" value="@mLiveContentBodies[@mLiveContentIndex]" />
+				</properties>
+			</data>
+
+			<data ID="loyaltyProgressionWidget" TYPE="group" PARAM="loyaltyProgressionWidget" VISIBLE="@mLoyaltyProgressWidgetVisible">
+				<properties>
+					<property id="timeRemaining" type="string" value="@mLoyalty_timeLeft" /> 
+					<property id="currentXp" type="int" value="@mLoyalty_XPAccumulated" />
+					<property id="nextLevelXp" type="int" value="@mLoyalty_XPRequired" />
+					<property id="nextLevel" type="string" value="@mLoyalty_currentLevel" />
+					<property id="reward" type="string" value="@mLoyalty_nextReward" />
+					<property id="xpPercent" type="int" value="@mLoyalty_XPPercentageToNextLevel" />
+				</properties>
+			</data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_LIVE_CONTENT_PANEL_ALT" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_LIVE_CONTENT_TILE2" TYPE="TILE" DESTINATION="" RENDER_TYPE="mask" SELECTABLE="FALSE" HIGHLIGHTABLE="FALSE" GLOBAL_INPUT="TRUE" DECORATORS_RANGE="NO_BACKGROUND" USE_MASK="TRUE">
+			<properties WIDTH="1920" HEIGHT="1080" />
+			<data ID="LiveContentMessage" TYPE="group" PARAM="liveContentDataGroup" VISIBLE="@#Equal(@mLiveContentTemplate[@mLiveContentIndex],DEFAULT)">
+				<properties>
+					<property id="backgroundImagePath" type="string" value="@mLiveContentBgs[@mLiveContentIndex]" />
+					<property id="foregroundImagePath" type="string" value="@mLiveContentFgs[@mLiveContentIndex]" />
+					<property id="titleText" type="string" value="@mLiveContentTitles[@mLiveContentIndex]" />
+					<property id="bodyText" type="string" value="@mLiveContentBodies[@mLiveContentIndex]" />
+					<property id="showVideoSpinner" type="ref" value="@#Equal(@mLiveContentVideoStates[@mLiveContentIndex],1)" />
+					<property id="spinnerState" type="ref" value="@#Enumerated(@mLiveContentVideoStates[@mLiveContentIndex],@mVideoPlayIcon,@mVideoLoadingIcon,0)" />
+					<property id="videoUrl" type="ref" value="@mVideoUrl" />
+				</properties>
+			</data>
+
+			<data ID="timer" TYPE="group" PARAM="countdownTimer" VISIBLE="@mCountDownTimerVisible">
+				<properties>
+					<property id="title" type="string" value="@mCountDownTimerTitle" />
+					<property id="time" type="string" value="@mCountDownTimerTimeLeft" /> 
+				</properties>
+			</data>
+
+			<data ID="futSeasonWidget" TYPE="group" PARAM="futSeasonWidget" VISIBLE="@mObjectiveProgressWidgetVisible">
+				<properties>
+					<property id="title" type="string" value="@mCountDownTimerTitle" />
+					<property id="time" type="string" value="@mCountDownTimerTimeLeft" /> 
+					<property id="sliderConfig" type="string" value="@mUltimateTeam_levelSliderConfig" />
+					<property id="xpAccumulated" type="string" value="@mUltimateTeam_XPAccumulated" />
+					<property id="xpRequired" type="string" value="@mUltimateTeam_XPRequired" />
+					<property id="xpPercentLocalized" type="string" value="@mUltimateTeam_XPPercentLocalized" />
+					<property id="nextLevel" type="int" value="@mUltimateTeam_nextLevel" />
+					<property id="currentLevel" type="int" value="@mUltimateTeam_currentLevel" />
+				</properties>
+			</data>
+
+			<data ID="LoyaltyLiveContentMessage" TYPE="group" PARAM="loyaltyLiveContentDataGroup" VISIBLE="@#Equal(@mLiveContentTemplate[@mLiveContentIndex],LOYALTY)">
+				<properties>
+					<property id="foregroundImagePath" type="string" value="@mLiveContentFgs[@mLiveContentIndex]" />
+					<property id="foregroundImageVisible" type="bool" value="@mLiveContentFgsVisibility[@mLiveContentIndex]" />
+					<property id="titleText" type="string" value="@mLiveContentTitles[@mLiveContentIndex]" />
+					<property id="bodyText" type="string" value="@mLiveContentBodies[@mLiveContentIndex]" />
+				</properties>
+			</data>
+
+			<data ID="loyaltyProgressionWidget" TYPE="group" PARAM="loyaltyProgressionWidget" VISIBLE="@mLoyaltyProgressWidgetVisible">
+				<properties>
+					<property id="timeRemaining" type="string" value="@mLoyalty_timeLeft" /> 
+					<property id="currentXp" type="int" value="@mLoyalty_XPAccumulated" />
+					<property id="nextLevelXp" type="int" value="@mLoyalty_XPRequired" />
+					<property id="nextLevel" type="string" value="@mLoyalty_currentLevel" />
+					<property id="reward" type="string" value="@mLoyalty_nextReward" />
+					<property id="xpPercent" type="int" value="@mLoyalty_XPPercentageToNextLevel" />
+				</properties>
+			</data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_FUT_DATA_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_FUT_DATA_TILE" TYPE="TILE" HIGHLIGHTABLE="FALSE" RENDER_TYPE="mask" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+			<properties WIDTH="800" HEIGHT="430"/>
+            <data ID="FUT_CLUB_LOGO" TYPE="asset" PARAM="@#IfElse(@#Equal(@mClubTeamId,-1),@mLogoMenuAsset,@mClubTeamId)" PATH="@#IfElse(@#Equal(@mClubTeamId,-1),fchub,@mClubCrestPath)" FORMAT="||center||||middle" KEEP_SCALE="TRUE" HEIGHT="176">
+				<align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="CENTER"/>
+				<align ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-254" />
+			</data>
+			<data ID="FUT_CLUB_NAME_LABEL" TYPE="text" FORMAT="HXS" COLOR="COLOR_TEXT_UNHIGHLIGHT_FLUX_TITLE" ALIGN="center" TRANSLATE="FALSE" PARAM="@mClubNameLabel">
+				<align TARGET="FUT_CLUB_LOGO" ELEMENT_ATTRIBUTE="CENTER" />
+				<align TARGET="FUT_CLUB_LOGO" ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="BOTTOM" OFFSET="24" />
+			</data>
+			<data ID="FUT_CLUB_ESTABLISHED_DATE_LABEL" TYPE="text" FORMAT="SS" COLOR="COLOR_TEXT_BACKGROUND_ALTERNATE" ALIGN="center" TRANSLATE="FALSE" PARAM="@mClubEstablishedDateLabel">
+				<align TARGET="FUT_CLUB_NAME_LABEL" ELEMENT_ATTRIBUTE="CENTER" />
+				<align TARGET="FUT_CLUB_NAME_LABEL" ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="BOTTOM" OFFSET="24" />
+			</data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_FUT_DATA_PANEL_RIVALS" DEFAULT_LAYOUT="FCHUB_FUT_DATA_LAYOUT_RIVALS" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_FUT_DATA_TILE_RIVALS" TYPE="TILE" HIGHLIGHTABLE="FALSE" RENDER_TYPE="mask" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+            <properties WIDTH="800" HEIGHT="300"/>
+			<data ID="FUT_RIVALS_TITLE" TYPE="text" FORMAT="HS||center" TRANSLATE="FALSE" COLOR="COLOR_TEXT_UNHIGHLIGHT_FLUX_TITLE" WIDTH="800" HEIGHT="30" PARAM="@mUltimateTeam_RivalsTitle">
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" />
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="BOTTOM" TARGET_ATTRIBUTE="TOP" OFFSET="-10" />
+            </data>
+            <data ID="FUT_RIVALS_DESC" TYPE="text" FORMAT="SS||center" TRANSLATE="FALSE" COLOR="COLOR_WIDGET_TEXT_NAME" WIDTH="840" HEIGHT="30" PARAM="@mUltimateTeam_RivalsDesc">
+                <align TARGET="FUT_RIVALS_TITLE" ELEMENT_ATTRIBUTE="CENTER" />
+                <align TARGET="FUT_RIVALS_TITLE" ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="BOTTOM" OFFSET="10" />
+            </data>
+            <data ID="FUT_RIVALS_REWARDS" TYPE="asset" PATH="fut/reward/" PARAM="generic_pack" ALIGN="center" FORMAT="STRETCH" TRANSLATE="FALSE" WIDTH="252" HEIGHT="358" VERTALIGN="middle">
+			    <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="CENTER"/>
+				<align TARGET="parent" ELEMENT_ATTRIBUTE="MIDDLE" OFFSET="125" />
+		    </data>
+			<data ID="FUT_RIVALS_STAT_BACKGROUND" WIDTH="850" HEIGHT="130" TYPE="group" PARAM="roundedCornerDataPane">
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="BOTTOM" OFFSET="235"/>
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" />
+            </data>
+			<data ID="FUT_RIVALS_STATS_PROGRESSION_RANK" TYPE="text" PARAM="@mUltimateTeam_RivalsRankName" TRANSLATE="FALSE" FORMAT="FONT_TILE_IS" COLOR="COLOR_WIDGET_TEXT_NAME" HEIGHT="10" ALIGN="center" >
+				<align TARGET="FUT_RIVALS_STAT_BACKGROUND" ELEMENT_ATTRIBUTE="BOTTOM" TARGET_ATTRIBUTE="TOP" OFFSET="-20"/>
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+            </data>
+			<data ID="FUT_RIVALS_STATS_PROGRESSION_LABEL" TYPE="text" PARAM="TXT_FCHUB_UT_PROGRESSION" TRANSLATE="TRUE" FORMAT="FONT_TILE_IS" COLOR="COLOR_TEXT_UNHIGHLIGHT_FLUX_TITLE" HEIGHT="10" ALIGN="center" >
+                <align TARGET="FUT_RIVALS_STAT_BACKGROUND" ELEMENT_ATTRIBUTE="BOTTOM" TARGET_ATTRIBUTE="TOP" OFFSET="-50"/>
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+			</data>
+			<data ID="FUT_RIVALS_STATS_RANK_ICON" TYPE="asset" PATH="fut/rivals/rank" PARAM="@mUltimateTeam_RivalsRankIcon" WIDTH="134" HEIGHT="134" VISIBLE="TRUE">
+                <align TARGET="FUT_RIVALS_STAT_BACKGROUND" ELEMENT_ATTRIBUTE="MIDDLE"/>
+				<align TARGET="FUT_RIVALS_STAT_BACKGROUND" ELEMENT_ATTRIBUTE="CENTER"/>
+            </data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_FUT_DATA_PANEL_CHAMPS" DEFAULT_LAYOUT="FCHUB_FUT_DATA_LAYOUT_CHAMPS" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_FUT_DATA_TILE_CHAMPS" TYPE="TILE" HIGHLIGHTABLE="FALSE" RENDER_TYPE="mask" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND" >
+            <properties WIDTH="800" HEIGHT="300"/>
+			<data ID="FUT_CHAMPS_TITLE" TYPE="text" FORMAT="HS||center" TRANSLATE="FALSE" COLOR="COLOR_TEXT_UNHIGHLIGHT_FLUX_TITLE" WIDTH="800" HEIGHT="30" PARAM="@mUltimateTeam_ChampsTitle">
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" />
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="BOTTOM" TARGET_ATTRIBUTE="TOP" OFFSET="-10" />
+            </data>
+            <data ID="FUT_CHAMPS_DESC" TYPE="text" FORMAT="SS||center" TRANSLATE="FALSE" COLOR="COLOR_WIDGET_TEXT_NAME" WIDTH="840" HEIGHT="30" PARAM="@mUltimateTeam_ChampsDesc">
+                <align TARGET="FUT_CHAMPS_TITLE" ELEMENT_ATTRIBUTE="CENTER" />
+                <align TARGET="FUT_CHAMPS_TITLE" ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="BOTTOM" OFFSET="10" />
+            </data>
+            <data ID="FUT_CHAMPS_REWARDS" TYPE="asset" PATH="fut/reward/" PARAM="generic_pack" ALIGN="center" FORMAT="STRETCH" TRANSLATE="FALSE" WIDTH="252" HEIGHT="358" VERTALIGN="middle">
+			    <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="CENTER"/>
+				<align TARGET="parent" ELEMENT_ATTRIBUTE="MIDDLE" OFFSET="125" />
+		    </data>
+			<data ID="FUT_CHAMPS_STAT_BACKGROUND" WIDTH="850" HEIGHT="130" TYPE="group" PARAM="roundedCornerDataPane">
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="BOTTOM" OFFSET="235"/>
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" />
+            </data>
+			<data ID="FUT_CHAMPS_STATS_PROGRESSION_RANK" TYPE="text" PARAM="@mUltimateTeam_ChampsRankName" TRANSLATE="FALSE" FORMAT="FONT_TILE_IS" COLOR="COLOR_WIDGET_TEXT_NAME" HEIGHT="10" ALIGN="center" >
+				<align TARGET="FUT_CHAMPS_STAT_BACKGROUND" ELEMENT_ATTRIBUTE="BOTTOM" TARGET_ATTRIBUTE="TOP" OFFSET="-20"/>
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+            </data>
+			<data ID="FUT_CHAMPS_STATS_PROGRESSION_LABEL" TYPE="text" PARAM="TXT_FCHUB_UT_PROGRESSION" TRANSLATE="TRUE" FORMAT="FONT_TILE_IS" COLOR="COLOR_TEXT_UNHIGHLIGHT_FLUX_TITLE" HEIGHT="10" ALIGN="center" >
+                <align TARGET="FUT_CHAMPS_STAT_BACKGROUND" ELEMENT_ATTRIBUTE="BOTTOM" TARGET_ATTRIBUTE="TOP" OFFSET="-50"/>
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" OFFSET="0" />
+			</data>
+			<data ID="FUT_CHAMPS_STATS_RANK_ICON" TYPE="asset" PATH="fut/champions2/crest256" PARAM="@mUltimateTeam_ChampsRankIcon" WIDTH="134" HEIGHT="134" VISIBLE="TRUE">
+                <align TARGET="FUT_CHAMPS_STAT_BACKGROUND" ELEMENT_ATTRIBUTE="MIDDLE"/>
+				<align TARGET="FUT_CHAMPS_STAT_BACKGROUND" ELEMENT_ATTRIBUTE="CENTER"/>
+            </data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_FUT_DATA_PANEL_SQUADBATTLE" DEFAULT_LAYOUT="FCHUB_FUT_DATA_LAYOUT_SQUADBATTLE" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_FUT_DATA_TILE_SQUADBATTLE" TYPE="TILE" HIGHLIGHTABLE="FALSE" RENDER_TYPE="mask" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+			<properties WIDTH="800" HEIGHT="300"/>
+			<data ID="FUT_SQUADBATTLE_TITLE" TYPE="text" FORMAT="HS||center" TRANSLATE="FALSE" COLOR="COLOR_TEXT_UNHIGHLIGHT_FLUX_TITLE" WIDTH="800" HEIGHT="30" PARAM="@mUltimateTeam_SquadBattleTitle">
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" />
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="BOTTOM" TARGET_ATTRIBUTE="TOP" OFFSET="-10" />
+            </data>
+            <data ID="FUT_SQUADBATTLE_DESC" TYPE="text" FORMAT="SS||center" TRANSLATE="FALSE" COLOR="COLOR_WIDGET_TEXT_NAME" WIDTH="840" HEIGHT="30" PARAM="@mUltimateTeam_SquadBattleDesc">
+                <align TARGET="FUT_SQUADBATTLE_TITLE" ELEMENT_ATTRIBUTE="CENTER" />
+                <align TARGET="FUT_SQUADBATTLE_TITLE" ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="BOTTOM" OFFSET="10" />
+            </data>
+            <data ID="FUT_SQUADBATTLE_REWARDS" TYPE="asset" PATH="fut/reward/" PARAM="generic_pack" ALIGN="center" FORMAT="STRETCH" TRANSLATE="FALSE" WIDTH="252" HEIGHT="358" VERTALIGN="middle">
+			    <align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" TARGET_ATTRIBUTE="CENTER"/>
+				<align TARGET="parent" ELEMENT_ATTRIBUTE="MIDDLE" OFFSET="200" />
+		    </data>
+		</tile>
+	</panel>
+    <panel NAME="FCHUB_PLAYER_CAREER_DATA_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+        <tile NAME="FCHUB_PLAYER_CAREER_DATA_TILE" RENDER_TYPE="mask" TYPE="TILE" HIGHLIGHTABLE="FALSE" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+            <properties WIDTH="816" HEIGHT="430"/>
+			<data ID="panel" TYPE="group" PARAM="modeDefaultDataGroup">
+			<properties>
+				<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+				<property id="panelTitle" type="string" value="MM_CM_INSIGHTS" />
+				<property id="leftAssetPath" type="string" value="@mClubCrestPath"/>
+				<property id="leftAssetParam" type="string" value="@mClubTeamId" />
+				<property id="leftTitle" type="string" value="MM_CM_CLUB" />
+				<property id="leftText" type="string" value="@mClubNameLabel"/>
+				<property id="rightTitle" type="string" value="@mCMFirstName" />
+				<property id="rightTitleTranslate" type="string" value="FALSE" />
+				<property id="rightText" type="string" value="@mCMSurName" />
+			</properties>
+			</data>
+            <data ID="PLAYER_CAREER_PLAYER_RATING_CIRCLE" TYPE="asset" PATH="EvaluationEngine" PARAM="player_rating_circle" COLOR="COLOR_TEXT_ALT_PREVIEW" WIDTH="72" HEIGHT="72" VISIBLE="TRUE">
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="LEADING" TARGET_ATTRIBUTE="LEADING" OFFSET="400"/>
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="MIDDLE" TARGET_ATTRIBUTE="BOTTOM" OFFSET="-65" />
+            </data>
+            <data ID="PLAYER_CAREER_PLAYER_OVERALL" TYPE="text" PARAM="@mPlayerCurrentOverall" TRANSLATE="FALSE" ALIGN="center" FORMAT="FONT_MEDIUM_SMALL_LABEL_PREVIEW|||COLOR_SAFE_WHITE" WIDTH="72" HEIGHT="36" VISIBLE="TRUE">
+                <align TARGET="PLAYER_CAREER_PLAYER_RATING_CIRCLE" ELEMENT_ATTRIBUTE="CENTER"/>
+                <align TARGET="PLAYER_CAREER_PLAYER_RATING_CIRCLE" ELEMENT_ATTRIBUTE="TOP" OFFSET="8"/>
+            </data>
+            <data ID="PLAYER_CAREER_TXT_OVR" TYPE="text" PARAM="@mPlayerOvr" TRANSLATE="FALSE" ALIGN="center" FORMAT="FONT_MEDIUM_SMALL_LABEL_PREVIEW|||COLOR_SAFE_WHITE" WIDTH="72" HEIGHT="36" VISIBLE="TRUE">
+                <align TARGET="PLAYER_CAREER_PLAYER_RATING_CIRCLE" ELEMENT_ATTRIBUTE="CENTER"/>
+                <align TARGET="PLAYER_CAREER_PLAYER_RATING_CIRCLE" ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-8"/>
+            </data>
+        </tile>
+    </panel>
+    <panel NAME="FCHUB_PLAYER_CAREER_DATA_PANEL2" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+        <tile NAME="FCHUB_PLAYER_CAREER_DATA_TILE2" RENDER_TYPE="mask" TYPE="TILE" HIGHLIGHTABLE="FALSE" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+            <properties WIDTH="816" HEIGHT="430"/>
+			<data ID="panel" TYPE="group" PARAM="modeDefaultDataGroup">
+			<properties>
+				<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+				<property id="panelTitle" type="string" value="MM_CM_INSIGHTS" />
+				<property id="leftAssetPath" type="string" value="@mNexOpponentCrestPath"/>
+				<property id="leftAssetParam" type="string" value="@mNexOpponentCrestId" />
+				<property id="leftTitle" type="string" value="MM_CM_NEXT_MATCH" />
+				<property id="leftText" type="string" value="@mNextOpponentName"/>
+				<property id="rightAssetPath" type="string" value="@mLeagueCrestPath" />
+				<property id="rightAssetParam" type="string" value="@mLeagueCrestId" />
+				<property id="rightTitle" type="string" value="MM_CM_STANDINGS" />
+				<property id="rightText" type="string" value="@mLeagueStanding" />
+			</properties>
+			</data>
+        </tile>
+    </panel>
+    <panel NAME="FCHUB_MANAGER_CAREER_DATA_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+        <tile NAME="FCHUB_MANAGER_CAREER_DATA_TILE" RENDER_TYPE="mask" TYPE="TILE" HIGHLIGHTABLE="FALSE" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+            <properties WIDTH="816" HEIGHT="430"/>
+			<data ID="panel" TYPE="group" PARAM="modeDefaultDataGroup">
+			<properties>
+				<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+				<property id="panelTitle" type="string" value="MM_CM_INSIGHTS" />
+				<property id="leftAssetPath" type="string" value="@mClubCrestPath"/>
+				<property id="leftAssetParam" type="string" value="@mClubTeamId" />
+				<property id="leftTitle" type="string" value="MM_CM_CLUB" />
+				<property id="leftText" type="string" value="@mClubNameLabel"/>
+				<property id="rightAssetPath" type="string" value="@mManagerRatingCrestPath" />
+				<property id="rightAssetParam" type="string" value="@mManagerRatingCrestId" />
+				<property id="rightTitle" type="string" value="@mManagerRating" />
+				<property id="rightText" type="ref" value="@#MultiPattern({0} {1},@mCMFirstName,@mCMSurName)" />
+				<property id="rightTextFont" type="ref" value="FONT_MEDIUM_SMALL_LABEL_PREVIEW" />
+			</properties>
+			</data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_MANAGER_CAREER_DATA_PANEL2" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_MANAGER_CAREER_DATA_TILE2" RENDER_TYPE="mask" TYPE="TILE" HIGHLIGHTABLE="FALSE" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+			<properties WIDTH="816" HEIGHT="430"/>
+			<data ID="panel" TYPE="group" PARAM="modeDefaultDataGroup">
+			<properties>
+				<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+				<property id="panelTitle" type="string" value="MM_CM_INSIGHTS" />
+				<property id="leftAssetPath" type="string" value="@mNexOpponentCrestPath"/>
+				<property id="leftAssetParam" type="string" value="@mNexOpponentCrestId" />
+				<property id="leftTitle" type="string" value="MM_CM_NEXT_MATCH" />
+				<property id="leftText" type="string" value="@mNextOpponentName"/>
+				<property id="rightAssetPath" type="string" value="@mLeagueCrestPath" />
+				<property id="rightAssetParam" type="string" value="@mLeagueCrestId" />
+				<property id="rightTitle" type="string" value="MM_CM_STANDINGS" />
+				<property id="rightText" type="string" value="@mLeagueStanding" />
+			</properties>
+			</data>
+        </tile>
+    </panel>
+    <panel NAME="FCHUB_PRO_CLUBS_DATA_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+        <tile NAME="FCHUB_PRO_CLUBS_DATA_TILE" RENDER_TYPE="mask" TYPE="TILE" HIGHLIGHTABLE="FALSE" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+            <properties WIDTH="816" HEIGHT="430"/>
+			<data ID="clubPanel" TYPE="group" PARAM="modeDefaultDataGroup" VISIBLE="@#Equal(@mProClubs_clubMemberOrFreeAgentIndex,0)">
+			<properties>
+				<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+				<property id="panelTitle" type="string" value="MM_CM_INSIGHTS" />
+				<property id="leftAssetPath" type="string" value=""/>
+				<property id="leftAssetParam" type="string" value="" />
+				<property id="leftTitle" type="string" value="@mPlayerPosition" />
+				<property id="leftTitleTranslate" type="string" value="FALSE" />
+				<property id="leftText" type="string" value="@mPlayerName"/>
+				<property id="leftTextFont" type="string" value="FONT_MEDIUM_SMALL_LABEL_PREVIEW" />
+				<property id="rightAssetPath" type="string" value="@mClubCrestPath" />
+				<property id="rightAssetParam" type="string" value="@mClubTeamId" />
+				<property id="rightTitleTranslate" type="string" value="FALSE" />
+				<property id="rightTitle" type="string" value="@mClubNameLabel" />
+				<property id="rightText" type="string" value="@mProClubs_playersOnlineCount" />
+				<property id="rightTextFont" type="string" value="FONT_MEDIUM_SMALL_LABEL_PREVIEW" />
+			</properties>
+			</data>
+			<data ID="freeAgentPanel" TYPE="group" PARAM="modeDefaultDataGroup" VISIBLE="@#Equal(@mProClubs_clubMemberOrFreeAgentIndex,1)">
+			<properties>
+				<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+				<property id="panelTitle" type="string" value="MM_CM_INSIGHTS" />
+				<property id="leftAssetPath" type="string" value=""/>
+				<property id="leftAssetParam" type="string" value="" />
+				<property id="leftTitle" type="string" value="@mPlayerPosition" />
+				<property id="leftTitleTranslate" type="string" value="FALSE" />
+				<property id="leftText" type="string" value="@mPlayerName"/>
+				<property id="leftTextFont" type="string" value="FONT_MEDIUM_SMALL_LABEL_PREVIEW" />
+				<property id="rightTitle" type="string" value="@mProClubs_statusTypes[@mProClubs_clubMemberOrFreeAgentIndex]" />
+				<property id="rightText" type="string" value="@mClubNameLabel" />
+				<property id="rightTextFont" type="string" value="FONT_MEDIUM_SMALL_LABEL_PREVIEW" />
+			</properties>
+			</data>
+            <data ID="PRO_CLUBS_PLAYER_RATING_CIRCLE" TYPE="asset" PATH="mainMenu/VoltaProClubsSubTiles" PARAM="OVR_Circle" COLOR="COLOR_TEXT_ALT_PREVIEW" WIDTH="72" HEIGHT="72" VISIBLE="TRUE">
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="LEADING" TARGET_ATTRIBUTE="LEADING" OFFSET="30"/>
+                <align TARGET="parent" ELEMENT_ATTRIBUTE="MIDDLE" TARGET_ATTRIBUTE="BOTTOM" OFFSET="-65" />
+            </data>
+            <data ID="PRO_CLUBS_OVERALL" TYPE="text" PARAM="@mPlayerOverall" TRANSLATE="FALSE" ALIGN="center" FORMAT="FONT_MEDIUM_SMALL_LABEL_PREVIEW|||COLOR_SAFE_WHITE" WIDTH="72" HEIGHT="36" VISIBLE="TRUE">
+                <align TARGET="PRO_CLUBS_PLAYER_RATING_CIRCLE" ELEMENT_ATTRIBUTE="CENTER"/>
+                <align TARGET="PRO_CLUBS_PLAYER_RATING_CIRCLE" ELEMENT_ATTRIBUTE="TOP" OFFSET="8"/>
+            </data>
+            <data ID="PRO_CLUBS_TXT_OVR" TYPE="text" PARAM="Overall_abbr3" TRANSLATE="TRUE" ALIGN="center" FORMAT="FONT_MEDIUM_SMALL_LABEL_PREVIEW|||COLOR_SAFE_WHITE" WIDTH="72" HEIGHT="36" VISIBLE="TRUE">
+                <align TARGET="PRO_CLUBS_PLAYER_RATING_CIRCLE" ELEMENT_ATTRIBUTE="CENTER"/>
+                <align TARGET="PRO_CLUBS_PLAYER_RATING_CIRCLE" ELEMENT_ATTRIBUTE="BOTTOM" OFFSET="-8"/>
+            </data>
+        </tile>
+    </panel>
+    <panel NAME="FCHUB_PRO_CLUBS_DATA_PANEL2" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+        <tile NAME="FCHUB_PRO_CLUBS_DATA_TILE2" RENDER_TYPE="mask" TYPE="TILE" HIGHLIGHTABLE="FALSE" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND" >
+            <properties WIDTH="816" HEIGHT="430"/>
+			<data ID="LeaguePanel" TYPE="group" PARAM="modeDefaultDataGroup" VISIBLE="@#Equal(@mProClubs_clubMemberOrFreeAgentIndex,0)">
+			<properties>
+				<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+				<property id="panelTitle" type="string" value="SEASONAL_EVENT_CURRENT_SEASON_LABEL" />
+				<property id="leftAssetPath" type="string" value="proclubsDivisionCrests"/>
+				<property id="leftAssetParam" type="string" value="@mClubCurrentDivision" />
+				<property id="leftTitle" type="string" value="@mClubMenuInfo1" />
+				<property id="leftTitleTranslate" type="string" value="FALSE" />
+				<property id="leftText" type="string" value="@mClubMenuInfo2"/>
+				<property id="leftTextFont" type="string" value="FONT_MEDIUM_SMALL_LABEL_PREVIEW" />
+				<property id="rightAssetPath" type="string" value="@mClubCrestPath" />
+				<property id="rightAssetParam" type="string" value="@mClubTeamId" />
+				<property id="rightTitleTranslate" type="string" value="FALSE" />
+				<property id="rightTitle" type="string" value="@mClubNameLabel" />
+				<property id="rightText" type="string" value="@mProClubs_playersOnlineCount" />
+				<property id="rightTextFont" type="string" value="FONT_MEDIUM_SMALL_LABEL_PREVIEW" />
+			</properties>
+			</data>
+        </tile>
+    </panel>
+	<panel NAME="FCHUB_SEASONS_OR_FRIENDLIES_DATA_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_SEASONS_OR_FRIENDLIES_DATA_TILE" TYPE="TILE" HIGHLIGHTABLE="FALSE" RENDER_TYPE="mask" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+			<properties WIDTH="800" HEIGHT="430"/>
+			<data ID="defaultPanel" TYPE="group" PARAM="modeSeasonsGenericTile">
+				<properties>
+					<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+					<property id="isSmallLogo" type="string" value="@mIsSmallModeLogo" />
+					<property id="playerCountLabel" type="string" value="@mPlayerCountLabel" />
+					<property id="description" type="string" value="@mSelectedModeDescription" />
+					<property id="attributes" type="string" value="@mSelectedModeAttributes" />
+				</properties>
+			</data>
+		</tile>
+
+	</panel>
+	<panel NAME="FCHUB_SEASONS_OR_FRIENDLIES_DATA_PANEL_ALT" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_SEASONS_OR_FRIENDLIES_DATA_TILE_ALT" TYPE="TILE" HIGHLIGHTABLE="FALSE" RENDER_TYPE="mask" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+			<properties WIDTH="800" HEIGHT="430"/>
+			<data ID="defaultPanel" TYPE="group" PARAM="modeSeasonsGenericTile">
+				<properties>
+					<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+					<property id="isSmallLogo" type="string" value="@mIsSmallModeLogo" />
+					<property id="playerCountLabel" type="string" value="@mPlayerCountLabel" />
+					<property id="description" type="string" value="@mSelectedModeDescription" />
+					<property id="attributes" type="string" value="@mSelectedModeAttributes" />
+				</properties>
+			</data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_SEASONS_DATA_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_SEASONS_DATA_TILE" RENDER_TYPE="mask" TYPE="TILE" HIGHLIGHTABLE="FALSE" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+			<properties WIDTH="816" HEIGHT="430"/>
+			<data ID="panel" TYPE="group" PARAM="modeDefaultDataGroup">
+				<properties>
+					<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+					<property id="logoHeight" type="string" value="88" />
+					<property id="panelTitle" type="string" value="Current Season" />
+					<property id="leftAssetPath" type="string" value="online"/>
+					<property id="leftAssetParam" type="string" value="Globe" />
+					<property id="leftTitle" type="string" value="playersonline" />
+					<property id="leftText" type="string" value="@mPlayerCountLabel"/>
+					<property id="rightAssetPath" type="string" value="seasonsDivisionCrests/coop" />
+					<property id="rightAssetParam" type="string" value="@mSeasonsRankingCrest" />
+					<property id="rightTitle" type="string" value="ONL_CLUBS_RANKING" />
+					<property id="rightText" type="string" value="@mSeasonsRankingLabel"/>
+				</properties>
+			</data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_DEFAULT_NO_DATA_PANEL" DEFAULT_TILE_ID="@mDefaultTileId" RENDER_TYPE="mask" HIGHLIGHTED_TILE_ID="@mDefaultTileId">
+		<tile NAME="FCHUB_DEFAULT_MODE_DATA_TILE" TYPE="TILE" HIGHLIGHTABLE="FALSE" RENDER_TYPE="mask" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+			<properties WIDTH="800" HEIGHT="430"/>
+			<data ID="defaultPanel" TYPE="group" PARAM="modeDefaultGenericTile">
+				<properties>
+					<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+					<property id="isSmallLogo" type="string" value="@mIsSmallModeLogo" />
+					<property id="description" type="string" value="@mSelectedModeDescription" />
+					<property id="attributes" type="string" value="@mSelectedModeAttributes" />
+				</properties>
+			</data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_DEFAULT_NO_DATA_PANEL_ALT">
+		<tile NAME="FCHUB_DEFAULT_MODE_DATA_TILE_ALT" TYPE="TILE" HIGHLIGHTABLE="FALSE" RENDER_TYPE="mask" DESTINATION="NONE" DECORATORS_RANGE="NO_BACKGROUND">
+			<properties WIDTH="800" HEIGHT="430"/>
+			<data ID="defaultPanel" TYPE="group" PARAM="modeDefaultGenericTile">
+				<properties>
+					<property id="logoAsset" type="string" value="@mLogoMenuAsset" />
+					<property id="isSmallLogo" type="string" value="@mIsSmallModeLogo" />
+					<property id="description" type="string" value="@mSelectedModeDescription" />
+					<property id="attributes" type="string" value="@mSelectedModeAttributes" />
+				</properties>
+			</data>
+		</tile>
+	</panel>
+	<panel NAME="FCHUB_DEBUG_PANEL">
+	</panel>
+	<tile_set>
+		<tile NAME="FCHUB_LIVE_CONTENT_VIDEO_TILE" TYPE="TILE" RENDER_TYPE="mask" DECORATORS_RANGE="NO_BACKGROUND" HIGHLIGHTABLE="TRUE" SELECTABLE="FALSE" TRACE="TRUE" >
+			<properties WIDTH="1920" HEIGHT="1080" />
+			<buttons>
+				<button ID="BACK" HINT="TXT_BACK" EVENT_ONPRESS="leaveFullScreenVideo" />
+				<button ID="OPTION_LEFT" HINT="Pause" EVENT_ONPRESS="togglePauseVideo" />
+				<button ID="L3" HINT="@#Enumerated(@mVideoQuality,TXT_EATV_SELECT_HIGH_RES,TXT_EATV_SELECT_LOW_RES)" EVENT_ONPRESS="changeStreamResolution" />
+			</buttons>
+			<data ID="FULL_SCREEN_VIDEO" TYPE="component" PATH="game/components/FluxComponents/FluxMoviePlayer.swf" PARAM="@mVideoUrl">
+				<properties>
+					<property id="FullScreen" type="bool" value="true" />
+					<property id="Paused" type="bool" value="@mIsVideoPaused" />
+					<property id="IsStreamVerified" type="bool" value="true" />
+				</properties>
+			</data>
+			<data ID="LOADING_SPINNER" TYPE="component" PARAM="2" PATH="online/components/ui/StreamingIcon.swf" WIDTH="150" HEIGHT="150" VISIBLE="@mIsVideoPaused">
+				<align TARGET="parent" ELEMENT_ATTRIBUTE="CENTER" OFFSET="100"/>
+				<align TARGET="parent" ELEMENT_ATTRIBUTE="MIDDLE" OFFSET="40"/>
+			</data>
+		</tile>
+		<tile NAME="FC_LOYALTY_WIDGET" TYPE="TILE" DECORATORS_RANGE="NO_BACKGROUND" HIGHLIGHTABLE="FALSE" VISIBLE="@mIsServerConnectionAlive">
+			<properties WIDTH="800" HEIGHT="40" VISIBLE="@mIsSeasonPassEnabled" />
+			<data ID="loyaltyWidget" TYPE="group" PARAM="loyaltyWidgetGroup" VISIBLE="@mIsSeasonPassEnabled" X="@#IfElse(@mLoyalty_isSeasonAvailable,1024,1245)" Y="54">
+				<properties>
+					<property id="level" type="ref" value="@mLoyalty_currentLevel" />
+					<property id="currentXp" type="ref" value="@mLoyalty_XPAccumulated" />
+					<property id="nextLevelXp" type="ref" value="@mLoyalty_XPRequired" />
+					<property id="gamertag" type="ref" value="@mGamerTag" />
+					<property id="isFounder" type="ref" value="@mIsFounder" />
+					<property id="isClubMember" type="ref" value="@mIsClubMember" />
+					<property id="clubMembershipDuration" type="ref" value="@mClubMembershipDuration" />
+					<property id="isSeasonInfoVisible" type="ref" value="@mLoyalty_isSeasonAvailable" />
+				</properties>
+			</data>
+		</tile>
+		<tile NAME="FCHUB_CTA_LIST" TYPE="TILE" DECORATORS_RANGE="NO_BACKGROUND" USE_MASK="FALSE" VISIBLE="@#And(@#GreaterThan(@mCTALinksCount,0),@#Not(@mIsVideoFullscreen))" HIGHLIGHTABLE="@mCTALinksActive" SELECTABLE="@mCTALinksActive" DEPTH_OFFSET="5000">
+			<properties WIDTH="1000" HEIGHT="64"/>
+			<data ID="ButtonsBox" TYPE="component" PATH="game/components/FluxComponents/FluxPillButtonsBox.swf" PARAM="@#Concatenate(@mCTALinksCount,|,@mCTALinkLabels,|,A,|,@mCTALinksTranslationRequired,|,2,|,@mCTALinksActive,|,0,|,@#Not(@mCTALinksActive))" ALIGN="CENTER"/>
+		</tile>
+		<tile NAME="FCHUB_CONTENT_PAGINATOR" TYPE="TILE" HIGHLIGHTABLE="FALSE" ALWAYS_ACTIVE="TRUE" GLOBAL_INPUT="TRUE" DECORATORS_RANGE="NO_BACKGROUND" DEPTH_OFFSET="5000">
+			<properties WIDTH="500" HEIGHT="32" />
+																											<!--< NUM_BULLETS >|< [CURRENT_BULLET] >|< [BUTTON] >|< [WRAP] >|< [SHOW_BACKGROUND] >|< [HORIZONTAL_ANCHOR] >|< [VERTICAL_ANCHOR] > | < [SOUND_ON_MOVE] >-->
+			<data ID="Paginator" TYPE="component" PATH="game/components/BulletList.swf" PARAM="@#Concatenate(@mNumCarouselTiles,|,@mCarouselIndex,|,@mNestedTileCycleStyle,|,@#IfElse(@#Not(@mRightStickRemapEnabled),TRUE,FALSE),|FALSE|ANCHOR_SIDE_LEFT|ANCHOR_SIDE_TOP|MENU_NAV_CAROUSEL_CONTROL)" WIDTH="@#Sum(50,@#Product(@mNumCarouselTiles,30))" HEIGHT="32" >
+				<properties>
+					<property id="AlwaysActive" type="bool" value="true" />
+				</properties>
+				<align ELEMENT_ATTRIBUTE="CENTER" />
+				<align ELEMENT_ATTRIBUTE="TOP" />
+			</data>
+		</tile>
+		<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION" TYPE="TILE" HIGHLIGHTABLE="FALSE" VISIBLE="@mCrossplayWidgetNotification" DESTINATION="matchmakingOptions" DEPTH_OFFSET="5000">
+			<properties X="1478" Y="776" WIDTH="395" HEIGHT="150" />
+			<data ID="NOTIFICATION_TITLE" TYPE="text" PARAM="@mCrossplayWidgetNotificationTitleStr" FORMAT="FONT_CATEGORY_TITLE_FHD|||COLOR_TITLE_PREVIEW" ALIGN="leading" TRANSLATE="FALSE">
+				<align TARGET="parent" ELEMENT_ATTRIBUTE="TOP" OFFSET="0" />
+				<align TARGET="parent" ELEMENT_ATTRIBUTE="LEADING" OFFSET="3" />
+			</data>
+			<data ID="NOTIFICATION_DESC" TYPE="text" PARAM="@mCrossplayWidgetNotificationDescStr" FORMAT="FONT_TILE_SM|||COLOR_TEXT_PREVIEW" ALIGN="leading" HEIGHT="200" TRANSLATE="FALSE">
+				<align TARGET="NOTIFICATION_TITLE" ELEMENT_ATTRIBUTE="TOP" TARGET_ATTRIBUTE="BOTTOM" OFFSET="3" />
+				<align TARGET="NOTIFICATION_TITLE" ELEMENT_ATTRIBUTE="LEADING" TARGET_ATTRIBUTE="LEADING" />
+			</data>
+		</tile>
+		<tile NAME="FCHUB_CROSSPLAY_NOTIFICATION_ACTION_BAR" TYPE="TILE" HIGHLIGHTABLE="FALSE" GLOBAL_INPUT="TRUE" VISIBLE="@mCrossplayWidgetNotification" DEPTH_OFFSET="5000">
+			<properties X="1548" Y="934" WIDTH="325" HEIGHT="46" />
+			<buttons>
+				<button ID="L1" HINT="" ACTION="ACTION_NAV" DESTINATION="OnDisableCrossPlay" />
+			</buttons>
+			<data ID="CROSSPLAY_NOTIFICATION_ACTION_TEXT" TYPE="text" PARAM="@mCrossplayWidgetNotificationCalloutStr" WIDTH="286" HEIGHT="38" VISIBLE="TRUE" FORMAT="FONT_REGULAR_ACTIVE_LABEL_DESCRIPTION|COLOR_TEXT_WHITE|LEADING|COLOR_TEXT_WHITE" TRANSLATE="FALSE">
+				<align ELEMENT_ATTRIBUTE="MIDDLE"/>
+			</data>
+			<data ID="CROSSPLAY_NOTIFICATION_ACTION" TYPE="component" PATH="game/components/FluxComponents/ButtonText.swf" PARAM="^LT^|||TRUE|TRUE" WIDTH="39" HEIGHT="38" FORMAT="FONT_REGULAR_SMALL_LABEL|COLOR_FILL_UNHIGHLIGHT_HIGH_CONTRAST|center|COLOR_FILL_UNHIGHLIGHT_HIGH_CONTRAST|||bottom" TRANSLATE="FALSE" VISIBLE="TRUE">
+				<align ELEMENT_ATTRIBUTE="RIGHT" OFFSET="2"/>
+				<align ELEMENT_ATTRIBUTE="MIDDLE"/>
+			</data>
+		</tile>
+		<tile NAME="FC_HUB_LETTER_C_TILE" TYPE="TILE" HIGHLIGHTABLE="FALSE" SELECTABLE="FALSE" DECORATORS_RANGE="BACKGROUND" USE_MASK="FALSE">
+			<properties WIDTH="1920" HEIGHT="1080" />
+			<data ID="BACKGROUND_LETTER_C" TYPE="asset" PATH="fchub" PARAM="backgroundLetterC" KEEP_SCALE="TRUE" ALPHA="ALPHA_DARK" WIDTH="1920" HEIGHT="1080"/>
+		</tile>
+	</tile_set>
+</root>

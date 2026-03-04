@@ -47,6 +47,7 @@
   const kofiPatreonCardEl = document.getElementById('kofiPatreonCard');
   const kofiStatusBoxEl = document.getElementById('kofiStatusBox');
   const patreonStatusBoxEl = document.getElementById('patreonStatusBox');
+  const teamsHeaderStatusEl = document.getElementById('teamsHeaderStatus');
   const switcherWrapper = document.getElementById('switcherWrapper');
   const switcherPower = document.getElementById('switcherPower');
   const switcherChannelLabel = document.getElementById('switcherChannelLabel');
@@ -64,6 +65,8 @@
   const switcherPubDropdownMenu = document.getElementById('switcherPubDropdownMenu');
   const switcherSelectedPubLogo = document.getElementById('switcherSelectedPubLogo');
   const switcherSelectedPubName = document.getElementById('switcherSelectedPubName');
+  const btnApplySquad = document.getElementById('btnApplySquad');
+  const squadStatusText = document.getElementById('squadStatusText');
 
   let currentUser = null;
   let currentDiscordRow = null;
@@ -79,6 +82,8 @@
   let switcherPublicities = [];
   let switcherPublicitiesLoaded = false;
   let switcherSelectedPubId = null;
+  let squadStatusLoaded = false;
+  let lastHasGameAccess = false;
 
   function showError(msg) {
     messageError.textContent = msg;
@@ -488,6 +493,47 @@
     }
   }
 
+  async function updateSquadStatus() {
+    if (!squadStatusText || !window.electronAPI || !window.electronAPI.checkSquadStatus) return;
+    try {
+      const res = await window.electronAPI.checkSquadStatus();
+      squadStatusLoaded = true;
+      if (!res || res.ok === false) {
+        squadStatusText.textContent = 'No se encontró ninguna squad en la carpeta aplicarSquad.';
+        return;
+      }
+      if (res.applied) {
+        squadStatusText.textContent = 'Squad ya está aplicada en EA SPORTS FC 26.';
+      } else {
+        squadStatusText.textContent = 'Falta aplicar squad.';
+      }
+    } catch (_) {
+      squadStatusText.textContent = 'No se pudo comprobar el estado de la squad.';
+    }
+  }
+
+  async function updateTeamsHeaderStatus(hasGameAccess) {
+    if (!teamsHeaderStatusEl) return;
+    if (!hasGameAccess || !window.electronAPI || !window.electronAPI.getTeamsStatus) {
+      teamsHeaderStatusEl.hidden = true;
+      teamsHeaderStatusEl.classList.remove('dash-teams-status--ok', 'dash-teams-status--error');
+      return;
+    }
+    try {
+      const res = await window.electronAPI.getTeamsStatus();
+      const present = !!(res && res.present);
+      teamsHeaderStatusEl.hidden = false;
+      teamsHeaderStatusEl.textContent = present ? 'Teams OK' : 'Teams Error';
+      teamsHeaderStatusEl.classList.toggle('dash-teams-status--ok', present);
+      teamsHeaderStatusEl.classList.toggle('dash-teams-status--error', !present);
+    } catch (_) {
+      teamsHeaderStatusEl.hidden = false;
+      teamsHeaderStatusEl.textContent = 'Teams Error';
+      teamsHeaderStatusEl.classList.remove('dash-teams-status--ok');
+      teamsHeaderStatusEl.classList.add('dash-teams-status--error');
+    }
+  }
+
   if (switcherDropdown) {
     switcherDropdown.addEventListener('click', async () => {
       await loadSwitcherMarkersOnce();
@@ -512,6 +558,20 @@
       if (!switcherPubDropdownMenu) return;
       const isHidden = switcherPubDropdownMenu.hidden;
       switcherPubDropdownMenu.hidden = !isHidden;
+    });
+  }
+
+  if (btnApplySquad) {
+    btnApplySquad.addEventListener('click', async () => {
+      if (!window.electronAPI || !window.electronAPI.applySquad) return;
+      try {
+        await window.electronAPI.applySquad();
+        await updateSquadStatus();
+      } catch (_) {
+        if (squadStatusText) {
+          squadStatusText.textContent = 'No se pudo aplicar la squad.';
+        }
+      }
     });
   }
 
@@ -714,6 +774,9 @@
       loadSwitcherMarkersOnce();
       loadSwitcherTvsOnce();
       loadSwitcherPublicitiesOnce();
+      if (!squadStatusLoaded) {
+        updateSquadStatus();
+      }
     }
   }
 
@@ -1170,7 +1233,7 @@
       btn.removeAttribute('title');
     });
 
-    // Controlar acceso al archivo fifa_ng_db.DB según permisos de Discord
+    // Controlar acceso al archivo fifa_ng_db.DB y Teams CSV según permisos de Discord
     const hasGameAccess = !!(isLinked && canAccessProtected);
     if (window.electronAPI && typeof window.electronAPI.setGameDbAccess === 'function') {
       if (hasGameAccess !== lastGameDbAccess) {
@@ -1178,6 +1241,9 @@
         window.electronAPI.setGameDbAccess(hasGameAccess);
       }
     }
+
+    // Actualizar estado de Teams en el header
+    updateTeamsHeaderStatus(hasGameAccess);
   }
 
   const rememberMe = document.getElementById('rememberMe');
