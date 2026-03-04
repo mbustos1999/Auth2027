@@ -1,0 +1,49 @@
+{
+  "LastSavedProgramVersion": "9.3.1.0",
+  "UpdateConfig": {
+    "UpdateCheckUri": "https://github.com/FIFER-Mods/fifaeditortoolupdate/raw/main/modmanager_update.ini"
+  },
+  "GamesConfig": {
+    "ExecutablePaths": [
+      "C:\\Program Files (x86)\\Steam\\steamapps\\common\\FC 26\\FC26.exe"
+    ],
+    "DefaultGameExecutablePath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\FC 26\\FC26.exe"
+  },
+  "GameCommandLineSettings": {
+    "CurrentGameExecutor": 0
+  },
+  "Profiles": {
+    "FC26": [
+      {
+        "Name": "Default Profile",
+        "GameSettings": {
+          "AudioMixMode": 0,
+          "ControllerDefault": 0,
+          "DirectXSelect": 1,
+          "FullScreen": true,
+          "MsaaLevel": 0,
+          "RenderingQuality": 0,
+          "ResolutionHeight": 720,
+          "ResolutionWidth": 1280,
+          "VoiceChat": true,
+          "WaitForVsync": 0,
+          "WindowedBorderless": false
+        },
+        "LocaleIniModFilePath": "",
+        "LocaleIniIndex": -1,
+        "AppliedMods": []
+      }
+    ]
+  },
+  "LastUsedProfileName": {
+    "FC26": "Default Profile"
+  },
+  "AlternativeLaunchMethod": false,
+  "VerifyModChecksumsOnInstall": true,
+  "VerifyModChecksumsOnStartup": false,
+  "LowMemoryMode": true,
+  "DeleteLiveTuningUpdates": true,
+  "DeleteModDataLocaleIniIfPresentInInitFs": true,
+  "DeleteAssetsFilesWithDbEdits": true,
+  "DeleteDynamicLocWithLanguageEdits": true
+}

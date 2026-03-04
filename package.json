@@ -1,6 +1,6 @@
 {
   "name": "auth-2027",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Aplicación Electron con autenticación WordPress",
   "main": "main.js",
   "repository": {
@@ -37,7 +37,8 @@
     "appId": "com.auth2027.app",
     "productName": "Auth2027",
     "directories": { "output": "dist" },
-    "files": ["**/*", "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md}", "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}", "!**/*.map"],
+    "files": ["**/*", "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md}", "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}", "!**/*.map", "!modManager"],
+    "extraResources": [{ "from": "modManager", "to": "modManager" }],
     "publish": {
       "provider": "github",
       "owner": "mbustos1999",

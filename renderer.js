@@ -67,6 +67,7 @@
   const switcherSelectedPubName = document.getElementById('switcherSelectedPubName');
   const btnApplySquad = document.getElementById('btnApplySquad');
   const squadStatusText = document.getElementById('squadStatusText');
+  const btnPlayModManager = document.getElementById('btnPlayModManager');
 
   let currentUser = null;
   let currentDiscordRow = null;
@@ -571,6 +572,23 @@
         if (squadStatusText) {
           squadStatusText.textContent = 'No se pudo aplicar la squad.';
         }
+      }
+    });
+  }
+
+  if (btnPlayModManager) {
+    btnPlayModManager.addEventListener('click', async () => {
+      if (!window.electronAPI || !window.electronAPI.launchModManager) return;
+      try {
+        const res = await window.electronAPI.launchModManager();
+        if (res && res.ok === false) {
+          const msg = res.reason === 'not_found'
+            ? 'No se encontró FIFA Mod Manager.exe en la carpeta modManager.'
+            : 'No se pudo abrir FIFA Mod Manager.';
+          alert(msg);
+        }
+      } catch (_) {
+        alert('No se pudo abrir FIFA Mod Manager.');
       }
     });
   }

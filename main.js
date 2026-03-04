@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { spawn } = require('child_process');
 require('dotenv').config();
 
 // Auto-updater (solo cuando la app está empaquetada)
@@ -779,6 +780,53 @@ ipcMain.handle('teams:getStatus', async () => {
   } catch (e) {
     console.error('Error en teams:getStatus:', e);
     return { ok: false, present: false, reason: e.message || 'status_error' };
+  }
+});
+
+ipcMain.handle('modmanager:launch', async () => {
+  try {
+    // En desarrollo: __dirname. En instalador: extraResources está en process.resourcesPath (fuera del .asar)
+    const baseDir = app.isPackaged ? process.resourcesPath : __dirname;
+    const exePath = path.join(baseDir, 'modManager', 'FIFA Mod Manager.exe');
+    if (!fs.existsSync(exePath)) {
+      console.error('FIFA Mod Manager.exe no encontrado en:', exePath);
+      return { ok: false, reason: 'not_found', path: exePath };
+    }
+
+    return await new Promise((resolve) => {
+      // Usar shell: true en Windows para que el .exe se ejecute correctamente (evita EACCES con rutas con espacios)
+      const quotedPath = exePath.includes(' ') ? `"${exePath.replace(/"/g, '""')}"` : exePath;
+      const child = spawn(quotedPath, [], {
+        shell: true,
+        detached: true,
+        stdio: 'ignore'
+      });
+
+      let settled = false;
+      const done = (result) => {
+        if (settled) return;
+        settled = true;
+        resolve(result);
+      };
+
+      child.once('error', (err) => {
+        console.error('Error al lanzar FIFA Mod Manager:', err);
+        done({
+          ok: false,
+          reason: err && (err.code || err.message) ? (err.code || err.message) : 'launch_error'
+        });
+      });
+
+      child.once('spawn', () => {
+        try {
+          child.unref();
+        } catch (_) {}
+        done({ ok: true });
+      });
+    });
+  } catch (e) {
+    console.error('Error al preparar el lanzamiento de FIFA Mod Manager:', e);
+    return { ok: false, reason: e.message || 'launch_error' };
   }
 });
 
