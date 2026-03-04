@@ -21,7 +21,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearSwitcherOverlay: () => ipcRenderer.invoke('switcher:clearOverlay'),
   listSwitcherTvs: () => ipcRenderer.invoke('switcher:listTvs'),
   applySwitcherTv: (tvId) => ipcRenderer.invoke('switcher:applyTv', tvId),
-  clearSwitcherTvOverlay: () => ipcRenderer.invoke('switcher:clearTvOverlay')
+  clearSwitcherTvOverlay: () => ipcRenderer.invoke('switcher:clearTvOverlay'),
+  listSwitcherPublicities: () => ipcRenderer.invoke('switcher:listPublicities'),
+  applySwitcherPublicity: (pubId) => ipcRenderer.invoke('switcher:applyPublicity', pubId),
+  clearSwitcherPublicity: () => ipcRenderer.invoke('switcher:clearPublicity')
 });
 
 // Config: main.js ya la cargó y la pasó por process.env (más fiable); si no, intentar require

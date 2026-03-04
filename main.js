@@ -63,6 +63,48 @@ const overlayTargetDir = path.join(
   'Generic'
 );
 
+const layoutTargetDir = path.join(
+  'C:',
+  'FC 26 Live Editor',
+  'mods',
+  'legacy',
+  'data',
+  'ui',
+  'layout'
+);
+
+const themesTargetDir = path.join(
+  'C:',
+  'FC 26 Live Editor',
+  'mods',
+  'legacy',
+  'data',
+  'ui',
+  'themes'
+);
+
+const adboardsTargetDir = path.join(
+  'C:',
+  'FC 26 Live Editor',
+  'mods',
+  'legacy',
+  'data',
+  'ui',
+  'game',
+  'adboards'
+);
+
+const fchubTargetDir = path.join(
+  'C:',
+  'FC 26 Live Editor',
+  'mods',
+  'legacy',
+  'data',
+  'ui',
+  'imgAssets',
+  'fchub'
+);
+
 function ensureGameDbPresent() {
   try {
     if (!fs.existsSync(gameDbSourcePath)) {
@@ -97,15 +139,14 @@ function removeGameDbIfExists() {
 
 function removeOverlayFileByPrefix(prefix) {
   try {
-    const targetDir = overlayTargetDir;
-    if (!fs.existsSync(targetDir)) return { ok: true };
-    const entries = fs.readdirSync(targetDir, { withFileTypes: true });
+    if (!fs.existsSync(overlayTargetDir)) return { ok: true };
+    const entries = fs.readdirSync(overlayTargetDir, { withFileTypes: true });
     const targetLower = String(prefix || '').toLowerCase();
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       const nameLower = entry.name.toLowerCase();
       if (!targetLower || !nameLower.startsWith(targetLower)) continue;
-      const fullPath = path.join(targetDir, entry.name);
+      const fullPath = path.join(overlayTargetDir, entry.name);
       try {
         fs.unlinkSync(fullPath);
       } catch (e) {
@@ -228,6 +269,151 @@ function scanTvs() {
   return result;
 }
 
+function ensureDirExists(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
+function clearAdboardsDir() {
+  try {
+    if (!fs.existsSync(adboardsTargetDir)) return { ok: true };
+    const entries = fs.readdirSync(adboardsTargetDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(adboardsTargetDir, entry.name);
+      try {
+        if (entry.isDirectory()) {
+          fs.rmSync(fullPath, { recursive: true, force: true });
+        } else if (entry.isFile()) {
+          fs.unlinkSync(fullPath);
+        }
+      } catch (e) {
+        console.error('Error al limpiar adboards:', fullPath, e);
+      }
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('Error al limpiar carpeta de adboards:', e);
+    return { ok: false, error: e.message || 'delete_adboards_error' };
+  }
+}
+
+function removeFilesByPrefix(targetDir, prefix) {
+  try {
+    if (!fs.existsSync(targetDir)) return { ok: true };
+    const targetLower = String(prefix || '').toLowerCase();
+    const entries = fs.readdirSync(targetDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const nameLower = entry.name.toLowerCase();
+      if (!targetLower || !nameLower.startsWith(targetLower)) continue;
+      const fullPath = path.join(targetDir, entry.name);
+      try {
+        fs.unlinkSync(fullPath);
+      } catch (e) {
+        console.error('Error al eliminar archivo por prefijo', targetDir, entry.name, e);
+      }
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('Error en removeFilesByPrefix', targetDir, prefix, e);
+    return { ok: false, error: e.message || 'delete_prefix_error' };
+  }
+}
+
+function clearPublicityContent() {
+  removeFilesByPrefix(layoutTargetDir, 'fchubcfg');
+  removeFilesByPrefix(themesTargetDir, 'fifa');
+  clearAdboardsDir();
+  removeFilesByPrefix(fchubTargetDir, 'backgroundletterc');
+}
+
+function copyDirRecursive(srcDir, destDir) {
+  if (!fs.existsSync(srcDir)) return;
+  ensureDirExists(destDir);
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, destPath);
+    } else if (entry.isFile()) {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+function scanPublicities() {
+  const basePath = path.join(__dirname, 'publicidades');
+  const result = [];
+  try {
+    if (!fs.existsSync(basePath)) return result;
+    const entries = fs.readdirSync(basePath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const id = entry.name;
+      const pBase = path.join(basePath, id);
+
+      // Logo / imagen para el combo: buscamos una imagen suelta en la raíz de la carpeta
+      let imageWebPath = null;
+      const rootFiles = fs.readdirSync(pBase, { withFileTypes: true });
+      for (const f of rootFiles) {
+        if (!f.isFile()) continue;
+        const lower = f.name.toLowerCase();
+        if (!/\.(png|jpg|jpeg|webp|gif|bmp)$/.test(lower)) continue;
+        imageWebPath = path.join('publicidades', id, f.name).replace(/\\/g, '/');
+        break;
+      }
+
+      // Archivos de config
+      let layoutPath = null;
+      const layoutUpper = path.join(pBase, 'fchubcfg.XML');
+      const layoutLower = path.join(pBase, 'fchubcfg.xml');
+      if (fs.existsSync(layoutUpper)) layoutPath = layoutUpper;
+      else if (fs.existsSync(layoutLower)) layoutPath = layoutLower;
+
+      let themesPath = null;
+      const fifaUpper = path.join(pBase, 'FIFA.XML');
+      const fifaLower = path.join(pBase, 'fifa.xml');
+      if (fs.existsSync(fifaUpper)) themesPath = fifaUpper;
+      else if (fs.existsSync(fifaLower)) themesPath = fifaLower;
+
+      // Adboards
+      let adboardsDir = null;
+      const adLocal = path.join(pBase, 'adboards');
+      if (fs.existsSync(adLocal)) adboardsDir = adLocal;
+
+      // Fondo fchub
+      let fondoPath = null;
+      const fondoDir = path.join(pBase, 'fondo');
+      if (fs.existsSync(fondoDir)) {
+        const fondoFiles = fs.readdirSync(fondoDir, { withFileTypes: true });
+        for (const f of fondoFiles) {
+          if (!f.isFile()) continue;
+          const lower = f.name.toLowerCase();
+          if (lower.startsWith('backgroundletterc') && lower.endsWith('.dds')) {
+            fondoPath = path.join(fondoDir, f.name);
+            break;
+          }
+        }
+      }
+
+      result.push({
+        id,
+        name: id,
+        imageSrc: imageWebPath,
+        layoutPath,
+        themesPath,
+        adboardsDir,
+        fondoPath
+      });
+    }
+  } catch (e) {
+    console.error('Error al escanear publicidades:', e);
+  }
+  return result;
+}
+
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const iconPath = path.join(__dirname, 'assets', 'icon.png');
@@ -294,6 +480,7 @@ app.on('window-all-closed', () => {
   // Al cerrar todas las ventanas, aseguramos que se elimine el archivo de la ruta de destino
   removeGameDbIfExists();
   clearOverlayTargetDir();
+  clearPublicityContent();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -307,6 +494,7 @@ ipcMain.on('window-close', () => {
   // Al cerrar desde el botón personalizado también limpiamos el archivo
   removeGameDbIfExists();
   clearOverlayTargetDir();
+  clearPublicityContent();
   mainWindow?.close();
 });
 
@@ -389,6 +577,77 @@ ipcMain.handle('switcher:applyTv', async (_event, tvId) => {
 ipcMain.handle('switcher:clearTvOverlay', async () => {
   // Limpiar solo overlay de TV
   return removeOverlayFileByPrefix('overlay_9105');
+});
+
+ipcMain.handle('switcher:listPublicities', async () => {
+  return scanPublicities();
+});
+
+ipcMain.handle('switcher:applyPublicity', async (_event, pubId) => {
+  try {
+    const pubs = scanPublicities();
+    const pub = pubs.find((p) => p.id === pubId);
+    if (!pub) {
+      return { ok: false, reason: 'not_found' };
+    }
+
+    // Layout
+    if (pub.layoutPath) {
+      try {
+        ensureDirExists(layoutTargetDir);
+        const targetPath = path.join(layoutTargetDir, path.basename(pub.layoutPath));
+        fs.copyFileSync(pub.layoutPath, targetPath);
+      } catch (e) {
+        console.error('Error al copiar fchubcfg.XML:', e);
+      }
+    }
+
+    // Themes
+    if (pub.themesPath) {
+      try {
+        ensureDirExists(themesTargetDir);
+        const targetPath = path.join(themesTargetDir, path.basename(pub.themesPath));
+        fs.copyFileSync(pub.themesPath, targetPath);
+      } catch (e) {
+        console.error('Error al copiar FIFA.XML:', e);
+      }
+    }
+
+    // Adboards
+    const resAdClear = clearAdboardsDir();
+    if (resAdClear.ok === false) {
+      return { ok: false, reason: resAdClear.error || 'adboards_clear_failed' };
+    }
+    if (pub.adboardsDir) {
+      try {
+        copyDirRecursive(pub.adboardsDir, adboardsTargetDir);
+      } catch (e) {
+        console.error('Error al copiar adboards:', e);
+      }
+    }
+
+    // Fondo fchub
+    removeFilesByPrefix(fchubTargetDir, 'backgroundletterc');
+    if (pub.fondoPath) {
+      try {
+        ensureDirExists(fchubTargetDir);
+        const targetPath = path.join(fchubTargetDir, path.basename(pub.fondoPath));
+        fs.copyFileSync(pub.fondoPath, targetPath);
+      } catch (e) {
+        console.error('Error al copiar backgroundLetterC.dds:', e);
+      }
+    }
+
+    return { ok: true };
+  } catch (e) {
+    console.error('Error en switcher:applyPublicity:', e);
+    return { ok: false, reason: e.message || 'apply_error' };
+  }
+});
+
+ipcMain.handle('switcher:clearPublicity', async () => {
+  clearPublicityContent();
+  return { ok: true };
 });
 
 // Auto-actualización (solo en app empaquetada)

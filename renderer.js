@@ -60,6 +60,10 @@
   const switcherTvDropdownMenu = document.getElementById('switcherTvDropdownMenu');
   const switcherSelectedTvLogo = document.getElementById('switcherSelectedTvLogo');
   const switcherSelectedTvName = document.getElementById('switcherSelectedTvName');
+  const switcherPubDropdown = document.getElementById('switcherPubDropdown');
+  const switcherPubDropdownMenu = document.getElementById('switcherPubDropdownMenu');
+  const switcherSelectedPubLogo = document.getElementById('switcherSelectedPubLogo');
+  const switcherSelectedPubName = document.getElementById('switcherSelectedPubName');
 
   let currentUser = null;
   let currentDiscordRow = null;
@@ -72,6 +76,9 @@
   let switcherTvs = [];
   let switcherTvsLoaded = false;
   let switcherSelectedTvId = null;
+  let switcherPublicities = [];
+  let switcherPublicitiesLoaded = false;
+  let switcherSelectedPubId = null;
 
   function showError(msg) {
     messageError.textContent = msg;
@@ -376,6 +383,111 @@
     }
   }
 
+  async function loadSwitcherPublicitiesOnce() {
+    if (switcherPublicitiesLoaded) return;
+    if (!window.electronAPI || !window.electronAPI.listSwitcherPublicities) return;
+    try {
+      const list = await window.electronAPI.listSwitcherPublicities();
+      if (!Array.isArray(list) || list.length === 0 || !switcherPubDropdownMenu) {
+        switcherPublicitiesLoaded = true;
+        return;
+      }
+      switcherPublicities = list;
+      switcherPubDropdownMenu.innerHTML = '';
+
+      const noneBtn = document.createElement('button');
+      noneBtn.type = 'button';
+      noneBtn.className = 'switcher-dropdown-item';
+      const noneSpan = document.createElement('span');
+      noneSpan.textContent = 'Ninguno';
+      noneBtn.appendChild(noneSpan);
+      noneBtn.addEventListener('click', () => {
+        clearSwitcherPubSelection();
+        switcherPubDropdownMenu.hidden = true;
+      });
+      switcherPubDropdownMenu.appendChild(noneBtn);
+
+      list.forEach((pub) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'switcher-dropdown-item';
+        btn.dataset.pubId = pub.id;
+
+        const img = document.createElement('img');
+        img.className = 'switcher-logo';
+        if (pub.imageSrc) {
+          img.src = pub.imageSrc;
+        } else {
+          img.hidden = true;
+        }
+
+        const span = document.createElement('span');
+        span.textContent = pub.name || pub.id;
+
+        btn.appendChild(img);
+        btn.appendChild(span);
+
+        btn.addEventListener('click', () => {
+          applySwitcherPubSelection(pub);
+          switcherPubDropdownMenu.hidden = true;
+        });
+
+        switcherPubDropdownMenu.appendChild(btn);
+      });
+
+      switcherPublicitiesLoaded = true;
+    } catch (_) {
+      switcherPublicitiesLoaded = true;
+    }
+  }
+
+  async function applySwitcherPubSelection(pub) {
+    const idLower = String(pub?.name || pub?.id || '').trim().toLowerCase();
+    if (idLower === 'ninguno') {
+      await clearSwitcherPubSelection();
+      return;
+    }
+
+    switcherSelectedPubId = pub.id;
+    if (switcherSelectedPubName) {
+      switcherSelectedPubName.textContent = pub.name || pub.id;
+    }
+    if (switcherSelectedPubLogo) {
+      if (pub.imageSrc) {
+        switcherSelectedPubLogo.hidden = false;
+        switcherSelectedPubLogo.src = pub.imageSrc;
+      } else {
+        switcherSelectedPubLogo.hidden = true;
+      }
+    }
+
+    if (window.electronAPI && window.electronAPI.applySwitcherPublicity) {
+      try {
+        await window.electronAPI.applySwitcherPublicity(pub.id);
+      } catch (_) {
+        // ignorar errores
+      }
+    }
+  }
+
+  async function clearSwitcherPubSelection() {
+    switcherSelectedPubId = null;
+    if (switcherSelectedPubName) {
+      switcherSelectedPubName.textContent = 'Ninguno';
+    }
+    if (switcherSelectedPubLogo) {
+      switcherSelectedPubLogo.hidden = true;
+    }
+
+    if (window.electronAPI && window.electronAPI.clearSwitcherPublicity) {
+      try {
+        await window.electronAPI.clearSwitcherPublicity();
+      } catch (_) {
+        // ignorar errores
+      }
+    }
+  }
+
   if (switcherDropdown) {
     switcherDropdown.addEventListener('click', async () => {
       await loadSwitcherMarkersOnce();
@@ -391,6 +503,15 @@
       if (!switcherTvDropdownMenu) return;
       const isHidden = switcherTvDropdownMenu.hidden;
       switcherTvDropdownMenu.hidden = !isHidden;
+    });
+  }
+
+  if (switcherPubDropdown) {
+    switcherPubDropdown.addEventListener('click', async () => {
+      await loadSwitcherPublicitiesOnce();
+      if (!switcherPubDropdownMenu) return;
+      const isHidden = switcherPubDropdownMenu.hidden;
+      switcherPubDropdownMenu.hidden = !isHidden;
     });
   }
 
@@ -558,6 +679,9 @@
       if (typeof window.electronAPI.clearSwitcherTvOverlay === 'function') {
         window.electronAPI.clearSwitcherTvOverlay();
       }
+      if (typeof window.electronAPI.clearSwitcherPublicity === 'function') {
+        window.electronAPI.clearSwitcherPublicity();
+      }
     }
 
     // Pequeña animación al volver a mostrar el login
@@ -589,6 +713,7 @@
     if (tabName === 'Switcher') {
       loadSwitcherMarkersOnce();
       loadSwitcherTvsOnce();
+      loadSwitcherPublicitiesOnce();
     }
   }
 
