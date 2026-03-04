@@ -79,6 +79,7 @@
   const switcherSelectedPubLogo = document.getElementById('switcherSelectedPubLogo');
   const switcherSelectedPubName = document.getElementById('switcherSelectedPubName');
   const btnApplySquad = document.getElementById('btnApplySquad');
+  const btnDownloadMods = document.getElementById('btnDownloadMods');
   const squadStatusText = document.getElementById('squadStatusText');
   const btnPlayModManager = document.getElementById('btnPlayModManager');
   let currentUser = null;
@@ -589,6 +590,12 @@
     });
   }
 
+  if (btnDownloadMods) {
+    btnDownloadMods.addEventListener('click', () => {
+      checkModsRequiredAndShowModal(true);
+    });
+  }
+
   const LAUNCHER_OPENED_KEY = 'auth2027_launcher_opened';
   const launcherRequiredModal = document.getElementById('launcherRequiredModal');
   const launcherRequiredConfirm = document.getElementById('launcherRequiredConfirm');
@@ -872,7 +879,7 @@
     return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
   }
 
-  async function checkModsRequiredAndShowModal() {
+  async function checkModsRequiredAndShowModal(forceShow) {
     const modal = document.getElementById('modsRequiredModal');
     const msgEl = document.getElementById('modsRequiredMessage');
     const versionEl = document.getElementById('modsRequiredVersion');
@@ -888,12 +895,13 @@
     try {
       const res = await fetch(MODS_MANIFEST_URL, { cache: 'no-store' });
       const manifest = await res.json().catch(() => null);
-      if (!manifest || !manifest.required) return;
+      if (!manifest) return;
+      if (!forceShow && !manifest.required) return;
       const requiredVersion = String(manifest.version || '0').trim();
       lastModsRequiredVersion = requiredVersion;
       const currentVersion = (localStorage.getItem(MODS_VERSION_KEY) || '').trim();
       const needUpdate = !currentVersion || currentVersion !== requiredVersion;
-      if (!needUpdate) return;
+      if (!forceShow && !needUpdate) return;
       lastModsManifest = manifest;
       if (msgEl) {
         const inst = manifest.instructions || 'Descarga el paquete y coloca los .fifamod en modManager/Mods/FC26/.';
@@ -942,11 +950,21 @@
               if (requiredVersion) try { localStorage.setItem(MODS_VERSION_KEY, requiredVersion); } catch (_) {}
               modal.hidden = true;
             } else {
-              alert(result?.reason === 'invalid_url' ? 'URL no válida.' : (result?.reason || 'Error al descargar o extraer.'));
+              const reason = result?.reason || '';
+              const isNotZip = reason === 'not_zip' || String(reason).includes('invalid signature');
+              if (isNotZip && lastModsManifest?.downloadUrl && window.electronAPI?.openExternal) {
+                window.electronAPI.openExternal(lastModsManifest.downloadUrl);
+                alert('Transfer.it requiere descargar desde el navegador. Se ha abierto el enlace.\n\nDescarga el .zip, descomprímelo en modManager/Mods/FC26/ y pulsa «Ya los descargué».');
+              } else {
+                const msg = reason === 'invalid_url' ? 'URL no válida.'
+                  : (reason === 'fetch failed' || reason === 'download_error') ? 'No se pudo conectar con el servidor. Usa «Abrir enlace en el navegador» y descarga el archivo a mano.'
+                  : (reason || 'Error al descargar o extraer.');
+                alert(msg);
+              }
             }
           } catch (e) {
             unsub();
-            alert('Error: ' + (e?.message || 'No se pudo completar la descarga.'));
+            alert('No se pudo conectar con el servidor. Usa «Abrir enlace en el navegador» para descargar el archivo manualmente.');
           }
           if (actionsWrap) actionsWrap.style.pointerEvents = '';
         };

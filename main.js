@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -949,9 +949,16 @@ ipcMain.handle('shell:openExternal', (_event, url) => {
   return shell.openExternal(url).then(() => ({ ok: true })).catch((e) => ({ ok: false, error: e?.message }));
 });
 
+// Quitar caracteres de control en cabeceras/URL (evita "Invalid header value char")
+function safeHeaderValue(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[\x00-\x1F\x7F]/g, '').trim();
+}
+
 // Descarga automática de mods FC26: descarga el .zip desde url y lo extrae en modManager/Mods/FC26/
 ipcMain.handle('mods:download', async (event, url) => {
-  if (typeof url !== 'string' || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+  url = safeHeaderValue(String(url));
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
     return { ok: false, reason: 'invalid_url' };
   }
   const baseDir = app.isPackaged ? process.resourcesPath : __dirname;
@@ -965,26 +972,50 @@ ipcMain.handle('mods:download', async (event, url) => {
   try {
     if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
     sendProgress({ phase: 'download', percent: 0, bytesReceived: 0, totalBytes: null });
-    const res = await fetch(url, { redirect: 'follow' });
-    if (!res.ok) return { ok: false, reason: 'download_failed', status: res.status };
-    const totalBytes = res.headers.get('content-length');
-    const total = totalBytes ? parseInt(totalBytes, 10) : null;
-    const file = fs.createWriteStream(tempZip);
-    const reader = res.body.getReader();
-    let received = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      file.write(Buffer.from(value));
-      received += value.length;
-      const percent = total ? Math.min(100, Math.round((received / total) * 100)) : null;
-      sendProgress({ phase: 'download', percent, bytesReceived: received, totalBytes: total });
-    }
-    file.end();
     await new Promise((resolve, reject) => {
-      file.on('finish', resolve);
-      file.on('error', reject);
+      const file = fs.createWriteStream(tempZip);
+      let received = 0;
+      const request = net.request({
+        method: 'GET',
+        url: url,
+        redirect: 'follow'
+      });
+      request.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      request.setHeader('Accept', 'application/zip,*/*');
+      request.on('response', (response) => {
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          file.close();
+          fs.unlink(tempZip, () => {});
+          reject(new Error('download_failed'));
+          return;
+        }
+        const total = response.headers['content-length'] ? parseInt(response.headers['content-length'], 10) : null;
+        response.on('data', (chunk) => {
+          received += chunk.length;
+          const percent = total ? Math.min(100, Math.round((received / total) * 100)) : null;
+          sendProgress({ phase: 'download', percent, bytesReceived: received, totalBytes: total });
+          file.write(chunk);
+        });
+        response.on('end', () => file.end());
+        response.on('error', reject);
+        file.on('finish', resolve);
+        file.on('error', reject);
+      });
+      request.on('error', (err) => {
+        file.close();
+        fs.unlink(tempZip, () => {});
+        reject(err);
+      });
+      request.end();
     });
+    const fd = fs.openSync(tempZip, 'r');
+    const zipHeader = Buffer.alloc(4);
+    fs.readSync(fd, zipHeader, 0, 4, 0);
+    fs.closeSync(fd);
+    if (zipHeader[0] !== 0x50 || zipHeader[1] !== 0x4b) {
+      try { fs.unlinkSync(tempZip); } catch (_) {}
+      return { ok: false, reason: 'not_zip' };
+    }
     sendProgress({ phase: 'extract', percent: 0 });
     await new Promise((resolve, reject) => {
       fs.createReadStream(tempZip)

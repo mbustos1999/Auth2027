@@ -1657,6 +1657,10 @@ html, body {
   min-width: 180px;
 }
 
+.switcher-download-mods-btn {
+  min-width: 160px;
+}
+
 .switcher-squad-status {
   font-size: 11px;
   color: #e5e7eb;
