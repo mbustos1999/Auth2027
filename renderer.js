@@ -866,6 +866,193 @@
         updateSquadStatus();
       }
     }
+    if (tabName === 'home') loadHomeCards();
+    if (tabName === 'config') loadConfigCards();
+  }
+
+  async function loadHomeCards() {
+    const grid = document.getElementById('inicioMarvelGrid');
+    if (!grid) return;
+    try {
+      const res = await fetch(`${BOT_BASE_URL}/home-cards`, { headers: buildBotHeaders() });
+      const data = await res.json().catch(() => ({}));
+      const cards = Array.isArray(data.cards) ? data.cards : [];
+      grid.innerHTML = cards
+        .map(
+          (c) => `
+          <div class="box">
+            <p class="marvel">${escapeHtml(c.title || 'MARVEL')}</p>
+            <img src="${escapeHtml(c.image_url || '')}" alt="" class="model" onerror="this.style.display='none'">
+            <div class="details">
+              <img src="${escapeHtml(c.logo_url || '')}" alt="" class="logo" onerror="this.style.display='none'">
+              <p>${escapeHtml(c.description || '')}</p>
+            </div>
+          </div>`
+        )
+        .join('');
+    } catch (_) {
+      grid.innerHTML = '';
+    }
+  }
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    const s = String(str);
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  let configCardsCache = [];
+
+  async function loadConfigCards() {
+    if (!currentUser || !currentUser.user_email) return;
+    const list = document.getElementById('configCardsList');
+    const errEl = document.getElementById('configCardsError');
+    if (!list) return;
+    if (errEl) errEl.hidden = true;
+    try {
+      const res = await fetch(
+        `${BOT_BASE_URL}/admin/home-cards?email=${encodeURIComponent(currentUser.user_email)}`,
+        { headers: buildBotHeaders() }
+      );
+      const data = await res.json().catch(() => ({}));
+      configCardsCache = Array.isArray(data.cards) ? data.cards : [];
+      list.innerHTML = configCardsCache
+        .map(
+          (c) => `
+          <div class="config-card-row" data-id="${escapeHtml(c.id)}">
+            <span class="config-card-title">${escapeHtml(c.title || '-')}</span>
+            <span class="config-card-desc">${escapeHtml((c.description || '').slice(0, 50))}${(c.description || '').length > 50 ? '…' : ''}</span>
+            <div class="config-card-actions">
+              <button type="button" class="config-card-btn config-card-edit" data-id="${escapeHtml(c.id)}">Editar</button>
+              <button type="button" class="config-card-btn config-card-delete" data-id="${escapeHtml(c.id)}">Eliminar</button>
+            </div>
+          </div>`
+        )
+        .join('');
+      if (configCardsCache.length === 0) list.innerHTML = '<p class="config-no-cards">No hay tarjetas. Añade una con «Nueva tarjeta».</p>';
+    } catch (e) {
+      if (errEl) {
+        errEl.textContent = 'No se pudieron cargar las tarjetas.';
+        errEl.hidden = false;
+      }
+      list.innerHTML = '';
+    }
+  }
+
+  function openConfigCardModal(card) {
+    const modal = document.getElementById('configCardModal');
+    const titleEl = document.getElementById('configCardModalTitle');
+    document.getElementById('configCardId').value = card ? card.id : '';
+    document.getElementById('configCardTitle').value = card ? card.title || '' : '';
+    document.getElementById('configCardImageUrl').value = card ? card.image_url || '' : '';
+    document.getElementById('configCardLogoUrl').value = card ? card.logo_url || '' : '';
+    document.getElementById('configCardDescription').value = card ? card.description || '' : '';
+    document.getElementById('configCardSortOrder').value = card != null && card.sort_order != null ? card.sort_order : 0;
+    const errEl = document.getElementById('configCardModalError');
+    if (errEl) errEl.hidden = true;
+    if (titleEl) titleEl.textContent = card ? 'Editar tarjeta' : 'Nueva tarjeta';
+    if (modal) modal.hidden = false;
+  }
+
+  function closeConfigCardModal() {
+    const modal = document.getElementById('configCardModal');
+    if (modal) modal.hidden = true;
+  }
+
+  async function saveConfigCard() {
+    if (!currentUser || !currentUser.user_email) return;
+    const id = document.getElementById('configCardId').value.trim();
+    const title = document.getElementById('configCardTitle').value.trim() || 'MARVEL';
+    const image_url = document.getElementById('configCardImageUrl').value.trim();
+    const logo_url = document.getElementById('configCardLogoUrl').value.trim();
+    const description = document.getElementById('configCardDescription').value.trim();
+    const sort_order = parseInt(document.getElementById('configCardSortOrder').value, 10) || 0;
+    const errEl = document.getElementById('configCardModalError');
+    if (errEl) errEl.hidden = true;
+    const adminEmail = encodeURIComponent(currentUser.user_email);
+    try {
+      if (id) {
+        const res = await fetch(`${BOT_BASE_URL}/admin/home-cards/update?email=${adminEmail}`, {
+          method: 'POST',
+          headers: buildBotHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ id, title, image_url, logo_url, description, sort_order })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.success) {
+          if (errEl) { errEl.textContent = data.message || 'Error al guardar'; errEl.hidden = false; }
+          return;
+        }
+      } else {
+        const res = await fetch(`${BOT_BASE_URL}/admin/home-cards?email=${adminEmail}`, {
+          method: 'POST',
+          headers: buildBotHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ title, image_url, logo_url, description, sort_order })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.success) {
+          if (errEl) { errEl.textContent = data.message || 'Error al crear'; errEl.hidden = false; }
+          return;
+        }
+      }
+      closeConfigCardModal();
+      loadConfigCards();
+      loadHomeCards();
+    } catch (e) {
+      if (errEl) { errEl.textContent = 'Error de conexión.'; errEl.hidden = false; }
+    }
+  }
+
+  async function deleteConfigCard(cardId) {
+    if (!currentUser || !currentUser.user_email || !cardId) return;
+    if (!confirm('¿Eliminar esta tarjeta?')) return;
+    const adminEmail = encodeURIComponent(currentUser.user_email);
+    try {
+      const res = await fetch(`${BOT_BASE_URL}/admin/home-cards/delete?email=${adminEmail}`, {
+        method: 'POST',
+        headers: buildBotHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ id: cardId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) {
+        loadConfigCards();
+        loadHomeCards();
+      } else {
+        alert(data.message || 'Error al eliminar');
+      }
+    } catch (_) {
+      alert('Error de conexión.');
+    }
+  }
+
+  function setupConfigPanel() {
+    const btnAdd = document.getElementById('configCardAdd');
+    const modal = document.getElementById('configCardModal');
+    const btnCancel = document.getElementById('configCardModalCancel');
+    const btnSave = document.getElementById('configCardModalSave');
+    const list = document.getElementById('configCardsList');
+    if (btnAdd) btnAdd.addEventListener('click', () => openConfigCardModal(null));
+    if (btnCancel) btnCancel.addEventListener('click', closeConfigCardModal);
+    if (btnSave) btnSave.addEventListener('click', saveConfigCard);
+    if (modal && modal.querySelector('.recover-modal-backdrop')) {
+      modal.querySelector('.recover-modal-backdrop').addEventListener('click', closeConfigCardModal);
+    }
+    if (list) {
+      list.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('.config-card-edit');
+        const deleteBtn = e.target.closest('.config-card-delete');
+        if (editBtn) {
+          const id = editBtn.getAttribute('data-id');
+          const card = configCardsCache.find((c) => c.id === id);
+          openConfigCardModal(card || null);
+        }
+        if (deleteBtn) {
+          const id = deleteBtn.getAttribute('data-id');
+          deleteConfigCard(id);
+        }
+      });
+    }
   }
 
   let lastModsManifest = null;
@@ -1034,6 +1221,8 @@
     });
   });
 
+  setupConfigPanel();
+
   function canAccessTab(tabName) {
     // Perfil siempre accesible
     if (tabName === 'profile') return true;
@@ -1043,8 +1232,9 @@
     const linked = hasRow && !!row.discord_id && String(row.status).toLowerCase() === 'linked';
     const roles = Array.isArray(row?.roles) ? row.roles.map((r) => String(r)) : [];
 
-    const { canAccessProtected } = evaluateAccessFlags(linked, roles);
-    // Cualquier pestaña distinta de "profile" se considera protegida
+    const { canAccessProtected, hasAdminRole } = evaluateAccessFlags(linked, roles);
+    // Usuarios y Configuración solo para admins
+    if (tabName === 'users' || tabName === 'config') return !!(linked && hasAdminRole);
     return canAccessProtected;
   }
 
@@ -1432,6 +1622,7 @@
 
       const isProfile = tab === 'profile';
       const isUsersTab = tab === 'users';
+      const isConfigTab = tab === 'config';
 
       // Perfil siempre accesible
       if (isProfile) {
@@ -1441,8 +1632,8 @@
         return;
       }
 
-      // Menú Usuarios: requiere admin sí o sí
-      if (isUsersTab) {
+      // Menú Usuarios y Configuración: requieren admin sí o sí
+      if (isUsersTab || isConfigTab) {
         if (!isLinked || !hasAdminRole) {
           btn.classList.add('dash-nav-item--locked');
           btn.setAttribute('data-locked', 'admin-only');

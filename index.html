@@ -222,6 +222,10 @@
               <span class="dash-nav-icon">👥</span>
               <span class="dash-nav-label">Usuarios</span>
             </button>
+            <button class="dash-nav-item" data-tab="config">
+              <span class="dash-nav-icon">🛠️</span>
+              <span class="dash-nav-label">Configuración</span>
+            </button>
           </nav>
 
           <button type="button" class="dash-logout" id="btnLogout">
@@ -266,57 +270,10 @@
             </div>
           </header>
 
-          <!-- HOME: Grid Marvel (3 por fila, se envuelven abajo) -->
+          <!-- HOME: Grid de tarjetas (cargado desde la base de datos) -->
           <div class="dash-grid dash-tab dash-tab--active" data-tab-panel="home">
-            <div class="inicio-marvel-grid">
-              <div class="box">
-                <p class="marvel">MARVEL</p>
-                <img src="https://i.postimg.cc/L552NTd2/Ant-Man.png" alt="Ant-Man" class="model">
-                <div class="details">
-                  <img src="https://i.postimg.cc/15Lsrwv1/Ant-Man-logo.png" alt="logo" class="logo" width="100" style="height: auto;">
-                  <p>Scott Lang, a reformed thief, steals the Ant-Man suit from Hank Pym to save his daughter, Cassie. This storyline is pivotal as it showcases Scott's transformation from a criminal to a hero, emphasizing redemption and fatherhood.</p>
-                </div>
-              </div>
-              <div class="box">
-                <p class="marvel">MARVEL</p>
-                <img src="https://i.postimg.cc/sgd86c7y/DeadPool.png" alt="Deadpool" class="model">
-                <div class="details">
-                  <img src="https://i.postimg.cc/59rDv1tX/Deadpool-logo.png" alt="logo" class="logo">
-                  <p>Deadpool made his first appearance in The New Mutants #98 in February 1991. Initially introduced as a supervillain, he was hired to take down the New Mutants.</p>
-                </div>
-              </div>
-              <div class="box">
-                <p class="marvel">MARVEL</p>
-                <img src="https://i.postimg.cc/j2Tc68Bk/Spider-Man.png" alt="Spider-Man" class="model">
-                <div class="details">
-                  <img src="https://i.postimg.cc/tTWDx0vx/Spider-Man-logo.png" alt="logo" class="logo">
-                  <p>Peter Parker, a high school student, gains his superhuman abilities after being bitten by a radioactive spider during a school field trip.</p>
-                </div>
-              </div>
-              <div class="box">
-                <p class="marvel">MARVEL</p>
-                <img src="https://i.postimg.cc/kX1NDXMH/Venom.png" alt="Venom" class="model">
-                <div class="details">
-                  <img src="https://i.postimg.cc/vTXrrGrc/Venom-logo.png" alt="logo" class="logo">
-                  <p>The character of Venom is primarily associated with Eddie Brock, a journalist whose life takes a dark turn after he blames Spider-Man for ruining his career.</p>
-                </div>
-              </div>
-              <div class="box">
-                <p class="marvel">MARVEL</p>
-                <img src="https://i.postimg.cc/BnPh015p/Thor.png" alt="Thor" class="model">
-                <div class="details">
-                  <img src="https://i.postimg.cc/4Ng4tzy7/Thor-logo.png" alt="logo" class="logo">
-                  <p>Thor is the son of Odin, the All-Father and ruler of Asgard. He is the God of Thunder, known for his incredible strength, bravery, and his enchanted hammer, Mjolnir.</p>
-                </div>
-              </div>
-              <div class="box">
-                <p class="marvel">MARVEL</p>
-                <img src="https://i.postimg.cc/vBGkbLv9/IronMan.png" alt="Iron Man" class="model">
-                <div class="details">
-                  <img src="https://i.postimg.cc/rsj8qwWy/Iron-Man-logo.png" alt="logo" class="logo">
-                  <p>Iron Man is the alter ego of Tony Stark, a wealthy industrialist and genius inventor. He is the son of Howard Stark, a prominent weapons manufacturer.</p>
-                </div>
-              </div>
+            <div id="inicioMarvelGrid" class="inicio-marvel-grid">
+              <!-- Las tarjetas se cargan por JS desde /home-cards -->
             </div>
           </div>
 
@@ -576,6 +533,41 @@
                   <button type="button" id="userEditSave" class="recover-btn recover-btn-primary">
                     Guardar cambios
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CONFIGURACIÓN: Tarjetas del Inicio (solo admins) -->
+          <div class="dash-tab config-panel" data-tab-panel="config" hidden>
+            <section class="discord-card-white config-cards-section">
+              <h3>Tarjetas del Inicio</h3>
+              <p class="config-cards-desc">Edita las tarjetas que se muestran en la pestaña Inicio. Solo los administradores pueden ver este panel.</p>
+              <div id="configCardsError" class="message message-error" role="alert" hidden></div>
+              <div class="config-cards-toolbar">
+                <button type="button" id="configCardAdd" class="mods-download-btn">Nueva tarjeta</button>
+              </div>
+              <div id="configCardsList" class="config-cards-list"></div>
+            </section>
+            <div id="configCardModal" class="recover-modal" hidden>
+              <div class="recover-modal-backdrop"></div>
+              <div class="recover-modal-content mods-modal-content">
+                <h2 id="configCardModalTitle">Nueva tarjeta</h2>
+                <input type="hidden" id="configCardId" />
+                <label class="config-field-label">Título (ej. MARVEL)</label>
+                <input type="text" id="configCardTitle" class="recover-input" placeholder="MARVEL" />
+                <label class="config-field-label">URL imagen del personaje</label>
+                <input type="url" id="configCardImageUrl" class="recover-input" placeholder="https://..." />
+                <label class="config-field-label">URL logo</label>
+                <input type="url" id="configCardLogoUrl" class="recover-input" placeholder="https://..." />
+                <label class="config-field-label">Descripción</label>
+                <textarea id="configCardDescription" class="recover-input config-textarea" placeholder="Texto de la tarjeta..." rows="4"></textarea>
+                <label class="config-field-label">Orden (número)</label>
+                <input type="number" id="configCardSortOrder" class="recover-input" placeholder="0" min="0" />
+                <div id="configCardModalError" class="recover-error" hidden></div>
+                <div class="recover-actions">
+                  <button type="button" id="configCardModalCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
+                  <button type="button" id="configCardModalSave" class="recover-btn recover-btn-primary">Guardar</button>
                 </div>
               </div>
             </div>
