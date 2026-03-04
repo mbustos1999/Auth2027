@@ -828,6 +828,26 @@ function startOAuthServer() {
     try {
       const url = new URL(req.url, `http://localhost:${port}`);
 
+      // Configuración pública para la app (Discord OAuth, etc.) — la app la usa cuando no tiene .env
+      if (url.pathname === '/config' && req.method === 'GET') {
+        const redirectUri = (DISCORD_REDIRECT_URI || '').trim().replace(/\/$/, '') || '';
+        const clientId = (DISCORD_CLIENT_ID || '').trim();
+        const discordOAuthBaseUrl =
+          clientId && redirectUri
+            ? `https://discord.com/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify%20email`
+            : null;
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.end(
+          JSON.stringify({
+            success: true,
+            discordOAuthBaseUrl
+          })
+        );
+        return;
+      }
+
       // Diagnóstico OAuth Discord (sin secretos adicionales): ver qué redirect_uri y client_id usa el bot
       if (url.pathname === '/auth/discord/debug') {
         const redirectUri = (DISCORD_REDIRECT_URI || '').trim().replace(/\/$/, '') || null;

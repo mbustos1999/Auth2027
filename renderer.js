@@ -17,13 +17,25 @@
   const baseUrl = (apiConfig.baseUrl != null && apiConfig.baseUrl !== '') ? String(apiConfig.baseUrl).trim() : '';
   const authEndpoint = (apiConfig.authEndpoint != null && apiConfig.authEndpoint !== '') ? String(apiConfig.authEndpoint).trim() : '';
   const authUrl = baseUrl && authEndpoint ? `${baseUrl.replace(/\/$/, '')}${authEndpoint}` : '';
-  const discordOAuthBaseUrl = (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '';
   const pcName = (apiConfig.pcName != null && apiConfig.pcName !== '') ? String(apiConfig.pcName).trim() : '';
   const botSharedSecret = (apiConfig.botSharedSecret != null && apiConfig.botSharedSecret !== '')
     ? String(apiConfig.botSharedSecret).trim()
     : '';
+  // Discord OAuth: se rellena desde apiConfig o desde GET /config del bot (app empaquetada sin .env)
+  const appConfig = {
+    discordOAuthBaseUrl: (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : ''
+  };
   // Bot remoto desplegado en Railway
   const BOT_BASE_URL = 'https://auth2027-production.up.railway.app';
+
+  fetch(`${BOT_BASE_URL}/config`)
+    .then((r) => r.json())
+    .then((data) => {
+      if (data && data.success && data.discordOAuthBaseUrl) {
+        appConfig.discordOAuthBaseUrl = String(data.discordOAuthBaseUrl).trim();
+      }
+    })
+    .catch(() => {});
   const dashTabs = Array.from(document.querySelectorAll('.dash-nav-item'));
   const dashPanels = Array.from(document.querySelectorAll('.dash-tab'));
   const discordLinkStatusEl = document.getElementById('discordLinkStatus');
@@ -1795,8 +1807,9 @@
 
   if (btnConnectDiscord) {
     btnConnectDiscord.addEventListener('click', async () => {
-      if (!discordOAuthBaseUrl) {
-        alert('Discord OAuth no está configurado. Falta DISCORD_OAUTH_BASE_URL.');
+      const discordOAuthUrl = appConfig.discordOAuthBaseUrl;
+      if (!discordOAuthUrl) {
+        alert('Discord OAuth no está configurado. Comprueba que el bot tenga DISCORD_CLIENT_ID y DISCORD_REDIRECT_URI.');
         return;
       }
 
@@ -1816,9 +1829,9 @@
         return;
       }
 
-      const hasQuery = discordOAuthBaseUrl.includes('?');
+      const hasQuery = discordOAuthUrl.includes('?');
       const sep = hasQuery ? '&' : '?';
-      const url = `${discordOAuthBaseUrl}${sep}state=${encodeURIComponent(String(stateValue))}`;
+      const url = `${discordOAuthUrl}${sep}state=${encodeURIComponent(String(stateValue))}`;
       window.open(url, '_blank');
 
       // Después de abrir la ventana de autorización, empezamos a consultar Supabase
