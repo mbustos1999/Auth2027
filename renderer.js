@@ -47,6 +47,8 @@
   const kofiPatreonCardEl = document.getElementById('kofiPatreonCard');
   const kofiStatusBoxEl = document.getElementById('kofiStatusBox');
   const patreonStatusBoxEl = document.getElementById('patreonStatusBox');
+  const switcherWrapper = document.getElementById('switcherWrapper');
+  const switcherPower = document.getElementById('switcherPower');
 
   let currentUser = null;
   let currentDiscordRow = null;
@@ -100,6 +102,26 @@
       btnSubmit.disabled = false;
       btnSubmit.classList.remove('cooldown');
     }, ms);
+  }
+
+  // Switcher: alternar encendido/apagado pantalla CRT
+  if (switcherPower && switcherWrapper) {
+    const toggleSwitcher = () => {
+      if (switcherWrapper.classList.contains('on')) {
+        switcherWrapper.classList.remove('on');
+        switcherWrapper.classList.add('off');
+      } else {
+        switcherWrapper.classList.remove('off');
+        switcherWrapper.classList.add('on');
+      }
+    };
+    switcherPower.addEventListener('click', toggleSwitcher);
+    switcherPower.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggleSwitcher();
+      }
+    });
   }
 
   function setLoading(loading) {
