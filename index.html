@@ -723,6 +723,26 @@
       </div>
     </div>
 
+    <!-- Modal: mods FC26 obligatorios (descargar) -->
+    <div id="modsRequiredModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content">
+        <h2>Mods requeridos</h2>
+        <p id="modsRequiredMessage">Se requieren los mods de FC26 actualizados para usar el Switcher. Descarga el paquete (~10 GB) y coloca los archivos .fifamod en <code>modManager/Mods/FC26/</code>.</p>
+        <p id="modsRequiredVersion" class="recover-actions" style="margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.9;"></p>
+        <div id="modsDownloadProgressWrap" class="mods-download-progress-wrap" hidden>
+          <p id="modsDownloadPhase" class="mods-download-phase"></p>
+          <div class="mods-download-bar"><div id="modsDownloadBarFill" class="mods-download-bar-fill"></div></div>
+          <p id="modsDownloadStats" class="mods-download-stats"></p>
+        </div>
+        <div id="modsRequiredActions" class="recover-actions" style="margin-top: 1rem;">
+          <button type="button" id="modsRequiredAutoDownload" class="recover-btn recover-btn-primary">Descargar automáticamente</button>
+          <button type="button" id="modsRequiredOpenLink" class="recover-btn recover-btn-secondary">Abrir enlace en el navegador</button>
+          <button type="button" id="modsRequiredConfirm" class="recover-btn recover-btn-secondary">Ya los descargué</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal: debes abrir Launcher.exe -->
     <div id="launcherRequiredModal" class="recover-modal" hidden>
       <div class="recover-modal-backdrop"></div>

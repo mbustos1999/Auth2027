@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { spawn } = require('child_process');
+const unzipper = require('unzipper');
 require('dotenv').config();
 
 // Auto-updater (solo cuando la app está empaquetada)
@@ -942,3 +943,71 @@ ipcMain.handle('app:getVersion', () => app.getVersion());
 
 // Devolver la config cargada al arranque (evita require en el handler por si falla en el instalador)
 ipcMain.handle('app:getConfig', () => Promise.resolve(sharedAppConfig || {}));
+
+ipcMain.handle('shell:openExternal', (_event, url) => {
+  if (typeof url !== 'string' || !url.startsWith('http')) return Promise.resolve({ ok: false });
+  return shell.openExternal(url).then(() => ({ ok: true })).catch((e) => ({ ok: false, error: e?.message }));
+});
+
+// Descarga automática de mods FC26: descarga el .zip desde url y lo extrae en modManager/Mods/FC26/
+ipcMain.handle('mods:download', async (event, url) => {
+  if (typeof url !== 'string' || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+    return { ok: false, reason: 'invalid_url' };
+  }
+  const baseDir = app.isPackaged ? process.resourcesPath : __dirname;
+  const destDir = path.join(baseDir, 'modManager', 'Mods', 'FC26');
+  const tempZip = path.join(os.tmpdir(), `auth2027-mods-${Date.now()}.zip`);
+  const sendProgress = (data) => {
+    try {
+      if (event.sender && !event.sender.isDestroyed()) event.sender.send('mods-download-progress', data);
+    } catch (_) {}
+  };
+  try {
+    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+    sendProgress({ phase: 'download', percent: 0, bytesReceived: 0, totalBytes: null });
+    const res = await fetch(url, { redirect: 'follow' });
+    if (!res.ok) return { ok: false, reason: 'download_failed', status: res.status };
+    const totalBytes = res.headers.get('content-length');
+    const total = totalBytes ? parseInt(totalBytes, 10) : null;
+    const file = fs.createWriteStream(tempZip);
+    const reader = res.body.getReader();
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      file.write(Buffer.from(value));
+      received += value.length;
+      const percent = total ? Math.min(100, Math.round((received / total) * 100)) : null;
+      sendProgress({ phase: 'download', percent, bytesReceived: received, totalBytes: total });
+    }
+    file.end();
+    await new Promise((resolve, reject) => {
+      file.on('finish', resolve);
+      file.on('error', reject);
+    });
+    sendProgress({ phase: 'extract', percent: 0 });
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(tempZip)
+        .pipe(unzipper.Extract({ path: destDir }))
+        .on('close', () => resolve())
+        .on('error', reject);
+    });
+    const entries = fs.readdirSync(destDir, { withFileTypes: true });
+    if (entries.length === 1 && entries[0].isDirectory()) {
+      const singleDir = path.join(destDir, entries[0].name);
+      const inner = fs.readdirSync(singleDir, { withFileTypes: true });
+      for (const e of inner) {
+        const src = path.join(singleDir, e.name);
+        const dest = path.join(destDir, e.name);
+        fs.renameSync(src, dest);
+      }
+      fs.rmdirSync(singleDir);
+    }
+    sendProgress({ phase: 'extract', percent: 100 });
+    try { fs.unlinkSync(tempZip); } catch (_) {}
+    return { ok: true, path: destDir };
+  } catch (e) {
+    try { if (fs.existsSync(tempZip)) fs.unlinkSync(tempZip); } catch (_) {}
+    return { ok: false, reason: e?.message || 'download_error' };
+  }
+});

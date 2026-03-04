@@ -25,6 +25,9 @@
   };
   // Bot remoto desplegado en Railway
   const BOT_BASE_URL = 'https://auth2027-production.up.railway.app';
+  // Manifest de mods FC26 (versión + enlace de descarga); al subir versión nueva se obliga a descargar
+  const MODS_MANIFEST_URL = 'https://raw.githubusercontent.com/mbustos1999/Auth2027/main/mods-manifest.json';
+  const MODS_VERSION_KEY = 'auth2027_mods_version';
 
   fetch(`${BOT_BASE_URL}/config`)
     .then((r) => r.json())
@@ -846,14 +849,113 @@
     if (tabName === 'profile') {
       updateDiscordUI();
     }
-    // Al abrir Switcher, cargamos marcadores y TVs (si no se han cargado ya)
+    // Al abrir Switcher, comprobamos mods obligatorios y cargamos marcadores/TVs
     if (tabName === 'Switcher') {
+      checkModsRequiredAndShowModal();
       loadSwitcherMarkersOnce();
       loadSwitcherTvsOnce();
       loadSwitcherPublicitiesOnce();
       if (!squadStatusLoaded) {
         updateSquadStatus();
       }
+    }
+  }
+
+  let lastModsManifest = null;
+  let lastModsRequiredVersion = '';
+
+  function formatBytes(bytes) {
+    if (bytes == null || bytes === 0) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+  }
+
+  async function checkModsRequiredAndShowModal() {
+    const modal = document.getElementById('modsRequiredModal');
+    const msgEl = document.getElementById('modsRequiredMessage');
+    const versionEl = document.getElementById('modsRequiredVersion');
+    const actionsWrap = document.getElementById('modsRequiredActions');
+    const autoDownloadBtn = document.getElementById('modsRequiredAutoDownload');
+    const openLinkBtn = document.getElementById('modsRequiredOpenLink');
+    const confirmBtn = document.getElementById('modsRequiredConfirm');
+    const progressWrap = document.getElementById('modsDownloadProgressWrap');
+    const phaseEl = document.getElementById('modsDownloadPhase');
+    const barFill = document.getElementById('modsDownloadBarFill');
+    const statsEl = document.getElementById('modsDownloadStats');
+    if (!modal || !msgEl) return;
+    try {
+      const res = await fetch(MODS_MANIFEST_URL, { cache: 'no-store' });
+      const manifest = await res.json().catch(() => null);
+      if (!manifest || !manifest.required) return;
+      const requiredVersion = String(manifest.version || '0').trim();
+      lastModsRequiredVersion = requiredVersion;
+      const currentVersion = (localStorage.getItem(MODS_VERSION_KEY) || '').trim();
+      const needUpdate = !currentVersion || currentVersion !== requiredVersion;
+      if (!needUpdate) return;
+      lastModsManifest = manifest;
+      if (msgEl) {
+        const inst = manifest.instructions || 'Descarga el paquete y coloca los .fifamod en modManager/Mods/FC26/.';
+        msgEl.innerHTML = `Se requieren los mods de FC26 actualizados para usar el Switcher. ${inst.replace(/\.$/, '')}.`;
+      }
+      if (versionEl) versionEl.textContent = `Versión requerida: ${requiredVersion}${manifest.sizeHint ? ' · ' + manifest.sizeHint : ''}`;
+      if (progressWrap) progressWrap.hidden = true;
+      if (barFill) barFill.style.width = '0%';
+      if (openLinkBtn) {
+        openLinkBtn.onclick = () => {
+          const url = lastModsManifest?.downloadUrl;
+          if (url && window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
+        };
+      }
+      if (confirmBtn) {
+        confirmBtn.onclick = () => {
+          if (requiredVersion) try { localStorage.setItem(MODS_VERSION_KEY, requiredVersion); } catch (_) {}
+          modal.hidden = true;
+        };
+      }
+      if (autoDownloadBtn && window.electronAPI?.downloadMods) {
+        autoDownloadBtn.onclick = async () => {
+          const url = lastModsManifest?.downloadUrl;
+          if (!url || url.includes('example.com') || url.includes('REEMPLAZA')) {
+            alert('El enlace de descarga aún no está configurado en mods-manifest.json. Usa un enlace directo a un .zip.');
+            return;
+          }
+          if (progressWrap) progressWrap.hidden = false;
+          if (actionsWrap) actionsWrap.style.pointerEvents = 'none';
+          if (phaseEl) phaseEl.textContent = 'Descargando…';
+          if (barFill) barFill.style.width = '0%';
+          if (statsEl) statsEl.textContent = '';
+          const unsub = window.electronAPI.onModsDownloadProgress((data) => {
+            if (phaseEl) phaseEl.textContent = data.phase === 'extract' ? 'Extrayendo…' : 'Descargando…';
+            const pct = data.percent != null ? data.percent : 0;
+            if (barFill) barFill.style.width = pct + '%';
+            if (statsEl && data.bytesReceived != null) {
+              const total = data.totalBytes ? ` / ${formatBytes(data.totalBytes)}` : '';
+              statsEl.textContent = formatBytes(data.bytesReceived) + total;
+            }
+          });
+          try {
+            const result = await window.electronAPI.downloadMods(url);
+            unsub();
+            if (result && result.ok) {
+              if (requiredVersion) try { localStorage.setItem(MODS_VERSION_KEY, requiredVersion); } catch (_) {}
+              modal.hidden = true;
+            } else {
+              alert(result?.reason === 'invalid_url' ? 'URL no válida.' : (result?.reason || 'Error al descargar o extraer.'));
+            }
+          } catch (e) {
+            unsub();
+            alert('Error: ' + (e?.message || 'No se pudo completar la descarga.'));
+          }
+          if (actionsWrap) actionsWrap.style.pointerEvents = '';
+        };
+      }
+      modal.hidden = false;
+      const modsBackdrop = modal.querySelector('.recover-modal-backdrop');
+      if (modsBackdrop) modsBackdrop.onclick = () => { modal.hidden = true; };
+    } catch (_) {
+      // Sin red o manifest no disponible: no bloquear
     }
   }
 

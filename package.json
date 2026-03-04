@@ -1,6 +1,6 @@
 {
   "name": "auth-2027",
-  "version": "1.0.8",
+  "version": "1.0.10",
   "description": "Aplicación Electron con autenticación WordPress",
   "main": "main.js",
   "repository": {
@@ -31,21 +31,47 @@
   },
   "dependencies": {
     "dotenv": "^17.3.1",
-    "electron-updater": "^6.3.9"
+    "electron-updater": "^6.3.9",
+    "unzipper": "^0.12.3"
   },
   "build": {
     "appId": "com.auth2027.app",
     "productName": "Auth2027",
-    "directories": { "output": "dist" },
-    "files": ["**/*", "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md}", "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}", "!**/*.map", "!modManager"],
-    "extraResources": [{ "from": "modManager", "to": "modManager" }],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/*.map",
+      "!modManager"
+    ],
+    "extraResources": [
+      {
+        "from": "modManager",
+        "to": "modManager",
+        "filter": [
+          "**/*",
+          "!Mods/FC26/*.fifamod",
+          "!Mods/FC26/*.zip"
+        ]
+      }
+    ],
     "publish": {
       "provider": "github",
       "owner": "mbustos1999",
       "repo": "Auth2027"
     },
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "assets/icon.ico"
     },
     "nsis": {
@@ -53,7 +79,9 @@
       "allowToChangeInstallationDirectory": true
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.utilities"
     }

@@ -3,3 +3,7 @@ package-lock.json
 .env
 bot/.env
 dist/
+
+
+modManager/Mods/FC26/*.fifamod
+modManager/Mods/FC26/*.zip

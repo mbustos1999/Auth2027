@@ -30,7 +30,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   applySquad: () => ipcRenderer.invoke('switcher:applySquad'),
   getTeamsStatus: () => ipcRenderer.invoke('teams:getStatus'),
   launchModManager: () => ipcRenderer.invoke('modmanager:launch'),
-  launchLauncher: () => ipcRenderer.invoke('launcher:launch')
+  launchLauncher: () => ipcRenderer.invoke('launcher:launch'),
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  downloadMods: (url) => ipcRenderer.invoke('mods:download', url),
+  onModsDownloadProgress: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_e, data) => callback(data);
+    ipcRenderer.on('mods-download-progress', handler);
+    return () => ipcRenderer.removeListener('mods-download-progress', handler);
+  }
 });
 
 // Config: main.js ya la cargó y la pasó por process.env (más fiable); si no, intentar require
