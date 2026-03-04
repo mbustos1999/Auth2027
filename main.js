@@ -98,7 +98,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: !app.isPackaged,
+      devTools: false,
       preload: path.join(__dirname, 'preload.js')
     },
     show: false
@@ -115,13 +115,6 @@ function createWindow() {
   }
 
   mainWindow.loadFile('index.html');
-
-  // En desarrollo, abrir automáticamente DevTools para ver logs
-  if (!app.isPackaged) {
-    try {
-      mainWindow.webContents.openDevTools({ mode: 'detach' });
-    } catch (_) {}
-  }
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.maximize();

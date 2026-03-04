@@ -51,6 +51,8 @@
   let currentUser = null;
   let currentDiscordRow = null;
   let discordLinkPolling = false;
+  let loginCooldownUntil = 0;
+  let loginCooldownTimeoutId = null;
 
   function showError(msg) {
     messageError.textContent = msg;
@@ -72,6 +74,32 @@
       headers['X-Auth2027-Secret'] = botSharedSecret;
     }
     return headers;
+  }
+
+  function isLoginInCooldown() {
+    const now = Date.now();
+    return loginCooldownUntil > now;
+  }
+
+  function startLoginCooldown(seconds) {
+    const ms = Math.max(0, Math.floor(seconds * 1000));
+    const now = Date.now();
+    loginCooldownUntil = now + ms;
+
+    if (loginCooldownTimeoutId) {
+      clearTimeout(loginCooldownTimeoutId);
+      loginCooldownTimeoutId = null;
+    }
+
+    btnSubmit.disabled = true;
+    btnSubmit.classList.add('cooldown');
+
+    loginCooldownTimeoutId = setTimeout(() => {
+      loginCooldownTimeoutId = null;
+      loginCooldownUntil = 0;
+      btnSubmit.disabled = false;
+      btnSubmit.classList.remove('cooldown');
+    }, ms);
   }
 
   function setLoading(loading) {
@@ -106,6 +134,18 @@
       });
 
       const data = await res.json().catch(() => ({}));
+
+      // Límite de intentos desde el servidor (3 intentos fallidos -> bloqueo 60s)
+      if (res.status === 429 && data && data.error === 'too_many_attempts') {
+        const retryAfter = typeof data.retry_after === 'number' ? data.retry_after : 60;
+        startLoginCooldown(retryAfter);
+        if (data.message) {
+          showError(data.message);
+        } else {
+          showError('Demasiados intentos fallidos. Espera un momento antes de volver a intentar.');
+        }
+        return null;
+      }
 
       if (res.ok && data.success) {
         return {
@@ -732,6 +772,13 @@
     e.preventDefault();
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
+
+    if (isLoginInCooldown()) {
+      const remainingMs = loginCooldownUntil - Date.now();
+      const remainingSec = Math.max(1, Math.ceil(remainingMs / 1000));
+      showError(`Has superado el número de intentos. Espera ${remainingSec} segundo(s) antes de volver a intentar.`);
+      return;
+    }
 
     if (!username || !password) {
       showError('Introduce usuario o email y contraseña.');
