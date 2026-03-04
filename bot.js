@@ -769,25 +769,6 @@ function startOAuthServer() {
     try {
       const url = new URL(req.url, `http://localhost:${port}`);
 
-      // Diagnóstico OAuth Discord (sin secretos): ver qué redirect_uri y client_id usa el bot
-      if (url.pathname === '/auth/discord/debug') {
-        const redirectUri = (DISCORD_REDIRECT_URI || '').trim().replace(/\/$/, '') || null;
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.end(
-          JSON.stringify(
-            {
-              discord_redirect_uri: redirectUri,
-              discord_client_id_set: !!DISCORD_CLIENT_ID,
-              discord_client_id: DISCORD_CLIENT_ID ? `${String(DISCORD_CLIENT_ID).slice(0, 6)}...` : null
-            },
-            null,
-            2
-          )
-        );
-        return;
-      }
-
       // Endpoint interno para estado de MercadoPago
       if (url.pathname === '/mp/status') {
         const email = url.searchParams.get('email');
@@ -1143,9 +1124,8 @@ function startOAuthServer() {
         return;
       }
 
-      // Normalizar redirect_uri: sin espacios ni barra final (Discord es estricto)
-      const redirectUri = (DISCORD_REDIRECT_URI || '').trim().replace(/\/$/, '') || null;
-      const callbackPath = redirectUri ? new URL(redirectUri).pathname.replace(/\/$/, '') || '/discord/callback' : '/discord/callback';
+      // Aceptar la ruta que coincida con DISCORD_REDIRECT_URI (ej. /auth/discord/callback o /discord/callback)
+      const callbackPath = DISCORD_REDIRECT_URI ? new URL(DISCORD_REDIRECT_URI).pathname : '/discord/callback';
       if (url.pathname !== callbackPath && url.pathname !== '/discord/callback') {
         res.statusCode = 404;
         res.end('Not found');
@@ -1161,13 +1141,13 @@ function startOAuthServer() {
         return;
       }
 
-      // Intercambiar el code por un access_token (redirect_uri debe coincidir exactamente con el de la autorización)
+      // Intercambiar el code por un access_token
       const tokenParams = new URLSearchParams();
       tokenParams.set('client_id', DISCORD_CLIENT_ID);
       tokenParams.set('client_secret', DISCORD_CLIENT_SECRET);
       tokenParams.set('grant_type', 'authorization_code');
       tokenParams.set('code', code);
-      tokenParams.set('redirect_uri', redirectUri);
+      tokenParams.set('redirect_uri', DISCORD_REDIRECT_URI);
 
       const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
         method: 'POST',
@@ -1179,21 +1159,9 @@ function startOAuthServer() {
 
       const tokenData = await tokenRes.json().catch(() => ({}));
       if (!tokenRes.ok || !tokenData.access_token) {
-        const errCode = tokenData.error || 'unknown';
-        const errDesc = tokenData.error_description || tokenData.message || '';
-        const rawJson = JSON.stringify(tokenData, null, 2);
-        console.error('Error al obtener token de Discord:', tokenRes.status, errCode, errDesc, 'redirect_uri=', redirectUri, 'body=', rawJson);
+        console.error('Error al obtener token de Discord:', tokenData);
         res.statusCode = 500;
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.end(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Error OAuth Discord</title></head><body style="font-family:sans-serif;max-width:600px;margin:2rem auto;padding:1rem;background:#1a1a2e;color:#eee;">
-          <h2 style="color:#f87171;">Error al obtener token de Discord</h2>
-          <p><strong>HTTP:</strong> ${tokenRes.status}</p>
-          <p><strong>Código:</strong> ${errCode}</p>
-          <p><strong>Detalle:</strong> ${errDesc || '(sin mensaje)'}</p>
-          <p><strong>redirect_uri que usa el bot:</strong><br><code style="background:#333;padding:4px 8px;word-break:break-all;">${redirectUri || '(no configurado)'}</code></p>
-          <details style="margin-top:1rem;"><summary style="cursor:pointer;color:#94a3b8;">Respuesta completa de Discord (JSON)</summary><pre style="background:#0f172a;padding:8px;overflow:auto;font-size:12px;">${rawJson.replace(/</g, '&lt;')}</pre></details>
-          <p style="font-size:0.9em;color:#94a3b8;margin-top:1rem;">• <code>invalid_grant</code> = código ya usado, caducado o redirect_uri/client_id no coinciden.<br>• Verifica que DISCORD_CLIENT_ID en Render sea el mismo que en Discord Developer Portal (aplicación donde está el Redirect).<br>• Prueba diagnóstico: <a href="/auth/discord/debug" style="color:#818cf8;">/auth/discord/debug</a></p>
-          </body></html>`);
+        res.end('Error al obtener token de Discord');
         return;
       }
 
