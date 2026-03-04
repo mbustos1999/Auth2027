@@ -893,7 +893,7 @@
     const statsEl = document.getElementById('modsDownloadStats');
     if (!modal || !msgEl) return;
     try {
-      const res = await fetch(MODS_MANIFEST_URL, { cache: 'no-store' });
+      const res = await fetch(MODS_MANIFEST_URL + '?t=' + Date.now(), { cache: 'no-store' });
       const manifest = await res.json().catch(() => null);
       if (!manifest) return;
       if (!forceShow && !manifest.required) return;
