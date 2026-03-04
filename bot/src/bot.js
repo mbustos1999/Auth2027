@@ -87,7 +87,7 @@ function ensureAuthorizedRequest(req, res, bucket, limit) {
   }
 
   const header = req.headers['x-auth2027-secret'];
-  if (typeof header === 'string' && header === SHARED_SECRET) {
+  if (typeof header === 'string' && header.trim() === SHARED_SECRET) {
     return true;
   }
 

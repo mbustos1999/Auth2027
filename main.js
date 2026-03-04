@@ -16,12 +16,20 @@ if (app.isPackaged) {
     console.warn('electron-updater no disponible:', e.message);
   }
 }
-// Cargar config aquí (main se ejecuta desde la carpeta de la app) y pasarla al preload vía env
+// Cargar config al arranque (en el instalador __dirname apunta a app.asar); se reutiliza en app:getConfig
+let sharedAppConfig = {};
 try {
   const config = require('./config.js');
   if (config) {
     process.env.AUTH_APP_BASE_URL = (config.API_BASE_URL != null) ? String(config.API_BASE_URL).trim() : '';
     process.env.AUTH_APP_AUTH_ENDPOINT = (config.AUTH_ENDPOINT != null) ? String(config.AUTH_ENDPOINT).trim() : '';
+    sharedAppConfig = {
+      baseUrl: (config.API_BASE_URL != null) ? String(config.API_BASE_URL).trim() : '',
+      authEndpoint: (config.AUTH_ENDPOINT != null) ? String(config.AUTH_ENDPOINT).trim() : '',
+      discordOAuthBaseUrl: (config.DISCORD_OAUTH_BASE_URL != null) ? String(config.DISCORD_OAUTH_BASE_URL).trim() : '',
+      pcName: (process.env.AUTH_APP_PC_NAME != null) ? String(process.env.AUTH_APP_PC_NAME).trim() : (os.hostname ? os.hostname() : ''),
+      botSharedSecret: (config.BOT_SHARED_SECRET != null) ? String(config.BOT_SHARED_SECRET).trim() : ''
+    };
   }
 } catch (_) {}
 
@@ -845,18 +853,5 @@ ipcMain.on('update:quitAndInstall', () => {
 });
 ipcMain.handle('app:getVersion', () => app.getVersion());
 
-// Config leída por main (siempre encuentra config.js en desarrollo e instalador) para que el renderer la use
-ipcMain.handle('app:getConfig', () => {
-  try {
-    const c = require('./config.js');
-    return {
-      baseUrl: (c.API_BASE_URL != null) ? String(c.API_BASE_URL).trim() : '',
-      authEndpoint: (c.AUTH_ENDPOINT != null) ? String(c.AUTH_ENDPOINT).trim() : '',
-      discordOAuthBaseUrl: (c.DISCORD_OAUTH_BASE_URL != null) ? String(c.DISCORD_OAUTH_BASE_URL).trim() : '',
-      pcName: (process.env.AUTH_APP_PC_NAME != null) ? String(process.env.AUTH_APP_PC_NAME).trim() : (os.hostname ? os.hostname() : ''),
-      botSharedSecret: (c.BOT_SHARED_SECRET != null) ? String(c.BOT_SHARED_SECRET).trim() : ''
-    };
-  } catch (e) {
-    return {};
-  }
-});
+// Devolver la config cargada al arranque (evita require en el handler por si falla en el instalador)
+ipcMain.handle('app:getConfig', () => Promise.resolve(sharedAppConfig || {}));
