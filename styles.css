@@ -1423,11 +1423,11 @@ html, body {
   position: absolute;
   top: 18px;
   right: 26px;
-  width: 90px;
-  height: 60px;
+  width: 120px;
+  height: 80px;
   object-fit: contain;
-  border-radius: 4px;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9), 0 10px 24px rgba(0, 0, 0, 0.6);
+  border-radius: 0;
+  box-shadow: none;
   z-index: 2;
 }
 
