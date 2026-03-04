@@ -586,6 +586,10 @@
     });
   }
 
+  const LAUNCHER_OPENED_KEY = 'auth2027_launcher_opened';
+  const launcherRequiredModal = document.getElementById('launcherRequiredModal');
+  const launcherRequiredConfirm = document.getElementById('launcherRequiredConfirm');
+
   if (btnPlayModManager) {
     btnPlayModManager.addEventListener('click', async () => {
       if (!window.electronAPI || !window.electronAPI.launchModManager) return;
@@ -600,7 +604,41 @@
       } catch (_) {
         alert('No se pudo abrir FIFA Mod Manager.');
       }
+
+      if (window.electronAPI && window.electronAPI.launchLauncher) {
+        try {
+          const launcherRes = await window.electronAPI.launchLauncher();
+          if (launcherRes && launcherRes.ok === true) {
+            try { localStorage.setItem(LAUNCHER_OPENED_KEY, '1'); } catch (_) {}
+          } else if (launcherRes && launcherRes.ok === false) {
+            const alreadyAccepted = !!localStorage.getItem(LAUNCHER_OPENED_KEY);
+            if (!alreadyAccepted && launcherRequiredModal) {
+              launcherRequiredModal.hidden = false;
+            }
+          }
+        } catch (_) {
+          const alreadyAccepted = !!localStorage.getItem(LAUNCHER_OPENED_KEY);
+          if (!alreadyAccepted && launcherRequiredModal) {
+            launcherRequiredModal.hidden = false;
+          }
+        }
+      }
     });
+  }
+
+  if (launcherRequiredConfirm && launcherRequiredModal) {
+    launcherRequiredConfirm.addEventListener('click', () => {
+      try { localStorage.setItem(LAUNCHER_OPENED_KEY, '1'); } catch (_) {}
+      launcherRequiredModal.hidden = true;
+    });
+  }
+  if (launcherRequiredModal) {
+    const backdrop = launcherRequiredModal.querySelector('.recover-modal-backdrop');
+    if (backdrop) {
+      backdrop.addEventListener('click', () => {
+        launcherRequiredModal.hidden = true;
+      });
+    }
   }
 
   function setLoading(loading) {

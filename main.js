@@ -791,6 +791,93 @@ ipcMain.handle('teams:getStatus', async () => {
   }
 });
 
+// Buscar carpeta del Live Editor (nombre puede ser liveEditor, FC 26 LE v26.2.5 (1), FC 26 Live Editor, etc.)
+// Ruta típica: .../liveEditor/FC 26 LE v26.2.5 (1)/Launcher.exe
+function findLiveEditorLauncherPath() {
+  const baseDir = app.isPackaged ? process.resourcesPath : __dirname;
+  const launcherName = 'Launcher.exe';
+  const nameMatches = (name) => {
+    const n = (name || '').toLowerCase();
+    return n === 'liveeditor' ||
+      n.includes('fc 26 le') ||
+      n.includes('fc 26 live editor') ||
+      (n.includes('live') && n.includes('editor'));
+  };
+
+  const searchDirs = [
+    baseDir,
+    path.join(baseDir, '..'),
+    path.join(baseDir, '..', '..')
+  ];
+  if (process.platform === 'win32') {
+    searchDirs.push('C:\\');
+    const userProfile = process.env.USERPROFILE;
+    if (userProfile) {
+      searchDirs.push(path.join(userProfile, 'Documents'));
+      searchDirs.push(path.join(userProfile, 'Desktop'));
+      searchDirs.push(path.join(userProfile, 'Downloads'));
+    }
+  }
+
+  for (const root of searchDirs) {
+    try {
+      if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) continue;
+      const entries = fs.readdirSync(root, { withFileTypes: true });
+      for (const ent of entries) {
+        if (!ent.isDirectory()) continue;
+        if (!nameMatches(ent.name)) continue;
+        const parentPath = path.join(root, ent.name);
+        const directPath = path.join(parentPath, launcherName);
+        if (fs.existsSync(directPath)) return directPath;
+        try {
+          const subEntries = fs.readdirSync(parentPath, { withFileTypes: true });
+          for (const sub of subEntries) {
+            if (!sub.isDirectory()) continue;
+            const nestedPath = path.join(parentPath, sub.name, launcherName);
+            if (fs.existsSync(nestedPath)) return nestedPath;
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+ipcMain.handle('launcher:launch', async () => {
+  try {
+    const exePath = findLiveEditorLauncherPath();
+    if (!exePath) {
+      return { ok: false, reason: 'not_found', path: null };
+    }
+    return await new Promise((resolve) => {
+      const quotedPath = exePath.includes(' ') ? `"${exePath.replace(/"/g, '""')}"` : exePath;
+      const child = spawn(quotedPath, [], {
+        shell: true,
+        detached: true,
+        stdio: 'ignore',
+        cwd: path.dirname(exePath)
+      });
+      let settled = false;
+      const done = (result) => {
+        if (settled) return;
+        settled = true;
+        resolve(result);
+      };
+      child.once('error', (err) => {
+        console.error('Error al lanzar Launcher.exe:', err);
+        done({ ok: false, reason: err?.code || err?.message || 'launch_error', path: exePath });
+      });
+      child.once('spawn', () => {
+        try { child.unref(); } catch (_) {}
+        done({ ok: true, path: exePath });
+      });
+    });
+  } catch (e) {
+    console.error('Error al lanzar Launcher.exe:', e);
+    return { ok: false, reason: e?.message || 'launch_error', path: null };
+  }
+});
+
 ipcMain.handle('modmanager:launch', async () => {
   try {
     // En desarrollo: __dirname. En instalador: extraResources está en process.resourcesPath (fuera del .asar)

@@ -29,7 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkSquadStatus: () => ipcRenderer.invoke('switcher:checkSquad'),
   applySquad: () => ipcRenderer.invoke('switcher:applySquad'),
   getTeamsStatus: () => ipcRenderer.invoke('teams:getStatus'),
-  launchModManager: () => ipcRenderer.invoke('modmanager:launch')
+  launchModManager: () => ipcRenderer.invoke('modmanager:launch'),
+  launchLauncher: () => ipcRenderer.invoke('launcher:launch')
 });
 
 // Config: main.js ya la cargó y la pasó por process.env (más fiable); si no, intentar require

@@ -722,6 +722,18 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal: debes abrir Launcher.exe -->
+    <div id="launcherRequiredModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content">
+        <h2>Abrir Launcher</h2>
+        <p id="launcherRequiredMessage">Debes abrir <strong>Launcher.exe</strong> desde la carpeta del Live Editor (por ejemplo <em>FC 26 LE v26.2.5</em> o <em>liveEditor</em>). Sin él no podrás usar el juego correctamente.</p>
+        <p class="recover-actions" style="margin-top: 1rem;">
+          <button type="button" id="launcherRequiredConfirm" class="recover-btn recover-btn-primary">Ya lo abrí</button>
+        </p>
+      </div>
+    </div>
   </main>
 
   <script src="renderer.js"></script>
