@@ -28,6 +28,7 @@ let discordOAuthBaseUrl = (process.env.DISCORD_OAUTH_BASE_URL != null) ? String(
 let mercadopagoAccessTokenChile = (process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE != null) ? String(process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE).trim() : '';
 let mercadopagoAccessTokenArg = (process.env.MERCADOPAGO_ACCESS_TOKEN_ARG != null) ? String(process.env.MERCADOPAGO_ACCESS_TOKEN_ARG).trim() : '';
 let pcName = (process.env.AUTH_APP_PC_NAME != null) ? String(process.env.AUTH_APP_PC_NAME).trim() : '';
+let botSharedSecret = (process.env.BOT_SHARED_SECRET != null) ? String(process.env.BOT_SHARED_SECRET).trim() : '';
 
 if (!baseUrl || !authEndpoint || (!mercadopagoAccessTokenChile && !mercadopagoAccessTokenArg)) {
   try {
@@ -49,6 +50,9 @@ if (!baseUrl || !authEndpoint || (!mercadopagoAccessTokenChile && !mercadopagoAc
       if (!mercadopagoAccessTokenArg && config.MERCADOPAGO_ACCESS_TOKEN_ARG) {
         mercadopagoAccessTokenArg = String(config.MERCADOPAGO_ACCESS_TOKEN_ARG).trim();
       }
+      if (!botSharedSecret && config.BOT_SHARED_SECRET) {
+        botSharedSecret = String(config.BOT_SHARED_SECRET).trim();
+      }
     }
   } catch (_) {}
 }
@@ -58,5 +62,6 @@ contextBridge.exposeInMainWorld('apiConfig', {
   authEndpoint,
   discordInviteUrl,
   discordOAuthBaseUrl,
-  pcName
+  pcName,
+  botSharedSecret
 });

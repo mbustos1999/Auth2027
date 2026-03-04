@@ -16,7 +16,8 @@ const {
   OAUTH_SERVER_PORT,
   MERCADOPAGO_ACCESS_TOKEN_CHILE,
   MERCADOPAGO_ACCESS_TOKEN_ARG,
-  MERCADOPAGO_ACCESS_TOKEN
+  MERCADOPAGO_ACCESS_TOKEN,
+  BOT_SHARED_SECRET
 } = process.env;
 
 if (!DISCORD_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -37,6 +38,64 @@ const client = new Client({
   ],
   partials: [Partials.Channel, Partials.GuildMember, Partials.User]
 });
+
+// ===== Seguridad HTTP básica (shared secret + rate limiting) =====
+
+const SHARED_SECRET = typeof BOT_SHARED_SECRET === 'string' ? BOT_SHARED_SECRET.trim() : '';
+
+function getClientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd === 'string' && fwd.length > 0) {
+    return fwd.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const rateLimitBuckets = new Map();
+
+function isRateLimited(ip, bucket, limit) {
+  if (!ip || !bucket || !Number.isFinite(limit) || limit <= 0) return false;
+  const now = Date.now();
+  const key = `${ip}:${bucket}`;
+  let entry = rateLimitBuckets.get(key);
+  if (!entry) {
+    entry = [];
+    rateLimitBuckets.set(key, entry);
+  }
+  entry.push(now);
+  // Limpiar ventana
+  while (entry.length && now - entry[0] > RATE_LIMIT_WINDOW_MS) {
+    entry.shift();
+  }
+  return entry.length > limit;
+}
+
+function ensureAuthorizedRequest(req, res, bucket, limit) {
+  const ip = getClientIp(req);
+
+  if (bucket && limit && isRateLimited(ip, bucket, limit)) {
+    res.statusCode = 429;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ success: false, message: 'rate_limited' }));
+    return false;
+  }
+
+  if (!SHARED_SECRET) {
+    // Sin secreto configurado (por ejemplo en desarrollo local), no exigimos cabecera
+    return true;
+  }
+
+  const header = req.headers['x-auth2027-secret'];
+  if (typeof header === 'string' && header === SHARED_SECRET) {
+    return true;
+  }
+
+  res.statusCode = 401;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.end(JSON.stringify({ success: false, message: 'unauthorized' }));
+  return false;
+}
 
 // ===== Helpers Supabase =====
 
@@ -769,7 +828,7 @@ function startOAuthServer() {
     try {
       const url = new URL(req.url, `http://localhost:${port}`);
 
-      // Diagnóstico OAuth Discord (sin secretos): ver qué redirect_uri y client_id usa el bot
+      // Diagnóstico OAuth Discord (sin secretos adicionales): ver qué redirect_uri y client_id usa el bot
       if (url.pathname === '/auth/discord/debug') {
         const redirectUri = (DISCORD_REDIRECT_URI || '').trim().replace(/\/$/, '') || null;
         res.statusCode = 200;
@@ -790,6 +849,7 @@ function startOAuthServer() {
 
       // Endpoint interno para estado de MercadoPago
       if (url.pathname === '/mp/status') {
+        if (!ensureAuthorizedRequest(req, res, 'mp_status', 60)) return;
         const email = url.searchParams.get('email');
         if (!email) {
           res.statusCode = 400;
@@ -818,6 +878,7 @@ function startOAuthServer() {
 
       // --- Admin: gestión de usuarios ---
       if (url.pathname.startsWith('/admin/')) {
+        if (!ensureAuthorizedRequest(req, res, 'admin', 30)) return;
         const adminEmail = url.searchParams.get('email');
         if (!adminEmail) {
           res.statusCode = 400;
@@ -1013,6 +1074,7 @@ function startOAuthServer() {
 
       // Endpoint interno para obtener estado completo de usuario
       if (url.pathname === '/u/state') {
+        if (!ensureAuthorizedRequest(req, res, 'u_state', 60)) return;
         const email = url.searchParams.get('email');
         if (!email) {
           res.statusCode = 400;
@@ -1060,6 +1122,7 @@ function startOAuthServer() {
 
       // Endpoint interno para verificar/anclar PC a cuenta
       if (url.pathname === '/pc/check-binding') {
+        if (!ensureAuthorizedRequest(req, res, 'pc_check', 60)) return;
         const email = url.searchParams.get('email');
         const pc = (url.searchParams.get('pc') || '').trim();
 

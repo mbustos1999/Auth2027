@@ -19,6 +19,9 @@
   const authUrl = baseUrl && authEndpoint ? `${baseUrl.replace(/\/$/, '')}${authEndpoint}` : '';
   const discordOAuthBaseUrl = (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '';
   const pcName = (apiConfig.pcName != null && apiConfig.pcName !== '') ? String(apiConfig.pcName).trim() : '';
+  const botSharedSecret = (apiConfig.botSharedSecret != null && apiConfig.botSharedSecret !== '')
+    ? String(apiConfig.botSharedSecret).trim()
+    : '';
   // Bot remoto desplegado en Railway
   const BOT_BASE_URL = 'https://auth2027-production.up.railway.app';
   const dashTabs = Array.from(document.querySelectorAll('.dash-nav-item'));
@@ -61,6 +64,14 @@
     messageError.textContent = '';
     usernameInput.classList.remove('error');
     passwordInput.classList.remove('error');
+  }
+
+  function buildBotHeaders(extra = {}) {
+    const headers = { ...extra };
+    if (botSharedSecret) {
+      headers['X-Auth2027-Secret'] = botSharedSecret;
+    }
+    return headers;
   }
 
   function setLoading(loading) {
@@ -277,7 +288,9 @@
       const url = `${BOT_BASE_URL}/pc/check-binding?email=${encodeURIComponent(
         email
       )}&pc=${encodeURIComponent(pcName)}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: buildBotHeaders()
+      });
       const payload = await res.json().catch(() => ({}));
 
       if (!res.ok || !payload || typeof payload.allowed !== 'boolean') {
@@ -376,7 +389,9 @@
 
     try {
       const mpUrl = `${BOT_BASE_URL}/mp/status?email=${encodeURIComponent(email)}`;
-      const res = await fetch(mpUrl);
+      const res = await fetch(mpUrl, {
+        headers: buildBotHeaders()
+      });
       const payload = await res.json().catch(() => ({}));
 
       if (!res.ok || !payload || !payload.success) {
@@ -459,7 +474,9 @@
       const url = `${BOT_BASE_URL}/u/state?email=${encodeURIComponent(
         currentUser.user_email
       )}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: buildBotHeaders()
+      });
       const payload = await res.json().catch(() => ({}));
 
       if (!res.ok || !payload || !payload.success) {
@@ -1120,7 +1137,9 @@
 
     try {
       const email = encodeURIComponent(currentUser.user_email);
-      const res = await fetch(`${BOT_BASE_URL}/admin/users?email=${email}`);
+      const res = await fetch(`${BOT_BASE_URL}/admin/users?email=${email}`, {
+        headers: buildBotHeaders()
+      });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data || !data.success || !Array.isArray(data.users)) {
@@ -1158,9 +1177,9 @@
 
       const res = await fetch(`${BOT_BASE_URL}/admin/users/update?email=${adminEmail}`, {
         method: 'POST',
-        headers: {
+        headers: buildBotHeaders({
           'Content-Type': 'application/json'
-        },
+        }),
         body: JSON.stringify(payload)
       });
 
@@ -1193,9 +1212,9 @@
       const payload = { email: currentUser.user_email, id };
       const res = await fetch(`${BOT_BASE_URL}/admin/users/delete?email=${adminEmail}`, {
         method: 'POST',
-        headers: {
+        headers: buildBotHeaders({
           'Content-Type': 'application/json'
-        },
+        }),
         body: JSON.stringify(payload)
       });
 
