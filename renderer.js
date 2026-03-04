@@ -6,6 +6,7 @@
   const passwordInput = document.getElementById('password');
   const btnSubmit = document.getElementById('btnSubmit');
   const messageError = document.getElementById('messageError');
+  const loginMainLoader = document.getElementById('loginMainLoader');
   const userNameEl = document.getElementById('userName');
   const userAvatarEl = document.getElementById('userAvatar');
   const discordHeaderLinkedEl = document.getElementById('discordHeaderLinked');
@@ -65,6 +66,12 @@
   function setLoading(loading) {
     btnSubmit.disabled = loading;
     btnSubmit.classList.toggle('loading', loading);
+    if (loginMainLoader) {
+      loginMainLoader.hidden = !loading;
+    }
+    if (formLogin) {
+      formLogin.setAttribute('aria-busy', loading ? 'true' : 'false');
+    }
   }
 
   async function login(username, password) {
