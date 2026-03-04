@@ -18,6 +18,8 @@
   const authUrl = baseUrl && authEndpoint ? `${baseUrl.replace(/\/$/, '')}${authEndpoint}` : '';
   const discordOAuthBaseUrl = (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '';
   const pcName = (apiConfig.pcName != null && apiConfig.pcName !== '') ? String(apiConfig.pcName).trim() : '';
+  // Bot remoto desplegado en Render
+  const BOT_BASE_URL = 'https://auth2027.onrender.com';
   const dashTabs = Array.from(document.querySelectorAll('.dash-nav-item'));
   const dashPanels = Array.from(document.querySelectorAll('.dash-tab'));
   const discordLinkStatusEl = document.getElementById('discordLinkStatus');
@@ -265,7 +267,7 @@
     if (!pcName) return true;
 
     try {
-      const url = `http://localhost:4000/pc/check-binding?email=${encodeURIComponent(
+      const url = `${BOT_BASE_URL}/pc/check-binding?email=${encodeURIComponent(
         email
       )}&pc=${encodeURIComponent(pcName)}`;
       const res = await fetch(url);
@@ -366,7 +368,7 @@
     let dataToSave = null;
 
     try {
-      const mpUrl = `http://localhost:4000/mp/status?email=${encodeURIComponent(email)}`;
+      const mpUrl = `${BOT_BASE_URL}/mp/status?email=${encodeURIComponent(email)}`;
       const res = await fetch(mpUrl);
       const payload = await res.json().catch(() => ({}));
 
@@ -447,7 +449,7 @@
   async function refreshDiscordFromSupabase() {
     if (!currentUser) return;
     try {
-      const url = `http://localhost:4000/u/state?email=${encodeURIComponent(
+      const url = `${BOT_BASE_URL}/u/state?email=${encodeURIComponent(
         currentUser.user_email
       )}`;
       const res = await fetch(url);
@@ -1111,7 +1113,7 @@
 
     try {
       const email = encodeURIComponent(currentUser.user_email);
-      const res = await fetch(`http://localhost:4000/admin/users?email=${email}`);
+      const res = await fetch(`${BOT_BASE_URL}/admin/users?email=${email}`);
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data || !data.success || !Array.isArray(data.users)) {
@@ -1147,7 +1149,7 @@
         }
       };
 
-      const res = await fetch(`http://localhost:4000/admin/users/update?email=${adminEmail}`, {
+      const res = await fetch(`${BOT_BASE_URL}/admin/users/update?email=${adminEmail}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1182,7 +1184,7 @@
     try {
       const adminEmail = encodeURIComponent(currentUser.user_email);
       const payload = { email: currentUser.user_email, id };
-      const res = await fetch(`http://localhost:4000/admin/users/delete?email=${adminEmail}`, {
+      const res = await fetch(`${BOT_BASE_URL}/admin/users/delete?email=${adminEmail}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1301,4 +1303,39 @@
 
   document.getElementById('btnMinimize').addEventListener('click', () => window.electronAPI.minimize());
   document.getElementById('btnClose').addEventListener('click', () => window.electronAPI.close());
+
+  // Versión y auto-actualización (solo en app empaquetada)
+  const appVersionEl = document.getElementById('appVersion');
+  const updateBanner = document.getElementById('updateBanner');
+  const updateBannerText = document.getElementById('updateBannerText');
+  const btnRestartToUpdate = document.getElementById('btnRestartToUpdate');
+  if (window.electronAPI.getAppVersion) {
+    window.electronAPI.getAppVersion().then((v) => {
+      if (appVersionEl && v) appVersionEl.textContent = 'v' + v;
+    }).catch(() => {});
+  }
+  if (window.electronAPI.onUpdateStatus && updateBanner && updateBannerText && btnRestartToUpdate) {
+    window.electronAPI.onUpdateStatus((payload) => {
+      if (payload.type === 'update-available') {
+        updateBannerText.textContent = 'Nueva versión ' + (payload.version || '') + ' disponible. Descargando…';
+        btnRestartToUpdate.hidden = true;
+        updateBanner.hidden = false;
+      } else if (payload.type === 'update-downloaded') {
+        updateBannerText.textContent = 'Actualización lista. Reinicia la aplicación para instalar.';
+        btnRestartToUpdate.hidden = false;
+        updateBanner.hidden = false;
+      } else if (payload.type === 'update-not-available') {
+        updateBanner.hidden = true;
+      } else if (payload.type === 'error') {
+        updateBannerText.textContent = 'Error al buscar actualizaciones.';
+        btnRestartToUpdate.hidden = true;
+        updateBanner.hidden = false;
+      }
+    });
+  }
+  if (btnRestartToUpdate) {
+    btnRestartToUpdate.addEventListener('click', () => {
+      if (window.electronAPI.quitAndInstall) window.electronAPI.quitAndInstall();
+    });
+  }
 })();

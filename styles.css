@@ -58,6 +58,14 @@ html, body {
   color: var(--text-muted);
 }
 
+.titlebar-version {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.8;
+  margin-right: 8px;
+  -webkit-app-region: no-drag;
+}
+
 .titlebar-actions {
   display: flex;
   gap: 2px;
@@ -86,6 +94,41 @@ html, body {
 .titlebar-btn-close:hover {
   color: #fff;
   background: #e81123;
+}
+
+/* Banner de actualización */
+.update-banner {
+  position: absolute;
+  top: 38px;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, rgba(30, 58, 138, 0.95), rgba(59, 130, 246, 0.95));
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.update-banner[hidden] {
+  display: none !important;
+}
+.update-banner-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #fff;
+  color: #1e3a8a;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.update-banner-btn:hover {
+  opacity: 0.9;
 }
 
 /* App layout */

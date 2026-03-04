@@ -5,7 +5,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimize: () => ipcRenderer.send('window-minimize'),
   close: () => ipcRenderer.send('window-close'),
   // Control de acceso al archivo fifa_ng_db.DB
-  setGameDbAccess: (enabled) => ipcRenderer.invoke('game-db:set', !!enabled)
+  setGameDbAccess: (enabled) => ipcRenderer.invoke('game-db:set', !!enabled),
+  // Auto-actualización (solo activa en app empaquetada)
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  quitAndInstall: () => ipcRenderer.send('update:quitAndInstall'),
+  onUpdateStatus: (callback) => {
+    if (typeof callback !== 'function') return;
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('update-status', handler);
+    return () => ipcRenderer.removeListener('update-status', handler);
+  },
+  getAppVersion: () => ipcRenderer.invoke('app:getVersion')
 });
 
 // Config: main.js ya la cargó y la pasó por process.env (más fiable); si no, intentar require

@@ -3,6 +3,18 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 require('dotenv').config();
+
+// Auto-updater (solo cuando la app está empaquetada)
+let autoUpdater = null;
+if (app.isPackaged) {
+  try {
+    autoUpdater = require('electron-updater').autoUpdater;
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+  } catch (e) {
+    console.warn('electron-updater no disponible:', e.message);
+  }
+}
 // Cargar config aquí (main se ejecuta desde la carpeta de la app) y pasarla al preload vía env
 try {
   const config = require('./config.js');
@@ -86,7 +98,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: true, // desactiva DevTools en producción
+      devTools: false,
       preload: path.join(__dirname, 'preload.js')
     },
     show: false
@@ -103,7 +115,6 @@ function createWindow() {
   }
 
   mainWindow.loadFile('index.html');
-  mainWindow.webContents.openDevTools();
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.maximize();
@@ -114,7 +125,25 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+function setupAutoUpdater() {
+  if (!autoUpdater || !mainWindow) return;
+  const send = (payload) => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update-status', payload);
+    } catch (_) {}
+  };
+  autoUpdater.on('update-available', (info) => send({ type: 'update-available', version: info?.version }));
+  autoUpdater.on('update-not-available', () => send({ type: 'update-not-available' }));
+  autoUpdater.on('update-downloaded', () => send({ type: 'update-downloaded' }));
+  autoUpdater.on('error', (err) => send({ type: 'error', message: err?.message || String(err) }));
+  // Comprobar al arrancar (con un pequeño retraso para no bloquear la UI)
+  setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 3000);
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  setupAutoUpdater();
+});
 
 app.on('window-all-closed', () => {
   // Al cerrar todas las ventanas, aseguramos que se elimine el archivo de la ruta de destino
@@ -141,3 +170,18 @@ ipcMain.handle('game-db:set', async (_event, enabled) => {
   }
   return removeGameDbIfExists();
 });
+
+// Auto-actualización (solo en app empaquetada)
+ipcMain.handle('update:check', async () => {
+  if (!autoUpdater) return { ok: false, reason: 'unavailable' };
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { ok: true, hasUpdate: !!result?.updateInfo };
+  } catch (e) {
+    return { ok: false, reason: e?.message || String(e) };
+  }
+});
+ipcMain.on('update:quitAndInstall', () => {
+  if (autoUpdater) autoUpdater.quitAndInstall(false, true);
+});
+ipcMain.handle('app:getVersion', () => app.getVersion());

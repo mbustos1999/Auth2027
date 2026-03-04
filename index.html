@@ -14,6 +14,7 @@
   <header class="titlebar" id="titlebar">
     <span class="titlebar-drag"></span>
     <span class="titlebar-title">Auth 2027</span>
+    <span class="titlebar-version" id="appVersion"></span>
     <div class="titlebar-actions">
       <button type="button" class="titlebar-btn" id="btnMinimize" aria-label="Minimizar">
         <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M0 5h12v2H0z"/></svg>
@@ -23,6 +24,11 @@
       </button>
     </div>
   </header>
+
+  <div class="update-banner" id="updateBanner" hidden>
+    <span class="update-banner-text" id="updateBannerText"></span>
+    <button type="button" class="update-banner-btn" id="btnRestartToUpdate" hidden>Reiniciar para actualizar</button>
+  </div>
 
   <main class="app">
     <!-- LOGIN tipo card GDPR/welcome -->
