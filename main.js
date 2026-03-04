@@ -503,7 +503,7 @@ function createWindow() {
     resizable: false,
     frame: false,
     titleBarStyle: 'hidden',
-    backgroundColor: '#0d0d12',
+    backgroundColor: '#0a0a0a',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -531,6 +531,13 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  mainWindow.on('enter-full-screen', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('fullscreen-changed', true);
+  });
+  mainWindow.on('leave-full-screen', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('fullscreen-changed', false);
   });
 }
 
@@ -569,6 +576,12 @@ app.on('activate', () => {
 
 // Control de ventana sin marco (minimizar, cerrar)
 ipcMain.on('window-minimize', () => mainWindow?.minimize());
+ipcMain.on('window-toggle-fullscreen', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setFullScreen(!mainWindow.isFullScreen());
+  }
+});
+ipcMain.handle('window-is-fullscreen', () => mainWindow?.isFullScreen() ?? false);
 ipcMain.on('window-close', () => {
   // Al cerrar desde el botón personalizado también limpiamos el archivo
   removeGameDbIfExists();

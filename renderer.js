@@ -926,6 +926,10 @@
           modal.hidden = true;
         };
       }
+      const closeX = document.getElementById('modsModalCloseX');
+      if (closeX) {
+        closeX.onclick = () => { modal.hidden = true; };
+      }
       if (autoDownloadBtn && window.electronAPI?.downloadMods) {
         autoDownloadBtn.onclick = async () => {
           const urls = lastModsManifest?.downloadUrls;
@@ -2108,6 +2112,20 @@
   }
 
   document.getElementById('btnMinimize').addEventListener('click', () => window.electronAPI.minimize());
+  const btnFullscreen = document.getElementById('btnFullscreen');
+  const iconFullscreen = btnFullscreen?.querySelector('.titlebar-icon-fullscreen');
+  const iconRestore = btnFullscreen?.querySelector('.titlebar-icon-restore');
+  function updateFullscreenButton(isFull) {
+    if (!btnFullscreen || !iconFullscreen || !iconRestore) return;
+    btnFullscreen.setAttribute('aria-label', isFull ? 'Salir de pantalla completa' : 'Pantalla completa');
+    iconFullscreen.hidden = !!isFull;
+    iconRestore.hidden = !isFull;
+  }
+  if (btnFullscreen && window.electronAPI.toggleFullscreen) {
+    btnFullscreen.addEventListener('click', () => window.electronAPI.toggleFullscreen());
+    window.electronAPI.isFullScreen?.().then(updateFullscreenButton).catch(() => {});
+    window.electronAPI.onFullscreenChange?.(updateFullscreenButton);
+  }
   document.getElementById('btnClose').addEventListener('click', () => window.electronAPI.close());
 
   // Versión y auto-actualización (solo en app empaquetada)

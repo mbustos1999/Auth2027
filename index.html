@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.bunny.net; font-src https://fonts.gstatic.com https://fonts.bunny.net; connect-src *; img-src 'self' data: https://raw.githubusercontent.com;" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.bunny.net https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com https://fonts.bunny.net; connect-src *; img-src 'self' data: https:;" />
   <title>Auth 2027</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,6 +19,10 @@
     <div class="titlebar-actions">
       <button type="button" class="titlebar-btn" id="btnMinimize" aria-label="Minimizar">
         <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M0 5h12v2H0z"/></svg>
+      </button>
+      <button type="button" class="titlebar-btn" id="btnFullscreen" aria-label="Pantalla completa">
+        <svg class="titlebar-icon-fullscreen" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M0 0v4h1V1h3V0H0zm8 0v1h3v3h1V0H8zM0 8v4h4v-1H1V8H0zm11 0v3H8v1h4V8h-1z"/></svg>
+        <svg class="titlebar-icon-restore" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" hidden><path fill="currentColor" d="M2 0v2H0v8h8v-2h2V0H2zm6 8H2V2h6v6zm2-8v6H8V2H4V0h6z"/></svg>
       </button>
       <button type="button" class="titlebar-btn titlebar-btn-close" id="btnClose" aria-label="Cerrar">
         <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M1.41 0L6 4.58 10.59 0 12 1.41 7.41 6 12 10.59 10.59 12 6 7.41 1.41 12 0 10.59 4.59 6 0 1.41z"/></svg>
@@ -262,129 +266,55 @@
             </div>
           </header>
 
-          <!-- HOME -->
+          <!-- HOME: Grid Marvel (3 por fila, se envuelven abajo) -->
           <div class="dash-grid dash-tab dash-tab--active" data-tab-panel="home">
-            <!-- Menú Star Trek -->
-            <div class="star-trek-menu">
-              <div class="star-trek-logo">
-                <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/ster-trek-logo.png" alt="Star Trek">
+            <div class="inicio-marvel-grid">
+              <div class="box">
+                <p class="marvel">MARVEL</p>
+                <img src="https://i.postimg.cc/L552NTd2/Ant-Man.png" alt="Ant-Man" class="model">
+                <div class="details">
+                  <img src="https://i.postimg.cc/15Lsrwv1/Ant-Man-logo.png" alt="logo" class="logo" width="100" style="height: auto;">
+                  <p>Scott Lang, a reformed thief, steals the Ant-Man suit from Hank Pym to save his daughter, Cassie. This storyline is pivotal as it showcases Scott's transformation from a criminal to a hero, emphasizing redemption and fatherhood.</p>
+                </div>
               </div>
-
-              <div class="star-trek-names">
-                <h2>El</h2>
-                <h2>Mejor</h2>
-                <h2>Mod</h2>
-                <h2>De</h2>
-                <h2>Sudamerica</h2>
-                <h2>Viva</h2>
-                <h2>ArgenMod!</h2>
+              <div class="box">
+                <p class="marvel">MARVEL</p>
+                <img src="https://i.postimg.cc/sgd86c7y/DeadPool.png" alt="Deadpool" class="model">
+                <div class="details">
+                  <img src="https://i.postimg.cc/59rDv1tX/Deadpool-logo.png" alt="logo" class="logo">
+                  <p>Deadpool made his first appearance in The New Mutants #98 in February 1991. Initially introduced as a supervillain, he was hired to take down the New Mutants.</p>
+                </div>
               </div>
-
-              <div class="star-trek-wrapper">
-                <div class="star-trek-character">
-                  <img src="assets/jug1.png" width="300" alt="Kirk">
-                  <div class="star-trek-data">
-                    <h3>James T. Kirk</h3>
-                    <div>
-                      <label>Actor:</label>
-                      <p>William Shatner</p>
-                      <label>Role:</label>
-                      <p>Captain of the USS Enterprise</p>
-                      <label>Known for:</label>
-                      <p>"Beam me up, Scotty."</p>
-                    </div>
-                    <p class="star-trek-notes">Bold, charismatic, impulsive, strategic thinker, morally driven, thrives under pressure.</p>
-                  </div>
+              <div class="box">
+                <p class="marvel">MARVEL</p>
+                <img src="https://i.postimg.cc/j2Tc68Bk/Spider-Man.png" alt="Spider-Man" class="model">
+                <div class="details">
+                  <img src="https://i.postimg.cc/tTWDx0vx/Spider-Man-logo.png" alt="logo" class="logo">
+                  <p>Peter Parker, a high school student, gains his superhuman abilities after being bitten by a radioactive spider during a school field trip.</p>
                 </div>
-                <div class="star-trek-character">
-                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/spock-2.png" width="300" alt="Spock">
-                  <div class="star-trek-data">
-                    <h3>Spock</h3>
-                    <div>
-                      <label>Actor:</label>
-                      <p>Leonard Nimoy</p>
-                      <label>Role:</label>
-                      <p>First Officer & Science Officer</p>
-                      <label>Known for:</label>
-                      <p>"Live long and prosper." 🖖</p>
-                    </div>
-                    <p class="star-trek-notes">Logical, restrained, intellectually brilliant, emotionally conflicted (human/Vulcan duality), dry wit.</p>
-                  </div>
+              </div>
+              <div class="box">
+                <p class="marvel">MARVEL</p>
+                <img src="https://i.postimg.cc/kX1NDXMH/Venom.png" alt="Venom" class="model">
+                <div class="details">
+                  <img src="https://i.postimg.cc/vTXrrGrc/Venom-logo.png" alt="logo" class="logo">
+                  <p>The character of Venom is primarily associated with Eddie Brock, a journalist whose life takes a dark turn after he blames Spider-Man for ruining his career.</p>
                 </div>
-                <div class="star-trek-character">
-                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/mccoy.png?v=1" width="300" alt="Bones">
-                  <div class="star-trek-data">
-                    <h3>Dr. Leonard "Bones" McCoy</h3>
-                    <div>
-                      <label>Actor:</label>
-                      <p>DeForest Kelley</p>
-                      <label>Role:</label>
-                      <p>Chief Medical Officer</p>
-                      <label>Known for:</label>
-                      <p>"I'm a doctor, not a…"</p>
-                    </div>
-                    <p class="star-trek-notes">Compassionate, sarcastic, emotional counterbalance to Spock, deeply loyal to Kirk.</p>
-                  </div>
+              </div>
+              <div class="box">
+                <p class="marvel">MARVEL</p>
+                <img src="https://i.postimg.cc/BnPh015p/Thor.png" alt="Thor" class="model">
+                <div class="details">
+                  <img src="https://i.postimg.cc/4Ng4tzy7/Thor-logo.png" alt="logo" class="logo">
+                  <p>Thor is the son of Odin, the All-Father and ruler of Asgard. He is the God of Thunder, known for his incredible strength, bravery, and his enchanted hammer, Mjolnir.</p>
                 </div>
-                <div class="star-trek-character">
-                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/scotty.png?v=1" width="300" alt="Scotty">
-                  <div class="star-trek-data">
-                    <h3>Montgomery "Scotty" Scott</h3>
-                    <div>
-                      <label>Actor:</label>
-                      <p>James Doohan</p>
-                      <label>Role:</label>
-                      <p>Chief Engineer</p>
-                      <label>Known for:</label>
-                      <p>"I canna change the laws of physics!"</p>
-                    </div>
-                    <p class="star-trek-notes">Brilliant engineer, resourceful, stubbornly optimistic about impossible repairs, quietly heroic.</p>
-                  </div>
-                </div>
-                <div class="star-trek-character">
-                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/uhura.png" width="300" alt="Uhura">
-                  <div class="star-trek-data">
-                    <h3>Nyota Uhura</h3>
-                    <div>
-                      <label>Actor:</label>
-                      <p>Nichelle Nichols</p>
-                      <label>Role:</label>
-                      <p>Communications Officer</p>
-                      <label>Known for:</label>
-                      <p>Multilingual communications mastery</p>
-                    </div>
-                    <p class="star-trek-notes">Intelligent, poised, confident, culturally aware, trailblazing representation.</p>
-                  </div>
-                </div>
-                <div class="star-trek-character">
-                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/sulu.png" width="300" alt="Sulu">
-                  <div class="star-trek-data">
-                    <h3>Hikaru Sulu</h3>
-                    <div>
-                      <label>Actor:</label>
-                      <p>George Takei</p>
-                      <label>Role:</label>
-                      <p>Helmsman</p>
-                      <label>Known for:</label>
-                      <p>Sword fighting in "The Naked Time"</p>
-                    </div>
-                    <p class="star-trek-notes">Calm under pressure, skilled pilot, disciplined, occasionally playful edge.</p>
-                  </div>
-                </div>
-                <div class="star-trek-character">
-                  <img src="https://raw.githubusercontent.com/cbolson/assets/refs/heads/main/codepen/star-trek/chekov.png" width="300" alt="Chekov">
-                  <div class="star-trek-data">
-                    <h3>Pavel Chekov</h3>
-                    <div>
-                      <label>Actor:</label>
-                      <p>Walter Koenig</p>
-                      <label>Role:</label>
-                      <p>Navigator</p>
-                      <label>Known for:</label>
-                      <p>Claiming everything was "invented in Russia."</p>
-                    </div>
-                    <p class="star-trek-notes">Eager, youthful, patriotic, ambitious, quick-thinking.</p>
-                  </div>
+              </div>
+              <div class="box">
+                <p class="marvel">MARVEL</p>
+                <img src="https://i.postimg.cc/vBGkbLv9/IronMan.png" alt="Iron Man" class="model">
+                <div class="details">
+                  <img src="https://i.postimg.cc/rsj8qwWy/Iron-Man-logo.png" alt="logo" class="logo">
+                  <p>Iron Man is the alter ego of Tony Stark, a wealthy industrialist and genius inventor. He is the son of Howard Stark, a prominent weapons manufacturer.</p>
                 </div>
               </div>
             </div>
@@ -732,7 +662,10 @@
     <div id="modsRequiredModal" class="recover-modal" hidden>
       <div class="recover-modal-backdrop"></div>
       <div class="recover-modal-content mods-modal-content">
-        <h2>Mods requeridos</h2>
+        <div class="mods-modal-header">
+          <h2>Mods requeridos</h2>
+          <button type="button" id="modsModalCloseX" class="mods-modal-close-x" aria-label="Cerrar">×</button>
+        </div>
         <p id="modsRequiredMessage" class="mods-modal-desc">Se requieren los mods de FC26 actualizados. Se descargarán e instalarán automáticamente (los mods anteriores se reemplazarán).</p>
         <p id="modsRequiredVersion" class="mods-modal-version"></p>
         <div id="modsDownloadStart" class="mods-download-start">

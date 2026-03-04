@@ -4,6 +4,14 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   minimize: () => ipcRenderer.send('window-minimize'),
   close: () => ipcRenderer.send('window-close'),
+  toggleFullscreen: () => ipcRenderer.send('window-toggle-fullscreen'),
+  isFullScreen: () => ipcRenderer.invoke('window-is-fullscreen'),
+  onFullscreenChange: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_e, isFull) => callback(isFull);
+    ipcRenderer.on('fullscreen-changed', handler);
+    return () => ipcRenderer.removeListener('fullscreen-changed', handler);
+  },
   // Control de acceso al archivo fifa_ng_db.DB
   setGameDbAccess: (enabled) => ipcRenderer.invoke('game-db:set', !!enabled),
   // Auto-actualización (solo activa en app empaquetada)
