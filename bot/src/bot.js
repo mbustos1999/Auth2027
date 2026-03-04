@@ -896,6 +896,35 @@ function startOAuthServer() {
         return;
       }
 
+      // --- Tarjetas del Inicio (público: cualquiera puede leer) ---
+      if (url.pathname === '/home-cards' && req.method === 'GET') {
+        try {
+          const { data: rows, error } = await supabase
+            .from('home_cards')
+            .select('*')
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: true });
+
+          if (error) {
+            console.error('Error leyendo home_cards:', error);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'db_error', cards: [] }));
+            return;
+          }
+
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: true, cards: rows || [] }));
+        } catch (e) {
+          console.error('Error inesperado en /home-cards:', e);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, cards: [] }));
+        }
+        return;
+      }
+
       // --- Admin: gestión de usuarios ---
       if (url.pathname.startsWith('/admin/')) {
         if (!ensureAuthorizedRequest(req, res, 'admin', 30)) return;
@@ -1079,6 +1108,168 @@ function startOAuthServer() {
             res.end(JSON.stringify({ success: true }));
           } catch (e) {
             console.error('Error inesperado en /admin/users/delete:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        // --- Admin: tarjetas del Inicio (CRUD) ---
+        if (url.pathname === '/admin/home-cards' && req.method === 'GET') {
+          try {
+            const { data: rows, error } = await supabase
+              .from('home_cards')
+              .select('*')
+              .order('sort_order', { ascending: true })
+              .order('created_at', { ascending: true });
+
+            if (error) {
+              console.error('Error leyendo home_cards (admin):', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error', cards: [] }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, cards: rows || [] }));
+          } catch (e) {
+            console.error('Error inesperado en /admin/home-cards:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, cards: [] }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/home-cards' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const { title, image_url, logo_url, description, sort_order } = body || {};
+
+          if (!title || typeof title !== 'string') {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Falta title.' }));
+            return;
+          }
+
+          try {
+            const { data: inserted, error } = await supabase
+              .from('home_cards')
+              .insert({
+                title: String(title).trim(),
+                image_url: typeof image_url === 'string' ? image_url.trim() : '',
+                logo_url: typeof logo_url === 'string' ? logo_url.trim() : '',
+                description: typeof description === 'string' ? description.trim() : '',
+                sort_order: typeof sort_order === 'number' ? sort_order : 0,
+                updated_at: new Date().toISOString()
+              })
+              .select('*')
+              .single();
+
+            if (error) {
+              console.error('Error insertando home_card:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, card: inserted }));
+          } catch (e) {
+            console.error('Error inesperado en POST /admin/home-cards:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/home-cards/update' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const { id, title, image_url, logo_url, description, sort_order } = body || {};
+
+          if (!id) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Falta id.' }));
+            return;
+          }
+
+          const updates = {};
+          if (typeof title === 'string') updates.title = title.trim();
+          if (typeof image_url === 'string') updates.image_url = image_url.trim();
+          if (typeof logo_url === 'string') updates.logo_url = logo_url.trim();
+          if (typeof description === 'string') updates.description = description.trim();
+          if (typeof sort_order === 'number') updates.sort_order = sort_order;
+          updates.updated_at = new Date().toISOString();
+
+          if (Object.keys(updates).length <= 1) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Incluye al menos un campo a actualizar.' }));
+            return;
+          }
+
+          try {
+            const { data: updated, error } = await supabase
+              .from('home_cards')
+              .update(updates)
+              .eq('id', id)
+              .select('*')
+              .single();
+
+            if (error) {
+              console.error('Error actualizando home_card:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, card: updated }));
+          } catch (e) {
+            console.error('Error inesperado en POST /admin/home-cards/update:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/home-cards/delete' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const { id } = body || {};
+
+          if (!id) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Falta id.' }));
+            return;
+          }
+
+          try {
+            const { error } = await supabase.from('home_cards').delete().eq('id', id);
+
+            if (error) {
+              console.error('Error eliminando home_card:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            console.error('Error inesperado en POST /admin/home-cards/delete:', e);
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.end(JSON.stringify({ success: false, message: 'internal_error' }));
