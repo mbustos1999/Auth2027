@@ -19,8 +19,8 @@
   const authUrl = baseUrl && authEndpoint ? `${baseUrl.replace(/\/$/, '')}${authEndpoint}` : '';
   const discordOAuthBaseUrl = (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '';
   const pcName = (apiConfig.pcName != null && apiConfig.pcName !== '') ? String(apiConfig.pcName).trim() : '';
-  // Bot remoto desplegado en Render
-  const BOT_BASE_URL = 'https://auth2027.onrender.com';
+  // Bot remoto desplegado en Railway
+  const BOT_BASE_URL = 'https://auth2027-production.up.railway.app';
   const dashTabs = Array.from(document.querySelectorAll('.dash-nav-item'));
   const dashPanels = Array.from(document.querySelectorAll('.dash-tab'));
   const discordLinkStatusEl = document.getElementById('discordLinkStatus');
