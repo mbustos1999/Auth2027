@@ -890,14 +890,14 @@
     const modal = document.getElementById('modsRequiredModal');
     const msgEl = document.getElementById('modsRequiredMessage');
     const versionEl = document.getElementById('modsRequiredVersion');
-    const actionsWrap = document.getElementById('modsRequiredActions');
+    const startWrap = document.getElementById('modsDownloadStart');
     const autoDownloadBtn = document.getElementById('modsRequiredAutoDownload');
-    const openLinkBtn = document.getElementById('modsRequiredOpenLink');
-    const confirmBtn = document.getElementById('modsRequiredConfirm');
     const progressWrap = document.getElementById('modsDownloadProgressWrap');
     const phaseEl = document.getElementById('modsDownloadPhase');
-    const barFill = document.getElementById('modsDownloadBarFill');
+    const fileListEl = document.getElementById('modsDownloadFileList');
     const statsEl = document.getElementById('modsDownloadStats');
+    const doneWrap = document.getElementById('modsDownloadDone');
+    const closeBtn = document.getElementById('modsRequiredClose');
     if (!modal || !msgEl) return;
     try {
       let manifest = null;
@@ -916,22 +916,12 @@
       const needUpdate = !currentVersion || currentVersion !== requiredVersion;
       if (!forceShow && !needUpdate) return;
       lastModsManifest = manifest;
-      if (msgEl) {
-        const inst = manifest.instructions || 'Descarga el paquete y coloca los .fifamod en modManager/Mods/FC26/.';
-        msgEl.innerHTML = `Se requieren los mods de FC26 actualizados para usar el Switcher. ${inst.replace(/\.$/, '')}.`;
-      }
-      if (versionEl) versionEl.textContent = `Versión requerida: ${requiredVersion}${manifest.sizeHint ? ' · ' + manifest.sizeHint : ''}`;
+      if (versionEl) versionEl.textContent = `Versión ${requiredVersion}${manifest.sizeHint ? ' · ' + manifest.sizeHint : ''}`;
       if (progressWrap) progressWrap.hidden = true;
-      if (barFill) barFill.style.width = '0%';
-      if (openLinkBtn) {
-        openLinkBtn.onclick = () => {
-          const urls = lastModsManifest?.downloadUrls;
-          const url = Array.isArray(urls) && urls.length ? urls[0] : lastModsManifest?.downloadUrl;
-          if (url && window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
-        };
-      }
-      if (confirmBtn) {
-        confirmBtn.onclick = () => {
+      if (doneWrap) doneWrap.hidden = true;
+      if (startWrap) startWrap.hidden = false;
+      if (closeBtn) {
+        closeBtn.onclick = () => {
           if (requiredVersion) try { localStorage.setItem(MODS_VERSION_KEY, requiredVersion); } catch (_) {}
           modal.hidden = true;
         };
@@ -947,19 +937,49 @@
             return;
           }
           const toDownload = hasMultiple ? urls.map(u => toDirectDownloadUrl(u)) : [toDirectDownloadUrl(singleUrl)];
+          const totalFiles = toDownload.length;
+          if (startWrap) startWrap.hidden = true;
           if (progressWrap) progressWrap.hidden = false;
-          if (actionsWrap) actionsWrap.style.pointerEvents = 'none';
-          if (phaseEl) phaseEl.textContent = toDownload.length > 1 ? 'Descargando archivo 1/' + toDownload.length + '…' : 'Descargando…';
-          if (barFill) barFill.style.width = '0%';
+          if (phaseEl) phaseEl.textContent = totalFiles > 1 ? `Descargando (0/${totalFiles})…` : 'Descargando…';
+          if (fileListEl) {
+            fileListEl.innerHTML = '';
+            for (let i = 0; i < totalFiles; i++) {
+              const row = document.createElement('div');
+              row.className = 'mods-download-file-row';
+              row.setAttribute('data-file-index', String(i + 1));
+              row.innerHTML = `
+                <span class="mods-file-check" aria-hidden="true"></span>
+                <div class="mods-file-info">
+                  <div class="mods-file-label">Archivo ${i + 1}${totalFiles > 1 ? ' de ' + totalFiles : ''}</div>
+                  <div class="mods-file-bar-wrap"><div class="mods-file-bar-fill" style="width: 0%"></div></div>
+                </div>`;
+              fileListEl.appendChild(row);
+            }
+          }
           if (statsEl) statsEl.textContent = '';
           const unsub = window.electronAPI.onModsDownloadProgress((data) => {
-            const fileLabel = (data.fileIndex != null && data.totalFiles != null) ? `Archivo ${data.fileIndex}/${data.totalFiles} · ` : '';
-            if (phaseEl) phaseEl.textContent = data.phase === 'extract' ? 'Extrayendo…' : (fileLabel + (data.phase === 'download' ? 'Descargando…' : 'Descargando…'));
-            const pct = data.percent != null ? data.percent : 0;
-            if (barFill) barFill.style.width = pct + '%';
-            if (statsEl && data.bytesReceived != null) {
-              const total = data.totalBytes ? ` / ${formatBytes(data.totalBytes)}` : '';
-              statsEl.textContent = formatBytes(data.bytesReceived) + total;
+            if (data.phase === 'file_done' && data.fileIndex != null && data.totalFiles != null) {
+              const row = fileListEl?.querySelector(`[data-file-index="${data.fileIndex}"]`);
+              if (row) {
+                row.classList.add('done');
+                const fill = row.querySelector('.mods-file-bar-fill');
+                if (fill) fill.style.width = '100%';
+              }
+              if (phaseEl && data.totalFiles > 1) phaseEl.textContent = `Descargando (${data.fileIndex}/${data.totalFiles})…`;
+            } else if (data.phase === 'download' || data.phase === 'extract') {
+              const idx = data.fileIndex != null ? data.fileIndex : 1;
+              const total = data.totalFiles != null ? data.totalFiles : 1;
+              if (phaseEl) phaseEl.textContent = data.phase === 'extract' ? 'Extrayendo…' : (total > 1 ? `Descargando (${idx}/${total})…` : 'Descargando…');
+              const row = fileListEl?.querySelector(`[data-file-index="${String(idx)}"]`);
+              if (row && !row.classList.contains('done')) {
+                const fill = row.querySelector('.mods-file-bar-fill');
+                const pct = data.percent != null ? data.percent : 0;
+                if (fill) fill.style.width = pct + '%';
+              }
+              if (statsEl && data.bytesReceived != null) {
+                const totalB = data.totalBytes ? ` / ${formatBytes(data.totalBytes)}` : '';
+                statsEl.textContent = formatBytes(data.bytesReceived) + totalB;
+              }
             }
           });
           try {
@@ -967,26 +987,23 @@
             unsub();
             if (result && result.ok) {
               if (requiredVersion) try { localStorage.setItem(MODS_VERSION_KEY, requiredVersion); } catch (_) {}
-              modal.hidden = true;
+              if (progressWrap) progressWrap.hidden = true;
+              if (doneWrap) doneWrap.hidden = false;
             } else {
+              if (progressWrap) progressWrap.hidden = true;
+              if (startWrap) startWrap.hidden = false;
               const reason = result?.reason || '';
-              const isNotZip = reason === 'not_zip' || String(reason).includes('invalid signature');
-              const openUrl = hasMultiple ? urls[0] : singleUrl;
-              if (isNotZip && openUrl && window.electronAPI?.openExternal) {
-                window.electronAPI.openExternal(openUrl);
-                alert('Se ha abierto el enlace en el navegador.\n\nDescarga el archivo (o los archivos), colócalos en modManager/Mods/FC26/ y pulsa «Ya los descargué».');
-              } else {
-                const msg = reason === 'invalid_url' ? 'URL no válida.'
-                  : (reason === 'fetch failed' || reason === 'download_error') ? 'No se pudo conectar con el servidor. Usa «Abrir enlace en el navegador» y descarga a mano.'
-                  : (reason || 'Error al descargar o extraer.');
-                alert(msg);
-              }
+              const msg = reason === 'invalid_url' ? 'URL no válida.'
+                : (reason === 'fetch failed' || reason === 'download_error') ? 'No se pudo conectar. Comprueba la red e inténtalo de nuevo.'
+                : (reason || 'Error al descargar o extraer.');
+              alert(msg);
             }
           } catch (e) {
             unsub();
-            alert('No se pudo conectar con el servidor. Usa «Abrir enlace en el navegador» para descargar manualmente.');
+            if (progressWrap) progressWrap.hidden = true;
+            if (startWrap) startWrap.hidden = false;
+            alert('No se pudo conectar con el servidor. Comprueba la red e inténtalo de nuevo.');
           }
-          if (actionsWrap) actionsWrap.style.pointerEvents = '';
         };
       }
       modal.hidden = false;

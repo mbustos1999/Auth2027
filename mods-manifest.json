@@ -2,8 +2,11 @@
   "version": "1.0.1",
   "required": true,
   "downloadUrls": [
-    "https://drive.google.com/file/d/1FxZwKNg8WXn0QMaTWDAu5K5XS5bX08bq/view?usp=drive_link"
+    "https://drive.google.com/file/d/1FxZwKNg8WXn0QMaTWDAu5K5XS5bX08bq/view?usp=drive_link",
+    "https://drive.google.com/file/d/1bwvoGM46G9ouJNA7oEO9W0ph-iBE3sM-/view?usp=drive_link",
+    "https://drive.google.com/file/d/1b7YcRJUdl3pehWdLWglCv0-IjdZfSIci/view?usp=drive_link",
+    "https://drive.google.com/file/d/1Dw-FyZZBG_3MK9TLPIxVR-OUonhX_WKo/view?usp=drive_link"
   ],
-  "sizeHint": "~15 GB (5 archivos)",
-  "instructions": "Descargar automáticamente o a mano en modManager/Mods/FC26/."
+  "sizeHint": "ArgenMod TU 1.4.3",
+  "instructions": "Descargar automáticamente."
 }

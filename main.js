@@ -1084,7 +1084,19 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
     });
   };
   try {
-    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+    // Si ya hay mods, borrarlos antes de descargar los nuevos
+    if (fs.existsSync(destDir)) {
+      const entries = fs.readdirSync(destDir, { withFileTypes: true });
+      for (const e of entries) {
+        const full = path.join(destDir, e.name);
+        try {
+          if (e.isDirectory()) fs.rmSync(full, { recursive: true, force: true });
+          else fs.unlinkSync(full);
+        } catch (_) {}
+      }
+    } else {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
 
     // Múltiples URLs: descarga cada una directamente a destDir (sin ZIP)
     if (isMultiple) {
@@ -1220,6 +1232,7 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
         } else {
           await doDownload(url, undefined, path.join(destDir, defaultName));
         }
+        sendProgress({ phase: 'file_done', fileIndex: i + 1, totalFiles: urls.length });
       }
       return { ok: true, path: destDir };
     }
@@ -1353,6 +1366,7 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
     } else {
       await doDownload(singleUrl);
     }
+    sendProgress({ phase: 'file_done', fileIndex: 1, totalFiles: 1 });
     const fd = fs.openSync(tempZip, 'r');
     const zipHeader = Buffer.alloc(4);
     fs.readSync(fd, zipHeader, 0, 4, 0);
