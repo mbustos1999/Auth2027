@@ -982,6 +982,32 @@ ipcMain.handle('app:getVersion', () => app.getVersion());
 // Devolver la config cargada al arranque (evita require en el handler por si falla en el instalador)
 ipcMain.handle('app:getConfig', () => Promise.resolve(sharedAppConfig || {}));
 
+// Limpiar caché: borrar carpetas de FIFA Editor Tool, FIFA_Editor_Tool, FIFA Mod Manager y FC 26
+ipcMain.handle('app:clearCache', async () => {
+  const home = os.homedir && typeof os.homedir === 'function' ? os.homedir() : process.env.USERPROFILE || '';
+  const programFilesX86 = process.env['ProgramFiles(X86)'] || path.join('C:', 'Program Files (x86)');
+  const dirs = [
+    path.join(home, 'AppData', 'Local', 'FIFA Editor Tool'),
+    path.join(home, 'AppData', 'Local', 'FIFA_Editor_Tool'),
+    path.join(home, 'AppData', 'Local', 'FIFA_Mod_Manager'),
+    path.join(programFilesX86, 'Steam', 'steamapps', 'common', 'FC 26')
+  ];
+  const errors = [];
+  for (const dir of dirs) {
+    try {
+      if (fs.existsSync(dir)) {
+        fs.rmSync(dir, { recursive: true, force: true, maxRetries: 2 });
+      }
+    } catch (e) {
+      errors.push(dir + ': ' + (e && e.message ? e.message : String(e)));
+    }
+  }
+  if (errors.length > 0) {
+    return { ok: false, message: errors.join('; ') };
+  }
+  return { ok: true };
+});
+
 // En desarrollo (npm run electron) usar el manifest local; en app empaquetada el renderer usa GitHub
 ipcMain.handle('mods:getManifest', () => {
   if (app.isPackaged) return Promise.resolve(null);

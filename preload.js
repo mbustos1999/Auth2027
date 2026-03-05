@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
   getConfig: () => ipcRenderer.invoke('app:getConfig'),
+  clearCache: () => ipcRenderer.invoke('app:clearCache'),
   listSwitcherMarkers: () => ipcRenderer.invoke('switcher:listMarkers'),
   applySwitcherMarker: (markerId) => ipcRenderer.invoke('switcher:applyMarker', markerId),
   clearSwitcherOverlay: () => ipcRenderer.invoke('switcher:clearOverlay'),

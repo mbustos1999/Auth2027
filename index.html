@@ -230,6 +230,10 @@
             </button>
           </nav>
 
+          <button type="button" class="dash-nav-item dash-clear-cache" id="btnClearCache" title="Borrar caché de FIFA Editor Tool, FIFA_Editor_Tool, FIFA Mod Manager y FC 26">
+            <span class="dash-nav-icon">🗑</span>
+            <span class="dash-nav-label">Limpiar cache</span>
+          </button>
           <button type="button" class="dash-logout" id="btnLogout">
             <span class="dash-nav-icon">⏏</span>
             <span class="dash-nav-label">Cerrar sesión</span>
@@ -434,7 +438,7 @@
                 </div>
                 <div class="switcher-combobox-column switcher-combobox-column--squad">
                   <button type="button" id="btnApplySquad" class="switcher-dropdown-btn switcher-squad-btn">
-                    <span>Aplica squad</span>
+                    <span>Aplicar squad</span>
                   </button>
                   <div id="squadStatusText" class="switcher-squad-status"></div>
                 </div>
@@ -687,6 +691,22 @@
         <p class="recover-actions" style="margin-top: 1rem;">
           <button type="button" id="launcherRequiredConfirm" class="recover-btn recover-btn-primary">Ya lo abrí</button>
         </p>
+      </div>
+    </div>
+
+    <!-- Modal: Squad (estado y aplicar/reemplazar) -->
+    <div id="squadModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop" id="squadModalBackdrop"></div>
+      <div class="recover-modal-content squad-modal-content">
+        <div class="mods-modal-header">
+          <h2>Squad</h2>
+          <button type="button" id="squadModalCloseX" class="mods-modal-close-x" aria-label="Cerrar">×</button>
+        </div>
+        <p id="squadModalMessage" class="squad-modal-message"></p>
+        <div class="squad-modal-actions">
+          <button type="button" id="squadModalPrimary" class="recover-btn recover-btn-primary squad-modal-primary-btn" hidden></button>
+          <button type="button" id="squadModalClose" class="recover-btn recover-btn-secondary">Cerrar</button>
+        </div>
       </div>
     </div>
   </main>

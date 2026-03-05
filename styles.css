@@ -528,8 +528,20 @@ html, body {
   line-height: 1;
 }
 
-.dash-logout {
+.dash-clear-cache {
   margin-top: auto;
+  margin-bottom: 6px;
+  background: linear-gradient(135deg, #fdba74 0%, #f97316 100%) !important;
+  color: #431407 !important;
+  border: none;
+  font-weight: 600;
+}
+.dash-clear-cache:hover {
+  background: linear-gradient(135deg, #fed7aa 0%, #fb923c 100%) !important;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
+}
+
+.dash-logout {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1677,10 +1689,28 @@ html, body {
 
 .switcher-squad-btn {
   min-width: 180px;
+  background: linear-gradient(135deg, #7dd3fc 0%, #38bdf8 100%) !important;
+  color: #0c4a6e !important;
+  border-color: rgba(56, 189, 248, 0.6) !important;
+  font-weight: 600;
+}
+.switcher-squad-btn:hover {
+  background: linear-gradient(135deg, #bae6fd 0%, #7dd3fc 100%) !important;
+  border-color: rgba(56, 189, 248, 0.8) !important;
+  box-shadow: 0 6px 20px rgba(56, 189, 248, 0.35);
 }
 
 .switcher-download-mods-btn {
   min-width: 160px;
+  background: linear-gradient(135deg, #fdba74 0%, #f97316 100%) !important;
+  color: #431407 !important;
+  border-color: rgba(249, 115, 22, 0.6) !important;
+  font-weight: 600;
+}
+.switcher-download-mods-btn:hover {
+  background: linear-gradient(135deg, #fed7aa 0%, #fb923c 100%) !important;
+  border-color: rgba(249, 115, 22, 0.8) !important;
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.35);
 }
 
 .switcher-squad-status {
@@ -2419,6 +2449,32 @@ html, body {
 }
 .mods-download-done .mods-download-btn:hover {
   box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+}
+
+/* Modal Squad */
+.squad-modal-content {
+  max-width: 380px;
+}
+.squad-modal-message {
+  font-size: 14px;
+  color: #e5e7eb;
+  line-height: 1.5;
+  margin: 0 0 1.25rem;
+}
+.squad-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.squad-modal-primary-btn {
+  background: linear-gradient(135deg, #7dd3fc 0%, #38bdf8 100%) !important;
+  color: #0c4a6e !important;
+  border: none;
+}
+.squad-modal-primary-btn:hover {
+  background: linear-gradient(135deg, #bae6fd 0%, #7dd3fc 100%) !important;
+  box-shadow: 0 6px 20px rgba(56, 189, 248, 0.35);
 }
 
 @keyframes modalBackdropIn {

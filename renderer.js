@@ -12,6 +12,7 @@
   const discordHeaderLinkedEl = document.getElementById('discordHeaderLinked');
   const discordHeaderUnlinkedEl = document.getElementById('discordHeaderUnlinked');
   const btnLogout = document.getElementById('btnLogout');
+  const btnClearCache = document.getElementById('btnClearCache');
 
   const apiConfig = window.apiConfig || {};
   const baseUrl = (apiConfig.baseUrl != null && apiConfig.baseUrl !== '') ? String(apiConfig.baseUrl).trim() : '';
@@ -82,6 +83,12 @@
   const btnApplySquad = document.getElementById('btnApplySquad');
   const btnDownloadMods = document.getElementById('btnDownloadMods');
   const squadStatusText = document.getElementById('squadStatusText');
+  const squadModal = document.getElementById('squadModal');
+  const squadModalBackdrop = document.getElementById('squadModalBackdrop');
+  const squadModalCloseX = document.getElementById('squadModalCloseX');
+  const squadModalMessage = document.getElementById('squadModalMessage');
+  const squadModalPrimary = document.getElementById('squadModalPrimary');
+  const squadModalClose = document.getElementById('squadModalClose');
   const btnPlayModManager = document.getElementById('btnPlayModManager');
   let currentUser = null;
   let currentDiscordRow = null;
@@ -577,19 +584,78 @@
     });
   }
 
-  if (btnApplySquad) {
-    btnApplySquad.addEventListener('click', async () => {
-      if (!window.electronAPI || !window.electronAPI.applySquad) return;
-      try {
-        await window.electronAPI.applySquad();
-        await updateSquadStatus();
-      } catch (_) {
-        if (squadStatusText) {
-          squadStatusText.textContent = 'No se pudo aplicar la squad.';
-        }
+  function openSquadModal() {
+    if (!squadModal || !squadModalMessage || !squadModalPrimary || !squadModalClose) return;
+    squadModal.hidden = false;
+  }
+
+  function closeSquadModal() {
+    if (squadModal) squadModal.hidden = true;
+  }
+
+  async function showSquadModalWithStatus() {
+    if (!window.electronAPI || !window.electronAPI.checkSquadStatus) return;
+    if (!squadModal || !squadModalMessage || !squadModalPrimary || !squadModalClose) return;
+    try {
+      const res = await window.electronAPI.checkSquadStatus();
+      squadModalPrimary.hidden = true;
+      squadModalPrimary.onclick = null;
+
+      if (!res || res.ok === false) {
+        squadModalMessage.textContent = 'No se encontró ninguna squad en la carpeta aplicarSquad.';
+        openSquadModal();
+        return;
       }
+
+      if (res.applied) {
+        squadModalMessage.textContent = 'Ya tienes la squad aplicada en EA SPORTS FC 26. Si aplicas de nuevo, se reemplazará.';
+        squadModalPrimary.textContent = 'Reemplazar';
+        squadModalPrimary.hidden = false;
+        squadModalPrimary.onclick = async () => {
+          try {
+            await window.electronAPI.applySquad();
+            squadModalMessage.textContent = 'Squad reemplazada correctamente.';
+            squadModalPrimary.hidden = true;
+            squadModalPrimary.onclick = null;
+            await updateSquadStatus();
+          } catch (_) {
+            squadModalMessage.textContent = 'No se pudo aplicar la squad.';
+            squadModalPrimary.hidden = true;
+          }
+        };
+      } else {
+        squadModalMessage.textContent = 'Falta aplicar squad. Pulsa el botón para aplicarla.';
+        squadModalPrimary.textContent = 'Aplicar squad';
+        squadModalPrimary.hidden = false;
+        squadModalPrimary.onclick = async () => {
+          try {
+            await window.electronAPI.applySquad();
+            squadModalMessage.textContent = 'Squad aplicada correctamente.';
+            squadModalPrimary.hidden = true;
+            squadModalPrimary.onclick = null;
+            await updateSquadStatus();
+          } catch (_) {
+            squadModalMessage.textContent = 'No se pudo aplicar la squad.';
+            squadModalPrimary.hidden = true;
+          }
+        };
+      }
+      openSquadModal();
+    } catch (_) {
+      if (squadModalMessage) squadModalMessage.textContent = 'No se pudo comprobar el estado de la squad.';
+      openSquadModal();
+    }
+  }
+
+  if (btnApplySquad) {
+    btnApplySquad.addEventListener('click', () => {
+      showSquadModalWithStatus();
     });
   }
+
+  if (squadModalCloseX) squadModalCloseX.addEventListener('click', closeSquadModal);
+  if (squadModalBackdrop) squadModalBackdrop.addEventListener('click', closeSquadModal);
+  if (squadModalClose) squadModalClose.addEventListener('click', closeSquadModal);
 
   if (btnDownloadMods) {
     btnDownloadMods.addEventListener('click', () => {
@@ -1760,6 +1826,22 @@
   });
 
   btnLogout.addEventListener('click', showLogin);
+
+  if (btnClearCache) {
+    btnClearCache.addEventListener('click', async () => {
+      if (!window.electronAPI || typeof window.electronAPI.clearCache !== 'function') return;
+      try {
+        const res = await window.electronAPI.clearCache();
+        if (res && res.ok) {
+          alert('Caché limpiada correctamente.');
+        } else {
+          alert('Se limpió la caché con algunos avisos: ' + (res && res.message ? res.message : 'Error desconocido'));
+        }
+      } catch (_) {
+        alert('No se pudo limpiar la caché.');
+      }
+    });
+  }
 
   const forgotPasswordLink = document.getElementById('forgotPasswordLink');
   const createAccountLink = document.getElementById('createAccountLink');
