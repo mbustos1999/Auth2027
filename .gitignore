@@ -5,6 +5,8 @@ bot/.env
 build-config.js
 dist/
 scripts/
-
+liveEditor/FC 26 LE v26.2.7/Logs/*
 modManager/Mods/FC26/*.fifamod
 modManager/Mods/FC26/*.zip
+supabase-setup.sql
+supabase_home_cards.sql
