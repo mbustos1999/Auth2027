@@ -6,6 +6,15 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const unzipper = require('unzipper');
 require('dotenv').config();
+// En app empaquetada no existe .env del proyecto; cargar desde userData si existe
+try {
+  if (app.isPackaged) {
+    const userDataEnv = path.join(app.getPath('userData'), '.env');
+    if (fs.existsSync(userDataEnv)) {
+      require('dotenv').config({ path: userDataEnv });
+    }
+  }
+} catch (_) {}
 
 // Sesión de usuario para peticiones al bot (token firmado; el renderer no ve el secreto)
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 h
@@ -48,6 +57,19 @@ try {
       pcName: defaultPcName || 'PC',
       botSharedSecret: (config.BOT_SHARED_SECRET != null) ? String(config.BOT_SHARED_SECRET).trim() : ''
     };
+    // App empaquetada: si no hay secreto por .env, intentar desde el archivo de config en userData
+    if (app.isPackaged && !sharedAppConfig.botSharedSecret) {
+      try {
+        const cfgPath = path.join(app.getPath('userData'), USER_DATA_CONFIG_FILENAME);
+        if (fs.existsSync(cfgPath)) {
+          const raw = fs.readFileSync(cfgPath, 'utf8');
+          const data = JSON.parse(raw);
+          if (data && typeof data.botSharedSecret === 'string' && data.botSharedSecret.trim()) {
+            sharedAppConfig.botSharedSecret = data.botSharedSecret.trim();
+          }
+        }
+      } catch (_) {}
+    }
   }
 } catch (_) {}
 

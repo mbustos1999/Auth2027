@@ -1,6 +1,6 @@
 {
   "name": "auth-2027",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Aplicación Electron con autenticación WordPress",
   "main": "main.js",
   "repository": {
@@ -12,10 +12,10 @@
     "electron": "electron .",
     "bot": "npm start --prefix bot",
     "dev": "electron . --enable-logging",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "release": "node -e \"require('dotenv').config(); require('child_process').execSync('npx electron-builder --publish always', {stdio:'inherit', env: process.env})\""
+    "build": "node scripts/inject-build-config.js && electron-builder",
+    "build:win": "node scripts/inject-build-config.js && electron-builder --win",
+    "build:mac": "node scripts/inject-build-config.js && electron-builder --mac",
+    "release": "node scripts/inject-build-config.js && node -e \"require('dotenv').config(); require('child_process').execSync('npx electron-builder --publish always', {stdio:'inherit', env: process.env})\""
   },
   "keywords": [
     "electron",
