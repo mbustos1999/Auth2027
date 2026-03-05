@@ -1162,6 +1162,16 @@ ipcMain.handle('shell:openExternal', (_event, url) => {
   return shell.openExternal(url).then(() => ({ ok: true })).catch((e) => ({ ok: false, error: e?.message }));
 });
 
+ipcMain.handle('shell:openFolder', async (_event, dirPath) => {
+  if (typeof dirPath !== 'string' || !dirPath.trim()) return { ok: false };
+  try {
+    const err = await shell.openPath(dirPath.trim());
+    return { ok: !err };
+  } catch (e) {
+    return { ok: false };
+  }
+});
+
 // Quitar caracteres de control en cabeceras/URL (evita "Invalid header value char")
 function safeHeaderValue(str) {
   if (typeof str !== 'string') return '';
@@ -1603,7 +1613,7 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
             else fs.copyFileSync(src, dest);
           }
         } catch (copyErr) {
-          return { ok: true, path: destDir, copyFailed: true, message: 'Mods descargados en ' + destDir + ' pero no se pudieron copiar al Mod Manager (permisos). Copia la carpeta manualmente o reinstala la app fuera de Program Files.' };
+          return { ok: true, path: destDir, copyFailed: true, message: 'Los mods se descargaron bien, pero no se pudieron copiar a la carpeta del Mod Manager (permisos). Puedes copiar manualmente el contenido de la carpeta donde se guardaron, o reinstalar la app fuera de Program Files.' };
         }
       }
       return { ok: true, path: destDir };
@@ -1709,7 +1719,7 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
           else fs.copyFileSync(src, dest);
         }
       } catch (copyErr) {
-        return { ok: true, path: destDir, copyFailed: true, message: 'Mods descargados en ' + destDir + ' pero no se pudieron copiar al Mod Manager. Copia la carpeta manualmente o reinstala fuera de Program Files.' };
+        return { ok: true, path: destDir, copyFailed: true, message: 'Los mods se descargaron bien, pero no se pudieron copiar a la carpeta del Mod Manager (permisos). Puedes copiar manualmente el contenido de la carpeta donde se guardaron, o reinstalar la app fuera de Program Files.' };
       }
     }
     return { ok: true, path: destDir };

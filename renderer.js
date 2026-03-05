@@ -1344,7 +1344,12 @@
             }
             if (progressWrap) progressWrap.hidden = true;
             if (doneWrap) doneWrap.hidden = false;
-            if (result.copyFailed && result.message) alert(result.message);
+            if (result.copyFailed && result.message) {
+              alert(result.message);
+              if (result.path && window.electronAPI?.openFolder && confirm('¿Abrir la carpeta donde se descargaron los mods para copiarlos manualmente?')) {
+                window.electronAPI.openFolder(result.path);
+              }
+            }
           } else {
             if (progressWrap) progressWrap.hidden = true;
             if (singleListEl) singleListEl.hidden = false;
@@ -1792,7 +1797,6 @@
     const adminRoles = ['admin', '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️'.toLowerCase()];
     const supportRoles = ['⚔️・𝑺𝑶𝑷𝑶𝑹𝑻𝑬・⚔️'.toLowerCase()];
     const subscriptionRoles = [
-      'anclado',
       'arg-6m',
       'arg-1m',
       'argenmod argentina mensual',

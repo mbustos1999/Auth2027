@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   launchModManager: () => ipcRenderer.invoke('modmanager:launch'),
   launchLauncher: () => ipcRenderer.invoke('launcher:launch'),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  openFolder: (dirPath) => ipcRenderer.invoke('shell:openFolder', dirPath),
   getModsManifestLocal: () => ipcRenderer.invoke('mods:getManifest'),
   listExistingModFilenames: () => ipcRenderer.invoke('mods:listExistingFilenames'),
   downloadMods: (url) => ipcRenderer.invoke('mods:download', url),
