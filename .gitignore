@@ -4,7 +4,7 @@ package-lock.json
 bot/.env
 build-config.js
 dist/
-
+scripts/
 
 modManager/Mods/FC26/*.fifamod
 modManager/Mods/FC26/*.zip
