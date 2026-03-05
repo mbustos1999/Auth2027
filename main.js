@@ -503,7 +503,7 @@ function createWindow() {
     resizable: false,
     frame: false,
     titleBarStyle: 'hidden',
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#0a1322',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
