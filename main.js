@@ -487,34 +487,48 @@ function scanPublicities() {
         break;
       }
 
-      // Archivos de config
+      // Archivos de config: primero en la carpeta de la publicidad, si no en la raíz de publicidades
       let layoutPath = null;
       const layoutUpper = path.join(pBase, 'fchubcfg.XML');
       const layoutLower = path.join(pBase, 'fchubcfg.xml');
+      const layoutRootUpper = path.join(basePath, 'fchubcfg.XML');
+      const layoutRootLower = path.join(basePath, 'fchubcfg.xml');
       if (fs.existsSync(layoutUpper)) layoutPath = layoutUpper;
       else if (fs.existsSync(layoutLower)) layoutPath = layoutLower;
+      else if (fs.existsSync(layoutRootUpper)) layoutPath = layoutRootUpper;
+      else if (fs.existsSync(layoutRootLower)) layoutPath = layoutRootLower;
 
       let themesPath = null;
       const fifaUpper = path.join(pBase, 'FIFA.XML');
       const fifaLower = path.join(pBase, 'fifa.xml');
+      const fifaRootUpper = path.join(basePath, 'FIFA.XML');
+      const fifaRootLower = path.join(basePath, 'fifa.xml');
       if (fs.existsSync(fifaUpper)) themesPath = fifaUpper;
       else if (fs.existsSync(fifaLower)) themesPath = fifaLower;
+      else if (fs.existsSync(fifaRootUpper)) themesPath = fifaRootUpper;
+      else if (fs.existsSync(fifaRootLower)) themesPath = fifaRootLower;
 
-      // Adboards
+      // Adboards: soportar adboards, ADBOARDS, ADBORADS
       let adboardsDir = null;
       const adLocal = path.join(pBase, 'adboards');
+      const adUpper = path.join(pBase, 'ADBOARDS');
+      const adTypo = path.join(pBase, 'ADBORADS');
       if (fs.existsSync(adLocal)) adboardsDir = adLocal;
+      else if (fs.existsSync(adUpper)) adboardsDir = adUpper;
+      else if (fs.existsSync(adTypo)) adboardsDir = adTypo;
 
-      // Fondo fchub
+      // Fondo fchub: soportar fondo y Fondo
       let fondoPath = null;
       const fondoDir = path.join(pBase, 'fondo');
-      if (fs.existsSync(fondoDir)) {
-        const fondoFiles = fs.readdirSync(fondoDir, { withFileTypes: true });
+      const fondoDirCap = path.join(pBase, 'Fondo');
+      const fondoDirToUse = fs.existsSync(fondoDir) ? fondoDir : fs.existsSync(fondoDirCap) ? fondoDirCap : null;
+      if (fondoDirToUse) {
+        const fondoFiles = fs.readdirSync(fondoDirToUse, { withFileTypes: true });
         for (const f of fondoFiles) {
           if (!f.isFile()) continue;
           const lower = f.name.toLowerCase();
           if (lower.startsWith('backgroundletterc') && lower.endsWith('.dds')) {
-            fondoPath = path.join(fondoDir, f.name);
+            fondoPath = path.join(fondoDirToUse, f.name);
             break;
           }
         }
@@ -760,29 +774,30 @@ ipcMain.handle('switcher:applyPublicity', async (_event, pubId) => {
       return { ok: false, reason: 'not_found' };
     }
 
-    // Layout
+    // Layout: fchubcfg.XML en .../layout (ruta fija)
     if (pub.layoutPath) {
       try {
         ensureDirExists(layoutTargetDir);
-        const targetPath = path.join(layoutTargetDir, path.basename(pub.layoutPath));
+        const targetPath = path.join(layoutTargetDir, 'fchubcfg.XML');
         fs.copyFileSync(pub.layoutPath, targetPath);
       } catch (e) {
         console.error('Error al copiar fchubcfg.XML:', e);
       }
     }
 
-    // Themes
+    // Themes: FIFA.XML en .../themes (ruta fija)
     if (pub.themesPath) {
       try {
         ensureDirExists(themesTargetDir);
-        const targetPath = path.join(themesTargetDir, path.basename(pub.themesPath));
+        const targetPath = path.join(themesTargetDir, 'FIFA.XML');
         fs.copyFileSync(pub.themesPath, targetPath);
       } catch (e) {
         console.error('Error al copiar FIFA.XML:', e);
       }
     }
 
-    // Adboards
+    // Adboards: vaciar carpeta destino y copiar contenido de la publicidad
+    ensureDirExists(adboardsTargetDir);
     const resAdClear = clearAdboardsDir();
     if (resAdClear.ok === false) {
       return { ok: false, reason: resAdClear.error || 'adboards_clear_failed' };
@@ -795,12 +810,12 @@ ipcMain.handle('switcher:applyPublicity', async (_event, pubId) => {
       }
     }
 
-    // Fondo fchub
+    // Fondo fchub: backgroundLetterC.dds en .../imgAssets/fchub (ruta fija)
+    ensureDirExists(fchubTargetDir);
     removeFilesByPrefix(fchubTargetDir, 'backgroundletterc');
     if (pub.fondoPath) {
       try {
-        ensureDirExists(fchubTargetDir);
-        const targetPath = path.join(fchubTargetDir, path.basename(pub.fondoPath));
+        const targetPath = path.join(fchubTargetDir, 'backgroundLetterC.dds');
         fs.copyFileSync(pub.fondoPath, targetPath);
       } catch (e) {
         console.error('Error al copiar backgroundLetterC.dds:', e);
@@ -1650,12 +1665,17 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
   } catch (e) {
     try { if (fs.existsSync(tempZip)) fs.unlinkSync(tempZip); } catch (_) {}
     const msg = e?.message || 'download_error';
+    const code = e?.code || '';
     const reason = msg === 'cached_304' ? 'caché_304' : msg;
     let friendlyMessage = e?.message || 'Error al descargar.';
     if (msg === 'cached_304') {
       friendlyMessage = 'El servidor devolvió caché (304). Intenta de nuevo en unos segundos.';
     } else if (msg === 'timeout') {
       friendlyMessage = 'La descarga tardó demasiado y se interrumpió (timeout). Revisa tu conexión o inténtalo de nuevo más tarde.';
+    } else if (code === 'ECONNRESET' || msg.includes('ECONNRESET')) {
+      friendlyMessage = 'La conexión se cortó mientras se descargaba (ECONNRESET). Suele pasar con archivos grandes o red inestable. Vuelve a intentar; si falla, prueba descargar los archivos de uno en uno.';
+    } else if (code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || msg.includes('ETIMEDOUT') || msg.includes('ECONNREFUSED')) {
+      friendlyMessage = 'No se pudo conectar al servidor. Revisa tu Internet e inténtalo de nuevo.';
     }
     return { ok: false, reason, message: friendlyMessage };
   }

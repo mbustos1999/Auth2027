@@ -1335,6 +1335,10 @@
               );
               return;
             }
+            const confirmed = window.confirm(
+              'Se van a borrar los mods actuales de la carpeta y descargar los nuevos. Si no aceptas, no se borrará nada ni podrás descargar todos. ¿Continuar?'
+            );
+            if (!confirmed) return;
             const rawUrls = hasMultiple ? urls : [singleUrl];
             await startModsDownload(rawUrls, { preserveExisting: false });
           };
