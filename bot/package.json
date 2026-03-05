@@ -1,7 +1,7 @@
 {
   "name": "auth2027-discord-bot",
   "version": "1.0.0",
-  "description": "Bot de Discord para vincular usuarios de Auth 2027 con Supabase.",
+  "description": "Bot de Discord para vincular usuarios de Argenmod Auth con Supabase.",
   "main": "src/bot.js",
   "type": "module",
   "scripts": {

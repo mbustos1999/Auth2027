@@ -451,6 +451,14 @@ html, body {
   font-weight: 700;
 }
 
+.dash-logo-icon-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
 .dash-logo-text {
   font-size: 15px;
   font-weight: 600;
@@ -2687,12 +2695,12 @@ html, body {
 }
 
 .inicio-marvel-grid .box:hover .marvel {
-  color: #C0292B;
+  color: #fcd34d;
   transition: all ease 0.5s;
 }
 
 .inicio-marvel-grid .model {
-  height: 350px;
+  height: 420px;
   max-height: 100%;
   max-width: 100%;
   object-fit: contain;
@@ -2711,7 +2719,7 @@ html, body {
 .inicio-marvel-grid .details p {
   font-family: calibri, sans-serif;
   font-weight: bold;
-  color: #6A6A74;
+  color: #ffffff;
   text-align: center;
   margin-top: 16px;
   font-size: 13px;
@@ -2719,7 +2727,7 @@ html, body {
 }
 
 .inicio-marvel-grid .marvel {
-  color: #32323E;
+  color: #ffffff;
   font-weight: bold;
   letter-spacing: 2px;
   font-family: Bebas Kai, Impact, sans-serif;
@@ -2727,7 +2735,7 @@ html, body {
 }
 
 .inicio-marvel-grid .logo {
-  height: 60px;
+  height: 72px;
   max-width: 100%;
   object-fit: contain;
 }
@@ -2749,10 +2757,11 @@ html, body {
     margin: 0 auto;
   }
   .inicio-marvel-grid .model {
-    height: 250px;
+    height: 300px;
   }
   .inicio-marvel-grid .details p {
     font-size: 14px;
+    color: #ffffff;
   }
 }
 

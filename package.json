@@ -36,7 +36,7 @@
   },
   "build": {
     "appId": "com.auth2027.app",
-    "productName": "Auth2027",
+    "productName": "Argenmod Auth",
     "directories": {
       "output": "dist"
     },
@@ -72,7 +72,7 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/argenmod.png"
     },
     "nsis": {
       "oneClick": false,
@@ -82,7 +82,7 @@
       "target": [
         "dmg"
       ],
-      "icon": "assets/icon.icns",
+      "icon": "assets/argenmod.png",
       "category": "public.app-category.utilities"
     }
   }

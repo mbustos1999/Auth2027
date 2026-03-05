@@ -241,7 +241,7 @@ async function ensureRoleByName(member, roleName) {
       role = await member.guild.roles
         .create({
           name: roleName,
-          reason: 'Rol de suscripción (Motivo) desde Auth 2027'
+          reason: 'Rol de suscripción (Motivo) desde Argenmod Auth'
         })
         .catch((err) => {
           console.error(`No se pudo crear el rol "${roleName}":`, err);
@@ -672,7 +672,7 @@ client.on('messageCreate', async (message) => {
     const code = parts[1]?.trim();
 
     if (!code) {
-      await message.reply('Usa el comando así: `!link CODIGO` (lo ves en Auth 2027 > Perfil).');
+      await message.reply('Usa el comando así: `!link CODIGO` (lo ves en Argenmod Auth > Perfil).');
       return;
     }
 
@@ -681,14 +681,14 @@ client.on('messageCreate', async (message) => {
     const row = await findLinkRowByCode(code);
 
     if (!row) {
-      await message.reply('❌ Ese código no es válido o ya fue usado. Asegúrate de copiarlo bien desde Auth 2027.');
+      await message.reply('❌ Ese código no es válido o ya fue usado. Asegúrate de copiarlo bien desde Argenmod Auth.');
       return;
     }
 
     // Un Discord no puede estar anclado a dos cuentas diferentes
     const existingByDiscord = await findLinkRowByDiscordId(message.author.id);
     if (existingByDiscord && existingByDiscord.id !== row.id) {
-      await message.reply('❌ Este Discord ya está anclado a otra cuenta. Usa siempre la misma cuenta de Auth 2027.');
+      await message.reply('❌ Este Discord ya está anclado a otra cuenta. Usa siempre la misma cuenta de Argenmod Auth.');
       return;
     }
 
@@ -718,7 +718,7 @@ client.on('messageCreate', async (message) => {
       roles
     });
 
-    await message.reply('✅ Rol **Anclado** asignado y tu cuenta ha sido guardada en la base de datos. Vuelve a Auth 2027 y pulsa "Comprobar estado".');
+    await message.reply('✅ Rol **Anclado** asignado y tu cuenta ha sido guardada en la base de datos. Vuelve a Argenmod Auth y pulsa "Comprobar estado".');
   } catch (err) {
     console.error('Error en comando !link:', err);
     try {
@@ -1621,7 +1621,7 @@ function startOAuthServer() {
       <div class="icon">!</div>
       <h1>Este Discord ya está anclado</h1>
       <p>
-        Esta cuenta de Discord ya fue vinculada a otra cuenta de Auth 2027.<br />
+        Esta cuenta de Discord ya fue vinculada a otra cuenta de Argenmod Auth.<br />
         Usa siempre la misma cuenta en la app para evitar problemas.
       </p>
       <button type="button" onclick="window.close()">Cerrar esta ventana</button>
@@ -1750,7 +1750,7 @@ function startOAuthServer() {
     <div class="card">
       <div class="icon">✓</div>
       <h1>Discord conectado correctamente</h1>
-      <p>Tu cuenta de Discord se ha vinculado. Ya puedes volver a Auth 2027; la app comprobará tu estado automáticamente en unos segundos.</p>
+      <p>Tu cuenta de Discord se ha vinculado. Ya puedes volver a Argenmod Auth; la app comprobará tu estado automáticamente en unos segundos.</p>
       <button type="button" onclick="window.close()">Cerrar esta ventana</button>
       <div class="hint">Si la ventana no se cierra, puedes hacerlo manualmente.</div>
     </div>

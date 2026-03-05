@@ -494,7 +494,7 @@ function scanSquadFile() {
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const iconPath = path.join(__dirname, 'assets', 'icon.png');
+  const iconPath = path.join(__dirname, 'assets', 'argenmod.png');
   const mainWindowOptions = {
     width,
     height,
