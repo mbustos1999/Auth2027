@@ -1007,14 +1007,18 @@ function startOAuthServer() {
 
             const rolesArr = Array.isArray(bestRow.roles) ? bestRow.roles.map((r) => String(r)) : [];
             const rolesLower = rolesArr.map((r) => r.toLowerCase());
-            const adminRoles = ['admin', '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️'.toLowerCase()];
+            const elevatedRoles = [
+              'admin',
+              '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️'.toLowerCase(),
+              '⚔️・𝑺𝑶𝑷𝑶𝑹𝑻𝑬・⚔️'.toLowerCase()
+            ];
 
-            const isLinkedAdmin =
+            const isLinkedElevated =
               bestRow.discord_id &&
               String(bestRow.status || '').toLowerCase() === 'linked' &&
-              rolesLower.some((r) => adminRoles.includes(r));
+              rolesLower.some((r) => elevatedRoles.includes(r));
 
-            return isLinkedAdmin;
+            return isLinkedElevated;
           } catch (e) {
             console.error('Error en isAdminByEmail:', e);
             return false;

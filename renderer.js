@@ -1412,10 +1412,10 @@
     const linked = hasRow && !!row.discord_id && String(row.status).toLowerCase() === 'linked';
     const roles = Array.isArray(row?.roles) ? row.roles.map((r) => String(r)) : [];
 
-    const { canAccessProtected, hasAdminRole } = evaluateAccessFlags(linked, roles);
-    // Usuarios, MP y Configuración solo para admins
+    const { canAccessProtected, hasAdminRole, hasSupportRole } = evaluateAccessFlags(linked, roles);
+    // Usuarios, MP y Configuración solo para administradores o soporte
     if (tabName === 'users' || tabName === 'config' || tabName === 'mpAdmin') {
-      return !!(linked && hasAdminRole);
+      return !!(linked && (hasAdminRole || hasSupportRole));
     }
     return canAccessProtected;
   }
@@ -1770,6 +1770,7 @@
     const normalizedRoles = rolesStr.map((r) => r.toLowerCase());
 
     const adminRoles = ['admin', '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️'.toLowerCase()];
+    const supportRoles = ['⚔️・𝑺𝑶𝑷𝑶𝑹𝑻𝑬・⚔️'.toLowerCase()];
     const subscriptionRoles = [
       'anclado',
       'arg-6m',
@@ -1780,6 +1781,9 @@
     ].map((r) => r.toLowerCase());
 
     const hasAdminRole = normalizedRoles.some((r) => adminRoles.includes(r));
+    const hasSupportRole =
+      normalizedRoles.some((r) => supportRoles.includes(r)) ||
+      rolesStr.some((r) => r.includes('𝑺𝑶𝑷𝑶𝑹𝑻𝑬'));
 
     // Considerar también roles de Ko-fi / Patreon como suscripción válida.
     const hasKofiSub =
@@ -1798,6 +1802,7 @@
     return {
       normalizedRoles,
       hasAdminRole,
+      hasSupportRole,
       hasSubRole,
       canAccessProtected
     };
@@ -1806,7 +1811,7 @@
   let lastGameDbAccess = false;
 
   function updateMenuAccess(isLinked, roles) {
-    const { canAccessProtected, hasAdminRole } = evaluateAccessFlags(isLinked, roles);
+    const { canAccessProtected, hasAdminRole, hasSupportRole } = evaluateAccessFlags(isLinked, roles);
 
     dashTabs.forEach((btn) => {
       const tab = btn.getAttribute('data-tab');
@@ -1825,9 +1830,9 @@
         return;
       }
 
-      // Menús Usuarios, MP y Configuración: requieren admin sí o sí
+      // Menús Usuarios, MP y Configuración: requieren admin o soporte sí o sí
       if (isUsersTab || isConfigTab || isMpAdminTab) {
-        if (!isLinked || !hasAdminRole) {
+        if (!isLinked || (!hasAdminRole && !hasSupportRole)) {
           btn.classList.add('dash-nav-item--locked');
           btn.setAttribute('data-locked', 'admin-only');
           btn.title = 'Este menú solo está disponible para administradores.';
