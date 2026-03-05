@@ -633,7 +633,30 @@ function setupAutoUpdater() {
   setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 3000);
 }
 
+// En Windows, con la app empaquetada: ocultar todos los archivos/carpetas del directorio de instalación excepto el .exe (ruta puede variar por usuario)
+function hideInstallFolderExceptExe() {
+  if (!app.isPackaged || process.platform !== 'win32') return;
+  try {
+    const exePath = process.execPath;
+    const exeDir = path.dirname(exePath);
+    if (!fs.existsSync(exeDir)) return;
+    const entries = fs.readdirSync(exeDir, { withFileTypes: true });
+    const exePathNorm = path.resolve(exePath);
+    for (const entry of entries) {
+      const fullPath = path.join(exeDir, entry.name);
+      if (path.resolve(fullPath) === exePathNorm) continue;
+      try {
+        const arg = 'attrib +h ' + '"' + fullPath.replace(/"/g, '""') + '"';
+        spawn('cmd', ['/c', arg], { windowsHide: true, stdio: 'ignore' });
+      } catch (_) {}
+    }
+  } catch (e) {
+    console.error('Error al ocultar archivos de instalación:', e);
+  }
+}
+
 app.whenReady().then(() => {
+  hideInstallFolderExceptExe();
   loadPersistedPcName();
   createWindow();
   setupAutoUpdater();
@@ -865,6 +888,20 @@ ipcMain.handle('switcher:applySquad', async () => {
       return { ok: false, reason: 'no_squad' };
     }
     ensureDirExists(eaSettingsDir);
+    // Borrar todos los archivos cuyo nombre contenga "Squads" (antes de copiar el nuevo)
+    if (fs.existsSync(eaSettingsDir)) {
+      const entries = fs.readdirSync(eaSettingsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isFile()) continue;
+        if (entry.name.toLowerCase().includes('squads')) {
+          try {
+            fs.unlinkSync(path.join(eaSettingsDir, entry.name));
+          } catch (e) {
+            console.error('Error al borrar archivo squad previo:', entry.name, e);
+          }
+        }
+      }
+    }
     const targetPath = path.join(eaSettingsDir, squad.name);
     fs.copyFileSync(squad.fullPath, targetPath);
     return { ok: true, fileName: squad.name, targetDir: eaSettingsDir };
@@ -1067,15 +1104,13 @@ ipcMain.handle('bot:fetch', async (_event, url, options) => {
   }
 });
 
-// Limpiar caché: borrar carpetas de FIFA Editor Tool, FIFA_Editor_Tool, FIFA Mod Manager y FC 26
+// Limpiar caché: borrar carpetas de FIFA Editor Tool, FIFA_Editor_Tool y FIFA_Mod_Manager en AppData\Local
 ipcMain.handle('app:clearCache', async () => {
-  const home = os.homedir && typeof os.homedir === 'function' ? os.homedir() : process.env.USERPROFILE || '';
-  const programFilesX86 = process.env['ProgramFiles(X86)'] || path.join('C:', 'Program Files (x86)');
+  const localAppData = process.env.LOCALAPPDATA || (os.homedir && typeof os.homedir === 'function' ? path.join(os.homedir(), 'AppData', 'Local') : path.join(process.env.USERPROFILE || '', 'AppData', 'Local'));
   const dirs = [
-    path.join(home, 'AppData', 'Local', 'FIFA Editor Tool'),
-    path.join(home, 'AppData', 'Local', 'FIFA_Editor_Tool'),
-    path.join(home, 'AppData', 'Local', 'FIFA_Mod_Manager'),
-    path.join(programFilesX86, 'Steam', 'steamapps', 'common', 'FC 26')
+    path.join(localAppData, 'FIFA Editor Tool'),
+    path.join(localAppData, 'FIFA_Editor_Tool'),
+    path.join(localAppData, 'FIFA_Mod_Manager')
   ];
   const errors = [];
   for (const dir of dirs) {
@@ -1091,6 +1126,22 @@ ipcMain.handle('app:clearCache', async () => {
     return { ok: false, message: errors.join('; ') };
   }
   return { ok: true };
+});
+
+// Listar nombres de archivos ya presentes en la carpeta de mods (para mostrar "Ya descargado")
+ipcMain.handle('mods:listExistingFilenames', async () => {
+  try {
+    const baseDir = app.isPackaged ? process.resourcesPath : __dirname;
+    const destDir = app.isPackaged
+      ? path.join(app.getPath('userData'), 'modManager', 'Mods', 'FC26')
+      : path.join(baseDir, 'modManager', 'Mods', 'FC26');
+    if (!fs.existsSync(destDir)) return [];
+    const entries = fs.readdirSync(destDir, { withFileTypes: true });
+    return entries.filter((e) => e.isFile()).map((e) => e.name);
+  } catch (e) {
+    console.error('Error al listar mods existentes:', e);
+    return [];
+  }
 });
 
 // En desarrollo (npm run electron) usar el manifest local; en app empaquetada el renderer usa GitHub

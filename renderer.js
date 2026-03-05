@@ -1107,6 +1107,47 @@
   }
 
   function setupConfigPanel() {
+    const btnClearCache = document.getElementById('btnClearCache');
+    const clearCacheMessage = document.getElementById('configClearCacheMessage');
+    if (btnClearCache) {
+      btnClearCache.addEventListener('click', async () => {
+        if (!window.electronAPI?.clearCache) return;
+        if (clearCacheMessage) {
+          clearCacheMessage.hidden = true;
+          clearCacheMessage.classList.remove('message-error', 'message-success');
+        }
+        btnClearCache.disabled = true;
+        try {
+          const result = await window.electronAPI.clearCache();
+          if (clearCacheMessage) {
+            clearCacheMessage.hidden = false;
+            if (result && result.ok === false) {
+              clearCacheMessage.textContent = result.message || 'Error al borrar caché.';
+              clearCacheMessage.classList.add('message-error');
+            } else {
+              clearCacheMessage.textContent = 'Caché borrada correctamente.';
+              clearCacheMessage.classList.add('message-success');
+            }
+          } else {
+            if (result && result.ok === false) {
+              alert(result.message || 'Error al borrar caché.');
+            } else {
+              alert('Caché borrada correctamente.');
+            }
+          }
+        } catch (e) {
+          if (clearCacheMessage) {
+            clearCacheMessage.hidden = false;
+            clearCacheMessage.textContent = 'Error al borrar caché.';
+            clearCacheMessage.classList.add('message-error');
+          } else {
+            alert('Error al borrar caché.');
+          }
+        }
+        btnClearCache.disabled = false;
+      });
+    }
+
     const btnAdd = document.getElementById('configCardAdd');
     const modal = document.getElementById('configCardModal');
     const btnCancel = document.getElementById('configCardModalCancel');
@@ -1162,9 +1203,6 @@
     const modal = document.getElementById('modsRequiredModal');
     const msgEl = document.getElementById('modsRequiredMessage');
     const versionEl = document.getElementById('modsRequiredVersion');
-    const startWrap = document.getElementById('modsDownloadStart');
-    const autoDownloadBtn = document.getElementById('modsRequiredAutoDownload');
-    const singleDownloadBtn = document.getElementById('modsRequiredSingleDownload');
     const progressWrap = document.getElementById('modsDownloadProgressWrap');
     const phaseEl = document.getElementById('modsDownloadPhase');
     const fileListEl = document.getElementById('modsDownloadFileList');
@@ -1197,11 +1235,7 @@
       }
       if (progressWrap) progressWrap.hidden = true;
       if (doneWrap) doneWrap.hidden = true;
-      if (startWrap) startWrap.hidden = false;
-      if (singleListEl) {
-        singleListEl.hidden = true;
-        singleListEl.innerHTML = '';
-      }
+      if (singleListEl) singleListEl.innerHTML = '';
       if (closeBtn) {
         closeBtn.onclick = () => {
           if (requiredVersion) try { localStorage.setItem(MODS_VERSION_KEY, requiredVersion); } catch (_) {}
@@ -1234,7 +1268,6 @@
         const toDownload = rawUrls.map((u) => toDirectDownloadUrl(u));
         const totalFiles = toDownload.length;
 
-        if (startWrap) startWrap.hidden = true;
         if (singleListEl) singleListEl.hidden = true;
         if (progressWrap) progressWrap.hidden = false;
         if (phaseEl) {
@@ -1314,72 +1347,55 @@
             if (result.copyFailed && result.message) alert(result.message);
           } else {
             if (progressWrap) progressWrap.hidden = true;
-            if (startWrap) startWrap.hidden = false;
+            if (singleListEl) singleListEl.hidden = false;
             const msg = result?.message || result?.reason || 'Error al descargar o extraer.';
             alert(msg);
           }
         } catch (e) {
           unsub();
           if (progressWrap) progressWrap.hidden = true;
-          if (startWrap) startWrap.hidden = false;
+          if (singleListEl) singleListEl.hidden = false;
           alert('No se pudo conectar con el servidor. Comprueba la red e inténtalo de nuevo.');
         }
       }
 
-      if (autoDownloadBtn) {
-        if ((hasMultiple || hasSingle) && window.electronAPI?.downloadMods) {
-          autoDownloadBtn.onclick = async () => {
-            if (!hasMultiple && !hasSingle) {
-              alert(
-                'Configura downloadUrl o downloadUrls en mods-manifest.json (enlaces directos a .zip o a archivos .fifamod).'
-              );
-              return;
-            }
-            const confirmed = window.confirm(
-              'Se van a borrar los mods actuales de la carpeta y descargar los nuevos. Si no aceptas, no se borrará nada ni podrás descargar todos. ¿Continuar?'
-            );
-            if (!confirmed) return;
-            const rawUrls = hasMultiple ? urls : [singleUrl];
-            await startModsDownload(rawUrls, { preserveExisting: false });
-          };
-        } else {
-          autoDownloadBtn.onclick = () => {
-            alert(
-              'Configura downloadUrl o downloadUrls en mods-manifest.json (enlaces directos a .zip o a archivos .fifamod).'
-            );
-          };
+      if (singleListEl && window.electronAPI?.downloadMods) {
+        const listUrls = hasMultiple ? urls : hasSingle ? [singleUrl] : [];
+        let existingNames = [];
+        if (window.electronAPI.listExistingModFilenames) {
+          try {
+            existingNames = await window.electronAPI.listExistingModFilenames();
+          } catch (_) {}
         }
-      }
-
-      if (singleDownloadBtn && singleListEl) {
-        if (!hasMultiple || !window.electronAPI?.downloadMods) {
-          singleDownloadBtn.hidden = true;
-        } else {
-          singleDownloadBtn.hidden = false;
-          singleDownloadBtn.disabled = false;
-          singleListEl.hidden = true;
-          singleListEl.innerHTML = '';
-
-          urls.forEach((rawUrl, index) => {
-            const container = document.createElement('div');
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'mods-download-btn';
-            const fileName = decodeURIComponent(
-              (String(rawUrl).split('/').pop() || `Archivo ${index + 1}`).trim()
-            );
-            btn.textContent = `Descargar archivo ${index + 1}: ${fileName}`;
-            btn.addEventListener('click', () => {
-              startModsDownload([rawUrl], { preserveExisting: true });
-            });
-            container.appendChild(btn);
-            singleListEl.appendChild(container);
+        const existingSet = new Set(existingNames.map((n) => n.toLowerCase()));
+        listUrls.forEach((rawUrl, index) => {
+          let fileName;
+          try {
+            const u = new URL(rawUrl);
+            const seg = (u.pathname || '').split('/').filter(Boolean).pop() || '';
+            fileName = decodeURIComponent(seg).trim() || `Archivo ${index + 1}`;
+          } catch (_) {
+            fileName = decodeURIComponent((String(rawUrl).split('/').pop() || `Archivo ${index + 1}`).trim());
+          }
+          const alreadyDownloaded = existingSet.has(fileName.toLowerCase());
+          const container = document.createElement('div');
+          container.className = 'mods-single-item';
+          if (alreadyDownloaded) {
+            const status = document.createElement('div');
+            status.className = 'mods-single-item-status';
+            status.innerHTML = '<span class="mods-single-item-check" aria-hidden="true">✓</span> Ya descargado';
+            container.appendChild(status);
+          }
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'mods-download-btn';
+          btn.textContent = `Descargar archivo ${index + 1}: ${fileName}`;
+          btn.addEventListener('click', () => {
+            startModsDownload([rawUrl], { preserveExisting: true });
           });
-
-          singleDownloadBtn.onclick = () => {
-            singleListEl.hidden = !singleListEl.hidden;
-          };
-        }
+          container.appendChild(btn);
+          singleListEl.appendChild(container);
+        });
       }
       modal.hidden = false;
       const modsBackdrop = modal.querySelector('.recover-modal-backdrop');
