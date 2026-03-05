@@ -392,7 +392,10 @@ async function fetchMercadoPagoAndUpdateRowForEmail(email) {
 
         for (const pre of preapprovals) {
           const rawStatus = String(pre.status || '').toLowerCase();
+          // Priorizar siempre next_payment_date para calcular días restantes;
+          // si no existe, caer a end_date / auto_recurring.end_date.
           const endDateStr =
+            pre.next_payment_date ||
             pre.end_date ||
             (pre.auto_recurring && pre.auto_recurring.end_date) ||
             null;
@@ -438,6 +441,7 @@ async function fetchMercadoPagoAndUpdateRowForEmail(email) {
         const rawStatus = String(first.status || '').toLowerCase();
 
         const endDateStrFirst =
+          first.next_payment_date ||
           first.end_date ||
           (first.auto_recurring && first.auto_recurring.end_date) ||
           null;
@@ -487,6 +491,7 @@ async function fetchMercadoPagoAndUpdateRowForEmail(email) {
       const decision = pickBestPreapproval(allPreapprovals);
 
       statusToSave = decision ? decision.effectiveStatus : 'not_found';
+      const pre = decision ? decision.preapproval : null;
       dataToSave = {
         results: allPreapprovals,
         sources: found.map((r) => r.data?.source).filter(Boolean),
@@ -496,7 +501,10 @@ async function fetchMercadoPagoAndUpdateRowForEmail(email) {
           ui_label: decision ? decision.uiLabel : null,
           raw_status: decision ? decision.rawStatus : null,
           end_date: decision && decision.endDate ? decision.endDate.toISOString() : null,
-          days_left: decision && typeof decision.daysLeft === 'number' ? decision.daysLeft : null
+          days_left: decision && typeof decision.daysLeft === 'number' ? decision.daysLeft : null,
+          payer_first_name: pre && pre.payer_first_name != null ? String(pre.payer_first_name) : null,
+          payer_last_name: pre && pre.payer_last_name != null ? String(pre.payer_last_name) : null,
+          external_reference: pre && pre.external_reference != null ? String(pre.external_reference) : null
         }
       };
     }
@@ -1136,6 +1144,16 @@ function startOAuthServer() {
               effective !== 'unknown';
             const isActive = effective === 'active';
 
+            let payerFirstName = meta.payer_first_name != null ? String(meta.payer_first_name) : null;
+            let payerLastName = meta.payer_last_name != null ? String(meta.payer_last_name) : null;
+            let externalRef = meta.external_reference != null ? String(meta.external_reference) : null;
+            if ((payerFirstName == null || payerLastName == null || externalRef == null) && Array.isArray(mpData?.results) && mpData.results.length > 0) {
+              const first = mpData.results.find((r) => String(r.status || '').toLowerCase() === 'authorized') || mpData.results[0];
+              if (payerFirstName == null && first.payer_first_name != null) payerFirstName = String(first.payer_first_name);
+              if (payerLastName == null && first.payer_last_name != null) payerLastName = String(first.payer_last_name);
+              if (externalRef == null && first.external_reference != null) externalRef = String(first.external_reference);
+            }
+
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.end(
@@ -1147,7 +1165,10 @@ function startOAuthServer() {
                 is_active: isActive,
                 days_left: daysLeft,
                 status_label: uiLabel,
-                raw_status: rawStatus
+                raw_status: rawStatus,
+                payer_first_name: payerFirstName,
+                payer_last_name: payerLastName,
+                external_reference: externalRef
               })
             );
           } catch (e) {

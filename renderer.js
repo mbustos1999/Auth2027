@@ -1974,6 +1974,8 @@
   const mpAdminResultHasSubEl = document.getElementById('mpAdminResultHasSub');
   const mpAdminResultStatusEl = document.getElementById('mpAdminResultStatus');
   const mpAdminResultDaysEl = document.getElementById('mpAdminResultDays');
+  const mpAdminResultPayerNameEl = document.getElementById('mpAdminResultPayerName');
+  const mpAdminResultExternalRefEl = document.getElementById('mpAdminResultExternalRef');
 
   function openRecoverModal() {
     if (!recoverModal) return;
@@ -2525,6 +2527,14 @@
           } else {
             mpAdminResultDaysEl.textContent = '-';
           }
+        }
+        if (mpAdminResultPayerNameEl) {
+          const first = (data.payer_first_name || '').trim();
+          const last = (data.payer_last_name || '').trim();
+          mpAdminResultPayerNameEl.textContent = (first + ' ' + last).trim() || '-';
+        }
+        if (mpAdminResultExternalRefEl) {
+          mpAdminResultExternalRefEl.textContent = (data.external_reference || '').trim() || '-';
         }
         mpAdminResultEl.hidden = false;
       } catch (_) {
