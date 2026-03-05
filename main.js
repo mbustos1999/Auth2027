@@ -1274,7 +1274,8 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
         cleanup();
         reject(err);
       });
-      req.setTimeout(120000, () => { req.destroy(); cleanup(); reject(new Error('timeout')); });
+      // Aumentar timeout a 10 minutos para conexiones lentas o archivos muy grandes
+      req.setTimeout(600000, () => { req.destroy(); cleanup(); reject(new Error('timeout')); });
       req.end();
     });
   };
@@ -1650,6 +1651,12 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
     try { if (fs.existsSync(tempZip)) fs.unlinkSync(tempZip); } catch (_) {}
     const msg = e?.message || 'download_error';
     const reason = msg === 'cached_304' ? 'caché_304' : msg;
-    return { ok: false, reason, message: msg === 'cached_304' ? 'El servidor devolvió caché (304). Intenta de nuevo en unos segundos.' : (e?.message || 'Error al descargar.') };
+    let friendlyMessage = e?.message || 'Error al descargar.';
+    if (msg === 'cached_304') {
+      friendlyMessage = 'El servidor devolvió caché (304). Intenta de nuevo en unos segundos.';
+    } else if (msg === 'timeout') {
+      friendlyMessage = 'La descarga tardó demasiado y se interrumpió (timeout). Revisa tu conexión o inténtalo de nuevo más tarde.';
+    }
+    return { ok: false, reason, message: friendlyMessage };
   }
 });
