@@ -1,11 +1,12 @@
 {
   "version": "1.0.1",
   "required": true,
+  "_note": "GitHub no admite tanto peso. Para archivos muy pesados usa Transfer.it o Dropbox (enlace con ?dl=1). Ver MODS-RELEASE.md.",
   "downloadUrls": [
-    "https://drive.google.com/file/d/1FxZwKNg8WXn0QMaTWDAu5K5XS5bX08bq/view?usp=drive_link",
-    "https://drive.google.com/file/d/1bwvoGM46G9ouJNA7oEO9W0ph-iBE3sM-/view?usp=drive_link",
-    "https://drive.google.com/file/d/1b7YcRJUdl3pehWdLWglCv0-IjdZfSIci/view?usp=drive_link",
-    "https://drive.google.com/file/d/1Dw-FyZZBG_3MK9TLPIxVR-OUonhX_WKo/view?usp=drive_link"
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-5-0/ARGENMOD%201.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-5-0/ARGENMOD%202.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-5-0/ARGENMOD%203.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-5-0/ARGENMOD%204.fifamod"
   ],
   "sizeHint": "ArgenMod TU 1.4.3",
   "instructions": "Descargar automáticamente."

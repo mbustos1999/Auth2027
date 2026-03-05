@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
+const https = require('https');
+const http = require('http');
 const { spawn } = require('child_process');
 const unzipper = require('unzipper');
 require('dotenv').config();
@@ -1106,10 +1108,17 @@ function isGoogleDriveUrl(u) {
 
 // Normaliza cualquier enlace de Drive (view, uc?export=download) a formato de descarga para que se trate como Drive
 function normalizeDriveUrl(u) {
-  if (typeof u !== 'string' || !u.includes('drive.google.com')) return u;
-  const id = extractDriveFileId(u);
-  if (!id) return u;
-  return `https://drive.google.com/uc?export=download&id=${id}`;
+  if (typeof u !== 'string') return u;
+  if (u.includes('drive.google.com')) {
+    const id = extractDriveFileId(u);
+    if (!id) return u;
+    return `https://drive.google.com/uc?export=download&id=${id}`;
+  }
+  // Dropbox: forzar descarga directa (?dl=1) para evitar recibir la página en vez del archivo
+  if (u.includes('dropbox.com') && !u.includes('dl=1')) {
+    return u.includes('?') ? u.replace(/\bdl=0\b/, 'dl=1') : u + '?dl=1';
+  }
+  return u;
 }
 
 const LARGE_FILE_THRESHOLD = 25 * 1024 * 1024; // 25 MB: si Content-Length > esto, es archivo binario, no HTML de aviso
@@ -1158,73 +1167,250 @@ function safeBasename(name) {
 
 // Descarga automática de mods FC26: descarga el .zip desde url y lo extrae en modManager/Mods/FC26/
 // Si se pasa un array de URLs (downloadUrls), descarga cada una como archivo directo en destDir (sin ZIP).
+// Añade un parámetro único a la URL para forzar descarga real (evita 304 / caché del servidor o red)
+function addCacheBust(url) {
+  if (typeof url !== 'string') return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return url + sep + '_t=' + Date.now() + '&_r=' + Math.random().toString(36).slice(2, 11);
+}
+
 ipcMain.handle('mods:download', async (event, urlOrUrls) => {
   const isMultiple = Array.isArray(urlOrUrls);
   let urls = isMultiple ? urlOrUrls.filter(u => u && String(u).startsWith('http')) : [urlOrUrls];
   urls = urls.map(u => normalizeDriveUrl(safeHeaderValue(String(u))));
+  urls = urls.map(addCacheBust);
   if (urls.length === 0) return { ok: false, reason: 'invalid_url' };
   const singleUrl = !isMultiple && urls.length === 1 ? urls[0] : null;
   if (singleUrl && (!singleUrl.startsWith('http://') && !singleUrl.startsWith('https://'))) {
     return { ok: false, reason: 'invalid_url' };
   }
+  // App empaquetada: descargar SIEMPRE en userData (tiene escritura). Luego copiamos a resources para el Mod Manager.
   const baseDir = app.isPackaged ? process.resourcesPath : __dirname;
-  const destDir = path.join(baseDir, 'modManager', 'Mods', 'FC26');
+  const destDir = app.isPackaged
+    ? path.join(app.getPath('userData'), 'modManager', 'Mods', 'FC26')
+    : path.join(baseDir, 'modManager', 'Mods', 'FC26');
+  const resourcesModsDir = path.join(baseDir, 'modManager', 'Mods', 'FC26');
+  const MIN_MOD_BYTES = 50 * 1024;
   const tempZip = path.join(os.tmpdir(), `auth2027-mods-${Date.now()}.zip`);
   const sendProgress = (data) => {
     try {
       if (event.sender && !event.sender.isDestroyed()) event.sender.send('mods-download-progress', data);
     } catch (_) {}
   };
+  // Usar SOLO https/http de Node (cero Chromium): la descarga NUNCA pasa por caché. net y fetch en Electron pueden cachear.
   const doDownload = (downloadUrl, cookieHeader, outputPath) => {
     const out = outputPath || tempZip;
+    const sep = downloadUrl.includes('?') ? '&' : '?';
+    const finalUrl = downloadUrl + sep + '_t=' + Date.now() + '&_r=' + Math.random().toString(36).slice(2, 11);
+    const urlObj = new URL(finalUrl);
+    const isHttps = urlObj.protocol === 'https:';
+    const lib = isHttps ? https : http;
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (isHttps ? 443 : 80),
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/zip,*/*',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    };
+    if (cookieHeader) options.headers['Cookie'] = cookieHeader;
+
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(out);
-      let received = 0;
-      const req = net.request({
-        method: 'GET',
-        url: downloadUrl,
-        redirect: 'follow'
-      });
-      req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-      req.setHeader('Accept', 'application/zip,*/*');
-      req.setHeader('Cache-Control', 'no-cache, no-store');
-      req.setHeader('Pragma', 'no-cache');
-      if (cookieHeader) req.setHeader('Cookie', cookieHeader);
-      req.on('response', (response) => {
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          file.close();
-          if (out === tempZip) fs.unlink(out, () => {});
-          reject(new Error('download_failed'));
-          return;
+      const cleanup = () => { try { file.close(); } catch (_) {} if (out === tempZip) fs.unlink(out, () => {}); };
+
+      const req = lib.request(options, (response) => {
+        const status = response.statusCode || 0;
+        if (status === 304) {
+          cleanup();
+          return reject(new Error('cached_304'));
+        }
+        if (status >= 301 && status <= 308 && response.headers.location) {
+          cleanup();
+          const nextUrl = new URL(response.headers.location, finalUrl).href;
+          const setCookie = response.headers['set-cookie'];
+          const newCookie = Array.isArray(setCookie) ? setCookie.join('; ') : (setCookie || cookieHeader || '');
+          return doDownload(nextUrl, newCookie || cookieHeader, outputPath).then(resolve).catch(reject);
+        }
+        if (status < 200 || status >= 300) {
+          cleanup();
+          return reject(new Error('download_failed'));
         }
         const total = response.headers['content-length'] ? parseInt(response.headers['content-length'], 10) : null;
+        let received = 0;
         response.on('data', (chunk) => {
           received += chunk.length;
           const percent = total ? Math.min(100, Math.round((received / total) * 100)) : null;
           sendProgress({ phase: 'download', percent, bytesReceived: received, totalBytes: total });
-          file.write(chunk);
+          if (!file.write(chunk)) response.pause();
         });
-        response.on('end', () => file.end());
-        response.on('error', reject);
-        file.on('finish', resolve);
-        file.on('error', reject);
+        file.on('drain', () => response.resume());
+        response.on('end', () => {
+          file.end();
+        });
+        response.on('error', (err) => { cleanup(); reject(err); });
+        file.on('finish', () => resolve());
+        file.on('error', (err) => { cleanup(); reject(err); });
       });
       req.on('error', (err) => {
-        file.close();
-        if (out === tempZip) fs.unlink(out, () => {});
+        cleanup();
         reject(err);
       });
+      req.setTimeout(120000, () => { req.destroy(); cleanup(); reject(new Error('timeout')); });
       req.end();
     });
   };
+
+  // Sonda a Google Drive usando SOLO https/http de Node (sin Chromium) para evitar respuestas cacheadas (ej. 2KB HTML).
+  const driveProbeWithHttps = (probeUrl, opts, cookieHeader) => {
+    const urlObj = new URL(probeUrl);
+    const isHttps = urlObj.protocol === 'https:';
+    const lib = isHttps ? https : http;
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (isHttps ? 443 : 80),
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/octet-stream,*/*',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    };
+    if (cookieHeader) options.headers['Cookie'] = cookieHeader;
+
+    return new Promise((resolve, reject) => {
+      const req = lib.request(options, (response) => {
+        const status = response.statusCode || 0;
+        if (status >= 301 && status <= 308 && response.headers.location) {
+          const nextUrl = new URL(response.headers.location, probeUrl).href;
+          const setCookie = response.headers['set-cookie'];
+          const newCookie = Array.isArray(setCookie) ? setCookie.join('; ') : (setCookie || cookieHeader || '');
+          return driveProbeWithHttps(nextUrl, opts, newCookie || cookieHeader).then(resolve).catch(reject);
+        }
+        if (status < 200 || status >= 300) {
+          return resolve({ action: 'retry', token: null, cookie: null });
+        }
+        const cd = response.headers['content-disposition'];
+        const name = safeBasename(parseContentDisposition(cd)) || opts.defaultName;
+        const outputPath = opts.isSingleZip ? opts.tempZipPath : path.join(opts.destDir, name);
+        const cookieStr = Array.isArray(response.headers['set-cookie']) ? response.headers['set-cookie'].join('; ') : (response.headers['set-cookie'] || '');
+        const total = response.headers['content-length'] ? parseInt(response.headers['content-length'], 10) : null;
+        const MAX_HTML_SIZE = 5 * 1024 * 1024;
+        let pending = [];
+        let pendingLen = 0;
+        const htmlChunks = [];
+        let fileStream = null;
+        let received = 0;
+        let decided = false;
+        if (total !== null && total > LARGE_FILE_THRESHOLD) {
+          fileStream = fs.createWriteStream(outputPath);
+          decided = true;
+        }
+        function peek2() {
+          if (pending.length === 0 || pendingLen < 2) return null;
+          if (pending[0].length >= 2) return [pending[0][0], pending[0][1]];
+          if (pending[0].length === 1 && pending.length > 1) return [pending[0][0], pending[1][0]];
+          return null;
+        }
+        response.on('data', (chunk) => {
+          if (!decided) {
+            pending.push(chunk);
+            pendingLen += chunk.length;
+            if (pendingLen >= 2) {
+              const two = peek2();
+              decided = true;
+              if (two && two[0] === 0x50 && two[1] === 0x4b) {
+                fileStream = fs.createWriteStream(outputPath);
+                for (const c of pending) {
+                  fileStream.write(c);
+                  received += c.length;
+                  if (opts.sendProgress) opts.sendProgress({ phase: 'download', fileIndex: opts.fileIndex, totalFiles: opts.totalFiles, percent: total ? Math.min(100, Math.round((received / total) * 100)) : null, bytesReceived: received, totalBytes: total });
+                }
+                pending = [];
+                pendingLen = 0;
+              } else {
+                if (pendingLen > MAX_HTML_SIZE) {
+                  response.destroy();
+                  return resolve({ action: 'retry', token: null, cookie: null });
+                }
+                for (const c of pending) htmlChunks.push(c);
+                pending = [];
+                pendingLen = 0;
+              }
+            }
+            return;
+          }
+          if (fileStream) {
+            received += chunk.length;
+            if (opts.sendProgress) opts.sendProgress({ phase: 'download', fileIndex: opts.fileIndex, totalFiles: opts.totalFiles, percent: total ? Math.min(100, Math.round((received / total) * 100)) : null, bytesReceived: received, totalBytes: total });
+            fileStream.write(chunk);
+          } else {
+            let htmlSize = 0;
+            for (const c of htmlChunks) htmlSize += c.length;
+            if (htmlSize + chunk.length > MAX_HTML_SIZE) {
+              response.destroy();
+              return resolve({ action: 'retry', token: null, cookie: null });
+            }
+            htmlChunks.push(chunk);
+          }
+        });
+        response.on('end', () => {
+          if (fileStream) {
+            fileStream.end();
+            fileStream.on('finish', () => resolve({ action: 'done', outputPath }));
+            fileStream.on('error', () => resolve({ action: 'retry', token: null, cookie: null }));
+            return;
+          }
+          if (!decided && pendingLen > 0) {
+            if (pendingLen > MAX_HTML_SIZE) {
+              return resolve({ action: 'retry', token: null, cookie: null });
+            }
+            const buf = Buffer.concat(pending);
+            if (buf.length >= 2 && buf[0] === 0x50 && buf[1] === 0x4b) {
+              fs.writeFileSync(outputPath, buf);
+              return resolve({ action: 'done', outputPath });
+            }
+            htmlChunks.push(buf);
+          }
+          const totalHtml = htmlChunks.reduce((a, c) => a + c.length, 0);
+          if (totalHtml > MAX_HTML_SIZE) {
+            return resolve({ action: 'retry', token: null, cookie: null });
+          }
+          const body = Buffer.concat(htmlChunks).toString('utf8');
+          const token = extractDriveConfirmToken(body, cookieStr);
+          resolve({ action: 'retry', token, cookie: cookieStr || null, outputPath });
+        });
+        response.on('error', () => {
+          if (fileStream) fileStream.destroy();
+          resolve({ action: 'retry', token: null, cookie: null });
+        });
+      });
+      req.on('error', () => resolve({ action: 'retry', token: null, cookie: null }));
+      req.setTimeout(60000, () => { req.destroy(); resolve({ action: 'retry', token: null, cookie: null }); });
+      req.end();
+    });
+  };
+
   try {
     // Siempre borrar por completo la carpeta de mods y caché antes de descargar (evita que detecte mods viejos)
     if (fs.existsSync(destDir)) {
       try {
         fs.rmSync(destDir, { recursive: true, force: true, maxRetries: 3 });
-      } catch (_) {}
+      } catch (e) {
+        return { ok: false, reason: 'no_se_pudo_borrar_carpeta_mods', message: 'No se pudo vaciar la carpeta de mods (permisos?). Prueba ejecutar la app como administrador o reinstalar en una carpeta donde tengas escritura.' };
+      }
     }
     fs.mkdirSync(destDir, { recursive: true });
+    const remaining = fs.readdirSync(destDir).length;
+    if (remaining > 0) {
+      return { ok: false, reason: 'carpeta_mods_no_quedo_vacia', message: 'La carpeta de mods no se pudo vaciar. Reinstala la app en una carpeta con permisos de escritura (ej. Documentos) o ejecútala como administrador.' };
+    }
 
     // Limpiar zips temporales de descargas anteriores
     try {
@@ -1245,124 +1431,28 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
         sendProgress({ phase: 'download', fileIndex: i + 1, totalFiles: urls.length, percent: 0, bytesReceived: 0, totalBytes: null });
         const defaultName = `mod_${i + 1}.fifamod`;
         let outputPath = null;
+        const defaultOutputPath = path.join(destDir, defaultName);
+        let fileOk = false;
+        const maxAttempts = 3;
+        for (let attempt = 0; attempt < maxAttempts && !fileOk; attempt++) {
+          if (attempt > 0) {
+            await new Promise((r) => setTimeout(r, 2500));
+            sendProgress({ phase: 'download', fileIndex: i + 1, totalFiles: urls.length, percent: 0, bytesReceived: 0, totalBytes: null });
+          }
         if (isGoogleDriveUrl(url)) {
-          const driveResult = await new Promise((resolve, reject) => {
-            const req = net.request({ method: 'GET', url, redirect: 'follow' });
-            req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-            req.setHeader('Accept', 'application/octet-stream,*/*');
-            req.setHeader('Cache-Control', 'no-cache, no-store');
-            req.setHeader('Pragma', 'no-cache');
-            req.on('response', (res) => {
-              if (res.statusCode < 200 || res.statusCode >= 300) {
-                resolve({ action: 'retry', token: null, cookie: null });
-                return;
-              }
-              const cd = res.headers['content-disposition'];
-              const name = safeBasename(parseContentDisposition(cd)) || defaultName;
-              outputPath = path.join(destDir, name);
-              const cookieStr = Array.isArray(res.headers['set-cookie']) ? res.headers['set-cookie'].join('; ') : (res.headers['set-cookie'] || '');
-              const total = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : null;
-              const MAX_HTML_SIZE = 5 * 1024 * 1024;
-              let pending = [];
-              let pendingLen = 0;
-              const htmlChunks = [];
-              let fileStream = null;
-              let received = 0;
-              let decided = false;
-              if (total !== null && total > LARGE_FILE_THRESHOLD) {
-                fileStream = fs.createWriteStream(outputPath);
-                decided = true;
-              }
-              function peek2() {
-                if (pending.length === 0 || pendingLen < 2) return null;
-                if (pending[0].length >= 2) return [pending[0][0], pending[0][1]];
-                if (pending[0].length === 1 && pending.length > 1) return [pending[0][0], pending[1][0]];
-                return null;
-              }
-              res.on('data', (chunk) => {
-                if (!decided) {
-                  pending.push(chunk);
-                  pendingLen += chunk.length;
-                  if (pendingLen >= 2) {
-                    const two = peek2();
-                    decided = true;
-                    if (two && two[0] === 0x50 && two[1] === 0x4b) {
-                      fileStream = fs.createWriteStream(outputPath);
-                      for (const c of pending) {
-                        fileStream.write(c);
-                        received += c.length;
-                        sendProgress({ phase: 'download', fileIndex: i + 1, totalFiles: urls.length, percent: total ? Math.min(100, Math.round((received / total) * 100)) : null, bytesReceived: received, totalBytes: total });
-                      }
-                      pending = [];
-                      pendingLen = 0;
-                    } else {
-                      if (pendingLen > MAX_HTML_SIZE) {
-                        res.destroy();
-                        resolve({ action: 'retry', token: null, cookie: null });
-                        return;
-                      }
-                      for (const c of pending) htmlChunks.push(c);
-                      pending = [];
-                      pendingLen = 0;
-                    }
-                  }
-                  return;
-                }
-                if (fileStream) {
-                  received += chunk.length;
-                  sendProgress({ phase: 'download', fileIndex: i + 1, totalFiles: urls.length, percent: total ? Math.min(100, Math.round((received / total) * 100)) : null, bytesReceived: received, totalBytes: total });
-                  fileStream.write(chunk);
-                } else {
-                  let htmlSize = 0;
-                  for (const c of htmlChunks) htmlSize += c.length;
-                  if (htmlSize + chunk.length > MAX_HTML_SIZE) {
-                    res.destroy();
-                    resolve({ action: 'retry', token: null, cookie: null });
-                    return;
-                  }
-                  htmlChunks.push(chunk);
-                }
-              });
-              res.on('end', () => {
-                if (fileStream) {
-                  fileStream.end();
-                  fileStream.on('finish', () => resolve({ action: 'done' }));
-                  fileStream.on('error', () => resolve({ action: 'retry', token: null, cookie: null }));
-                  return;
-                }
-                if (!decided && pendingLen > 0) {
-                  if (pendingLen > MAX_HTML_SIZE) {
-                    resolve({ action: 'retry', token: null, cookie: null });
-                    return;
-                  }
-                  const buf = Buffer.concat(pending);
-                  if (buf.length >= 2 && buf[0] === 0x50 && buf[1] === 0x4b) {
-                    fs.writeFileSync(outputPath, buf);
-                    resolve({ action: 'done' });
-                    return;
-                  }
-                  htmlChunks.push(buf);
-                }
-                const totalHtml = htmlChunks.reduce((a, c) => a + c.length, 0);
-                if (totalHtml > MAX_HTML_SIZE) {
-                  resolve({ action: 'retry', token: null, cookie: null });
-                  return;
-                }
-                const body = Buffer.concat(htmlChunks).toString('utf8');
-                const token = extractDriveConfirmToken(body, cookieStr);
-                resolve({ action: 'retry', token, cookie: cookieStr || null });
-              });
-              res.on('error', () => {
-                if (fileStream) fileStream.destroy();
-                resolve({ action: 'retry', token: null, cookie: null });
-              });
-            });
-            req.on('error', () => reject(new Error('download_failed')));
-            req.end();
+          const driveProbeUrl = url + (url.includes('?') ? '&' : '?') + '_n=' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
+          const driveResult = await driveProbeWithHttps(driveProbeUrl, {
+            destDir,
+            defaultName,
+            isSingleZip: false,
+            sendProgress,
+            fileIndex: i + 1,
+            totalFiles: urls.length
           });
           if (driveResult.action === 'done') {
-            // listo
+            outputPath = driveResult.outputPath;
           } else if (driveResult.token) {
+            outputPath = driveResult.outputPath || defaultOutputPath;
             const sep = url.includes('?') ? '&' : '?';
             await doDownload(url + sep + 'confirm=' + encodeURIComponent(driveResult.token), driveResult.cookie, outputPath);
           } else {
@@ -1371,129 +1461,59 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
             await doDownload(fallbackUrl, undefined, outputPath);
           }
         } else {
-          await doDownload(url, undefined, path.join(destDir, defaultName));
+          await doDownload(url, undefined, defaultOutputPath);
+        }
+        const writtenPath = outputPath || defaultOutputPath;
+        if (fs.existsSync(writtenPath)) {
+          const size = fs.statSync(writtenPath).size;
+          if (size >= MIN_MOD_BYTES) {
+            fileOk = true;
+          } else {
+            try { fs.unlinkSync(writtenPath); } catch (_) {}
+            if (attempt === maxAttempts - 1) {
+              return { ok: false, reason: 'archivo_demasiado_pequeno', message: `El archivo ${i + 1} sigue llegando con ${size} bytes tras ${maxAttempts} intentos (Google Drive puede estar limitando). Prueba más tarde o usa otro enlace.` };
+            }
+          }
+        }
         }
         sendProgress({ phase: 'file_done', fileIndex: i + 1, totalFiles: urls.length });
+      }
+      if (app.isPackaged) {
+        try {
+          if (fs.existsSync(resourcesModsDir)) fs.rmSync(resourcesModsDir, { recursive: true, force: true });
+          fs.mkdirSync(resourcesModsDir, { recursive: true });
+          const files = fs.readdirSync(destDir, { withFileTypes: true });
+          for (const f of files) {
+            const src = path.join(destDir, f.name);
+            const dest = path.join(resourcesModsDir, f.name);
+            if (f.isDirectory()) copyDirRecursive(src, dest);
+            else fs.copyFileSync(src, dest);
+          }
+        } catch (copyErr) {
+          return { ok: true, path: destDir, copyFailed: true, message: 'Mods descargados en ' + destDir + ' pero no se pudieron copiar al Mod Manager (permisos). Copia la carpeta manualmente o reinstala la app fuera de Program Files.' };
+        }
       }
       return { ok: true, path: destDir };
     }
 
     sendProgress({ phase: 'download', percent: 0, bytesReceived: 0, totalBytes: null });
+    let singleZipOk = false;
+    const singleMaxAttempts = 3;
+    for (let attempt = 0; attempt < singleMaxAttempts && !singleZipOk; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 2500));
+        sendProgress({ phase: 'download', percent: 0, bytesReceived: 0, totalBytes: null });
+      }
     if (isGoogleDriveUrl(singleUrl)) {
-      const driveResult = await new Promise((resolve, reject) => {
-        const req = net.request({ method: 'GET', url: singleUrl, redirect: 'follow' });
-        req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        req.setHeader('Accept', 'application/zip,*/*');
-        req.setHeader('Cache-Control', 'no-cache, no-store');
-        req.setHeader('Pragma', 'no-cache');
-        req.on('response', (res) => {
-          if (res.statusCode < 200 || res.statusCode >= 300) {
-            resolve({ action: 'retry', token: null, cookie: null });
-            return;
-          }
-          const cookie = res.headers['set-cookie'];
-          const cookieStr = Array.isArray(cookie) ? cookie.join('; ') : (cookie || '');
-          const total = res.headers['content-length'] ? parseInt(res.headers['content-length'], 10) : null;
-          const MAX_HTML_SIZE = 5 * 1024 * 1024; // 5 MB: la página de aviso de Drive es pequeña
-          let pending = []; // acumular hasta tener 2 bytes para decidir PK vs HTML
-          let pendingLen = 0;
-          const htmlChunks = [];
-          let fileStream = null;
-          let received = 0;
-          let decided = false;
-          // Si Content-Length es grande, es el archivo binario (no la página HTML de aviso): stream directo
-          if (total !== null && total > LARGE_FILE_THRESHOLD) {
-            fileStream = fs.createWriteStream(tempZip);
-            decided = true;
-          }
-          function peek2() {
-            if (pending.length === 0 || pendingLen < 2) return null;
-            if (pending[0].length >= 2) return [pending[0][0], pending[0][1]];
-            if (pending[0].length === 1 && pending.length > 1) return [pending[0][0], pending[1][0]];
-            return null;
-          }
-          res.on('data', (chunk) => {
-            if (!decided) {
-              pending.push(chunk);
-              pendingLen += chunk.length;
-              if (pendingLen >= 2) {
-                const two = peek2();
-                decided = true;
-                if (two && two[0] === 0x50 && two[1] === 0x4b) {
-                  fileStream = fs.createWriteStream(tempZip);
-                  for (const c of pending) {
-                    fileStream.write(c);
-                    received += c.length;
-                    const percent = total ? Math.min(100, Math.round((received / total) * 100)) : null;
-                    sendProgress({ phase: 'download', percent, bytesReceived: received, totalBytes: total });
-                  }
-                  pending = [];
-                  pendingLen = 0;
-                } else {
-                  if (pendingLen > MAX_HTML_SIZE) {
-                    res.destroy();
-                    resolve({ action: 'retry', token: null, cookie: null });
-                    return;
-                  }
-                  for (const c of pending) htmlChunks.push(c);
-                  pending = [];
-                  pendingLen = 0;
-                }
-              }
-              return;
-            }
-            if (fileStream) {
-              received += chunk.length;
-              const percent = total ? Math.min(100, Math.round((received / total) * 100)) : null;
-              sendProgress({ phase: 'download', percent, bytesReceived: received, totalBytes: total });
-              fileStream.write(chunk);
-            } else {
-              let htmlSize = 0;
-              for (const c of htmlChunks) htmlSize += c.length;
-              if (htmlSize + chunk.length > MAX_HTML_SIZE) {
-                res.destroy();
-                resolve({ action: 'retry', token: null, cookie: null });
-                return;
-              }
-              htmlChunks.push(chunk);
-            }
-          });
-          res.on('end', () => {
-            if (fileStream) {
-              fileStream.end();
-              fileStream.on('finish', () => resolve({ action: 'done' }));
-              fileStream.on('error', () => resolve({ action: 'retry', token: null, cookie: null }));
-              return;
-            }
-            if (!decided && pendingLen > 0) {
-              if (pendingLen > MAX_HTML_SIZE) {
-                resolve({ action: 'retry', token: null, cookie: null });
-                return;
-              }
-              const buf = Buffer.concat(pending);
-              if (buf.length >= 2 && buf[0] === 0x50 && buf[1] === 0x4b) {
-                fs.writeFileSync(tempZip, buf);
-                resolve({ action: 'done' });
-                return;
-              }
-              htmlChunks.push(buf);
-            }
-            const totalHtml = htmlChunks.reduce((a, c) => a + c.length, 0);
-            if (totalHtml > MAX_HTML_SIZE) {
-              resolve({ action: 'retry', token: null, cookie: null });
-              return;
-            }
-            const body = Buffer.concat(htmlChunks).toString('utf8');
-            const token = extractDriveConfirmToken(body, cookieStr);
-            resolve({ action: 'retry', token, cookie: cookieStr || null });
-          });
-          res.on('error', () => {
-            if (fileStream) fileStream.destroy();
-            resolve({ action: 'retry', token: null, cookie: null });
-          });
-        });
-        req.on('error', () => reject(new Error('download_failed')));
-        req.end();
+      const singleProbeUrl = singleUrl + (singleUrl.includes('?') ? '&' : '?') + '_n=' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
+      const driveResult = await driveProbeWithHttps(singleProbeUrl, {
+        destDir,
+        defaultName: 'mod_1.fifamod',
+        tempZipPath: tempZip,
+        isSingleZip: true,
+        sendProgress,
+        fileIndex: 1,
+        totalFiles: 1
       });
       if (driveResult.action === 'done') {
         // ya escrito en tempZip
@@ -1509,6 +1529,16 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
     } else {
       await doDownload(singleUrl);
     }
+    if (fs.existsSync(tempZip) && fs.statSync(tempZip).size >= MIN_MOD_BYTES) {
+      singleZipOk = true;
+    } else {
+      try { if (fs.existsSync(tempZip)) fs.unlinkSync(tempZip); } catch (_) {}
+      if (attempt === singleMaxAttempts - 1) {
+        return { ok: false, reason: 'archivo_demasiado_pequeno', message: 'El archivo sigue llegando muy pequeño tras ' + singleMaxAttempts + ' intentos (Google Drive puede estar limitando). Prueba más tarde o usa otro enlace.' };
+      }
+    }
+    }
+    if (!singleZipOk) return { ok: false, reason: 'archivo_demasiado_pequeno', message: 'No se pudo descargar el archivo.' };
     sendProgress({ phase: 'file_done', fileIndex: 1, totalFiles: 1 });
     const fd = fs.openSync(tempZip, 'r');
     const zipHeader = Buffer.alloc(4);
@@ -1554,9 +1584,26 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
     }
     sendProgress({ phase: 'extract', percent: 100 });
     try { fs.unlinkSync(tempZip); } catch (_) {}
+    if (app.isPackaged) {
+      try {
+        if (fs.existsSync(resourcesModsDir)) fs.rmSync(resourcesModsDir, { recursive: true, force: true });
+        fs.mkdirSync(resourcesModsDir, { recursive: true });
+        const files = fs.readdirSync(destDir, { withFileTypes: true });
+        for (const f of files) {
+          const src = path.join(destDir, f.name);
+          const dest = path.join(resourcesModsDir, f.name);
+          if (f.isDirectory()) copyDirRecursive(src, dest);
+          else fs.copyFileSync(src, dest);
+        }
+      } catch (copyErr) {
+        return { ok: true, path: destDir, copyFailed: true, message: 'Mods descargados en ' + destDir + ' pero no se pudieron copiar al Mod Manager. Copia la carpeta manualmente o reinstala fuera de Program Files.' };
+      }
+    }
     return { ok: true, path: destDir };
   } catch (e) {
     try { if (fs.existsSync(tempZip)) fs.unlinkSync(tempZip); } catch (_) {}
-    return { ok: false, reason: e?.message || 'download_error' };
+    const msg = e?.message || 'download_error';
+    const reason = msg === 'cached_304' ? 'caché_304' : msg;
+    return { ok: false, reason, message: msg === 'cached_304' ? 'El servidor devolvió caché (304). Intenta de nuevo en unos segundos.' : (e?.message || 'Error al descargar.') };
   }
 });

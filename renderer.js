@@ -737,7 +737,7 @@
       const hasConfig = !!(baseUrl || authEndpoint);
       const msg = !window.electronAPI
         ? 'Ejecuta la app con: npm start (no abras index.html en el navegador).'
-        : (hasConfig ? 'Reinicia la aplicación para cargar la configuración.' : 'Configura API_BASE_URL y AUTH_ENDPOINT en config.js.');
+        : (hasConfig ? 'Error' : 'Error');
       showError(msg);
       return null;
     }
@@ -777,7 +777,7 @@
       if (data.message) {
         const isNoRoute = /no se encontró una ruta|no route found|rest_no_route/i.test(data.message);
         if (isNoRoute) {
-          showError('WordPress no encuentra la ruta. Revisa: permalinks (no uses "Simple"), que el plugin/código que registra /validar-login esté activo, y que la URL sea correcta.');
+          showError('Error');
         } else {
           showError(data.message);
         }
@@ -786,11 +786,11 @@
       } else if (res.status === 401) {
         showError('La contraseña es incorrecta.');
       } else {
-        showError('Error de conexión. Comprueba la URL en config.js.');
+        showError('Error de conexión. Comprueba la URL');
       }
       return null;
     } catch (err) {
-      showError('No se pudo conectar. Comprueba la URL en config.js.');
+      showError('No se pudo conectar. Comprueba la URL');
       return null;
     } finally {
       setLoading(false);
@@ -800,7 +800,7 @@
   async function solicitarRecuperacionPassword(email) {
     const recoverUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}/wp-json/argenmod/v1/recuperar-password` : '';
     if (!recoverUrl) {
-      showError('Configura la URL de WordPress en config.js para recuperar la contraseña.');
+      showError('Error');
       return;
     }
 
@@ -1140,8 +1140,13 @@
 
   function toDirectDownloadUrl(url) {
     if (typeof url !== 'string') return url;
-    const m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (m) return `https://drive.google.com/uc?export=download&id=${m[1]}`;
+    // Google Drive: convertir view a export=download (si da 2KB, usar Transfer.it o Dropbox)
+    const drive = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (drive) return `https://drive.google.com/uc?export=download&id=${drive[1]}`;
+    // Dropbox: forzar descarga directa (?dl=1) para que la app reciba el archivo y no la página
+    if (url.includes('dropbox.com') && !url.includes('dl=1')) {
+      return url.includes('?') ? url.replace(/\bdl=0\b/, 'dl=1') : url + '?dl=1';
+    }
     return url;
   }
 
@@ -1261,13 +1266,11 @@
               if (requiredVersion) try { localStorage.setItem(MODS_VERSION_KEY, requiredVersion); } catch (_) {}
               if (progressWrap) progressWrap.hidden = true;
               if (doneWrap) doneWrap.hidden = false;
+              if (result.copyFailed && result.message) alert(result.message);
             } else {
               if (progressWrap) progressWrap.hidden = true;
               if (startWrap) startWrap.hidden = false;
-              const reason = result?.reason || '';
-              const msg = reason === 'invalid_url' ? 'URL no válida.'
-                : (reason === 'fetch failed' || reason === 'download_error') ? 'No se pudo conectar. Comprueba la red e inténtalo de nuevo.'
-                : (reason || 'Error al descargar o extraer.');
+              const msg = result?.message || result?.reason || 'Error al descargar o extraer.';
               alert(msg);
             }
           } catch (e) {
