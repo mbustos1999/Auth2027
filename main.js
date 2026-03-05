@@ -2,9 +2,24 @@ const { app, BrowserWindow, ipcMain, screen, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const unzipper = require('unzipper');
 require('dotenv').config();
+
+// Sesión de usuario para peticiones al bot (token firmado; el renderer no ve el secreto)
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 h
+let sessionEmail = null;
+let sessionExpiry = 0;
+
+function createSessionToken(email) {
+  const secret = (sharedAppConfig && sharedAppConfig.botSharedSecret) ? String(sharedAppConfig.botSharedSecret).trim() : '';
+  if (!secret || !email) return '';
+  const exp = Date.now() + SESSION_TTL_MS;
+  const payload = JSON.stringify({ e: String(email).trim(), exp });
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  return Buffer.from(payload).toString('base64url') + '.' + sig;
+}
 
 // Auto-updater (solo cuando la app está empaquetada)
 let autoUpdater = null;
@@ -981,6 +996,37 @@ ipcMain.handle('app:getVersion', () => app.getVersion());
 
 // Devolver la config cargada al arranque (evita require en el handler por si falla en el instalador)
 ipcMain.handle('app:getConfig', () => Promise.resolve(sharedAppConfig || {}));
+
+// Peticiones al bot: main añade secreto + token de sesión (el renderer nunca recibe el secreto)
+ipcMain.handle('bot:setSessionUser', (_event, email) => {
+  sessionEmail = typeof email === 'string' && email.trim() ? email.trim() : null;
+  sessionExpiry = sessionEmail ? Date.now() + SESSION_TTL_MS : 0;
+  return Promise.resolve();
+});
+ipcMain.handle('bot:clearSessionUser', () => {
+  sessionEmail = null;
+  sessionExpiry = 0;
+  return Promise.resolve();
+});
+ipcMain.handle('bot:fetch', async (_event, url, options) => {
+  if (typeof url !== 'string' || !url.startsWith('http')) {
+    return { ok: false, status: 0, statusText: 'Invalid URL', body: '' };
+  }
+  const secret = (sharedAppConfig && sharedAppConfig.botSharedSecret) ? String(sharedAppConfig.botSharedSecret).trim() : '';
+  const headers = { ...(options && options.headers) };
+  if (secret) headers['X-Auth2027-Secret'] = secret;
+  if (sessionEmail && sessionExpiry > Date.now()) {
+    const token = createSessionToken(sessionEmail);
+    if (token) headers['X-Auth2027-Session'] = token;
+  }
+  try {
+    const res = await fetch(url, { ...options, headers });
+    const body = await res.text();
+    return { ok: res.ok, status: res.status, statusText: res.statusText, body };
+  } catch (err) {
+    return { ok: false, status: 0, statusText: err && err.message ? err.message : 'Network error', body: '' };
+  }
+});
 
 // Limpiar caché: borrar carpetas de FIFA Editor Tool, FIFA_Editor_Tool, FIFA Mod Manager y FC 26
 ipcMain.handle('app:clearCache', async () => {

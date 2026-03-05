@@ -48,7 +48,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_e, data) => callback(data);
     ipcRenderer.on('mods-download-progress', handler);
     return () => ipcRenderer.removeListener('mods-download-progress', handler);
-  }
+  },
+  // Peticiones al bot: el main añade secreto + token de sesión (el renderer nunca ve el secreto)
+  fetchBot: (url, options) => ipcRenderer.invoke('bot:fetch', url, options),
+  setSessionUser: (email) => ipcRenderer.invoke('bot:setSessionUser', email),
+  clearSessionUser: () => ipcRenderer.invoke('bot:clearSessionUser')
 });
 
 // Config: main.js ya la cargó y la pasó por process.env (más fiable); si no, intentar require
@@ -61,7 +65,6 @@ let discordOAuthBaseUrl = (process.env.DISCORD_OAUTH_BASE_URL != null) ? String(
 let mercadopagoAccessTokenChile = (process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE != null) ? String(process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE).trim() : '';
 let mercadopagoAccessTokenArg = (process.env.MERCADOPAGO_ACCESS_TOKEN_ARG != null) ? String(process.env.MERCADOPAGO_ACCESS_TOKEN_ARG).trim() : '';
 let pcName = (process.env.AUTH_APP_PC_NAME != null) ? String(process.env.AUTH_APP_PC_NAME).trim() : '';
-let botSharedSecret = (process.env.BOT_SHARED_SECRET != null) ? String(process.env.BOT_SHARED_SECRET).trim() : '';
 
 if (!baseUrl || !authEndpoint || (!mercadopagoAccessTokenChile && !mercadopagoAccessTokenArg)) {
   try {
@@ -83,18 +86,15 @@ if (!baseUrl || !authEndpoint || (!mercadopagoAccessTokenChile && !mercadopagoAc
       if (!mercadopagoAccessTokenArg && config.MERCADOPAGO_ACCESS_TOKEN_ARG) {
         mercadopagoAccessTokenArg = String(config.MERCADOPAGO_ACCESS_TOKEN_ARG).trim();
       }
-      if (!botSharedSecret && config.BOT_SHARED_SECRET) {
-        botSharedSecret = String(config.BOT_SHARED_SECRET).trim();
-      }
     }
   } catch (_) {}
 }
 
+// No exponer botSharedSecret al renderer; las peticiones al bot pasan por main (fetchBot)
 contextBridge.exposeInMainWorld('apiConfig', {
   baseUrl,
   authEndpoint,
   discordInviteUrl,
   discordOAuthBaseUrl,
-  pcName,
-  botSharedSecret
+  pcName
 });

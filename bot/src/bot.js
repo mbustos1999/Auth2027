@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'crypto';
 import http from 'http';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { createClient } from '@supabase/supabase-js';
@@ -71,7 +72,34 @@ function isRateLimited(ip, bucket, limit) {
   return entry.length > limit;
 }
 
-function ensureAuthorizedRequest(req, res, bucket, limit) {
+/**
+ * Verifica el token de sesión (HMAC). Devuelve el email del token si es válido y no expirado; si requestEmail
+ * se pasa, además debe coincidir. Si no, devuelve null.
+ */
+function verifySessionToken(token, requestEmail) {
+  if (!SHARED_SECRET || typeof token !== 'string' || !token.includes('.')) return null;
+  const parts = token.trim().split('.');
+  if (parts.length !== 2) return null;
+  try {
+    const payloadJson = Buffer.from(parts[0], 'base64url').toString('utf8');
+    const payload = JSON.parse(payloadJson);
+    const exp = payload && typeof payload.exp === 'number' ? payload.exp : 0;
+    const email = payload && typeof payload.e === 'string' ? payload.e.trim() : '';
+    if (!email || Date.now() > exp) return null;
+    const expectedSig = crypto.createHmac('sha256', SHARED_SECRET).update(payloadJson).digest('base64url');
+    if (parts[1] !== expectedSig) return null;
+    if (typeof requestEmail === 'string' && requestEmail.trim() && email.toLowerCase() !== requestEmail.trim().toLowerCase()) return null;
+    return email;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Autorización: rate limit, luego secreto compartido O token de sesión válido.
+ * Si requestEmail está definido y se envía X-Auth2027-Session, se exige que el email del token coincida con requestEmail.
+ */
+function ensureAuthorizedRequest(req, res, bucket, limit, requestEmail) {
   const ip = getClientIp(req);
 
   if (bucket && limit && isRateLimited(ip, bucket, limit)) {
@@ -81,8 +109,19 @@ function ensureAuthorizedRequest(req, res, bucket, limit) {
     return false;
   }
 
+  const sessionHeader = req.headers['x-auth2027-session'];
+  if (typeof sessionHeader === 'string' && sessionHeader.trim()) {
+    const tokenEmail = verifySessionToken(sessionHeader.trim(), requestEmail);
+    if (tokenEmail) return true;
+    if (requestEmail) {
+      res.statusCode = 403;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ success: false, message: 'session_invalid_or_email_mismatch' }));
+      return false;
+    }
+  }
+
   if (!SHARED_SECRET) {
-    // Sin secreto configurado (por ejemplo en desarrollo local), no exigimos cabecera
     return true;
   }
 
@@ -869,13 +908,13 @@ function startOAuthServer() {
 
       // Endpoint interno para estado de MercadoPago
       if (url.pathname === '/mp/status') {
-        if (!ensureAuthorizedRequest(req, res, 'mp_status', 60)) return;
         const email = url.searchParams.get('email');
         if (!email) {
           res.statusCode = 400;
           res.end('Missing email');
           return;
         }
+        if (!ensureAuthorizedRequest(req, res, 'mp_status', 60, email)) return;
 
         const row = await fetchMercadoPagoAndUpdateRowForEmail(email).catch(() => null);
         if (!row) {
@@ -927,13 +966,13 @@ function startOAuthServer() {
 
       // --- Admin: gestión de usuarios ---
       if (url.pathname.startsWith('/admin/')) {
-        if (!ensureAuthorizedRequest(req, res, 'admin', 30)) return;
         const adminEmail = url.searchParams.get('email');
         if (!adminEmail) {
           res.statusCode = 400;
           res.end('Missing email');
           return;
         }
+        if (!ensureAuthorizedRequest(req, res, 'admin', 30, adminEmail)) return;
 
         async function isAdminByEmail(email) {
           try {
@@ -1285,13 +1324,13 @@ function startOAuthServer() {
 
       // Endpoint interno para obtener estado completo de usuario
       if (url.pathname === '/u/state') {
-        if (!ensureAuthorizedRequest(req, res, 'u_state', 60)) return;
         const email = url.searchParams.get('email');
         if (!email) {
           res.statusCode = 400;
           res.end('Missing email');
           return;
         }
+        if (!ensureAuthorizedRequest(req, res, 'u_state', 60, email)) return;
 
         try {
           const { data: rows, error } = await supabase
@@ -1333,15 +1372,14 @@ function startOAuthServer() {
 
       // Endpoint interno para verificar/anclar PC a cuenta
       if (url.pathname === '/pc/check-binding') {
-        if (!ensureAuthorizedRequest(req, res, 'pc_check', 60)) return;
         const email = url.searchParams.get('email');
         const pc = (url.searchParams.get('pc') || '').trim();
-
         if (!email || !pc) {
           res.statusCode = 400;
           res.end('Missing email or pc');
           return;
         }
+        if (!ensureAuthorizedRequest(req, res, 'pc_check', 60, email)) return;
 
         try {
           let { data: row, error } = await supabase

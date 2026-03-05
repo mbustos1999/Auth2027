@@ -19,10 +19,9 @@
   const authEndpoint = (apiConfig.authEndpoint != null && apiConfig.authEndpoint !== '') ? String(apiConfig.authEndpoint).trim() : '';
   const authUrl = baseUrl && authEndpoint ? `${baseUrl.replace(/\/$/, '')}${authEndpoint}` : '';
   const pcName = (apiConfig.pcName != null && apiConfig.pcName !== '') ? String(apiConfig.pcName).trim() : '';
-  // Config que puede actualizarse desde main (app empaquetada) o desde el bot (/config)
+  // Config que puede actualizarse desde main (app empaquetada) o desde el bot (/config). El secreto del bot no se expone al renderer.
   const appConfig = {
     discordOAuthBaseUrl: (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '',
-    botSharedSecret: (apiConfig.botSharedSecret != null && apiConfig.botSharedSecret !== '') ? String(apiConfig.botSharedSecret).trim() : '',
     pcName: (apiConfig.pcName != null && apiConfig.pcName !== '') ? String(apiConfig.pcName).trim() : ''
   };
   // Bot remoto desplegado en Railway
@@ -121,13 +120,18 @@
     passwordInput.classList.remove('error');
   }
 
-  function buildBotHeaders(extra = {}) {
-    const headers = { ...extra };
-    const secret = appConfig.botSharedSecret;
-    if (secret) {
-      headers['X-Auth2027-Secret'] = secret;
+  // Peticiones al bot: si hay electronAPI.fetchBot, el main añade secreto + token de sesión (el renderer no ve el secreto)
+  async function fetchBot(url, options = {}) {
+    if (window.electronAPI && typeof window.electronAPI.fetchBot === 'function') {
+      const res = await window.electronAPI.fetchBot(url, options);
+      return {
+        ok: res.ok,
+        status: res.status,
+        statusText: res.statusText || '',
+        json: () => Promise.resolve(res.body ? (() => { try { return JSON.parse(res.body); } catch (_) { return {}; } })() : {})
+      };
     }
-    return headers;
+    return fetch(url, options);
   }
 
   function isLoginInCooldown() {
@@ -826,12 +830,16 @@
   }
 
   async function showDashboard(user) {
-    // En la app empaquetada la config viene del main (config.js); así el bot recibe X-Auth2027-Secret
+    // Registrar sesión en main para que las peticiones al bot lleven token firmado (email)
+    if (window.electronAPI && typeof window.electronAPI.setSessionUser === 'function') {
+      try {
+        await window.electronAPI.setSessionUser(user.user_email || '');
+      } catch (_) {}
+    }
     if (window.electronAPI && typeof window.electronAPI.getConfig === 'function') {
       try {
         const c = await window.electronAPI.getConfig();
         if (c && typeof c === 'object') {
-          if (c.botSharedSecret) appConfig.botSharedSecret = String(c.botSharedSecret).trim();
           if (c.discordOAuthBaseUrl) appConfig.discordOAuthBaseUrl = String(c.discordOAuthBaseUrl).trim();
           if (c.pcName != null && String(c.pcName).trim() !== '') appConfig.pcName = String(c.pcName).trim();
         }
@@ -865,6 +873,9 @@
   }
 
   function showLogin() {
+    if (window.electronAPI && typeof window.electronAPI.clearSessionUser === 'function') {
+      try { window.electronAPI.clearSessionUser(); } catch (_) {}
+    }
     panelLogin.hidden = false;
     panelLogin.style.display = '';
     panelDashboard.hidden = true;
@@ -872,7 +883,6 @@
     usernameInput.value = '';
     passwordInput.value = '';
     clearError();
-    // Si el usuario marcó "Recordar usuario y contraseña", restaurar desde localStorage
     restoreRememberedCredentials();
     currentUser = null;
     currentDiscordRow = null;
@@ -946,7 +956,7 @@
     const grid = document.getElementById('inicioMarvelGrid');
     if (!grid) return;
     try {
-      const res = await fetch(`${BOT_BASE_URL}/home-cards`, { headers: buildBotHeaders() });
+      const res = await fetchBot(`${BOT_BASE_URL}/home-cards`);
       const data = await res.json().catch(() => ({}));
       const cards = Array.isArray(data.cards) ? data.cards : [];
       grid.innerHTML = cards
@@ -984,9 +994,8 @@
     if (!list) return;
     if (errEl) errEl.hidden = true;
     try {
-      const res = await fetch(
-        `${BOT_BASE_URL}/admin/home-cards?email=${encodeURIComponent(currentUser.user_email)}`,
-        { headers: buildBotHeaders() }
+      const res = await fetchBot(
+        `${BOT_BASE_URL}/admin/home-cards?email=${encodeURIComponent(currentUser.user_email)}`
       );
       const data = await res.json().catch(() => ({}));
       configCardsCache = Array.isArray(data.cards) ? data.cards : [];
@@ -1046,9 +1055,9 @@
     const adminEmail = encodeURIComponent(currentUser.user_email);
     try {
       if (id) {
-        const res = await fetch(`${BOT_BASE_URL}/admin/home-cards/update?email=${adminEmail}`, {
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/home-cards/update?email=${adminEmail}`, {
           method: 'POST',
-          headers: buildBotHeaders({ 'Content-Type': 'application/json' }),
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, title, image_url, logo_url, description, sort_order })
         });
         const data = await res.json().catch(() => ({}));
@@ -1057,9 +1066,9 @@
           return;
         }
       } else {
-        const res = await fetch(`${BOT_BASE_URL}/admin/home-cards?email=${adminEmail}`, {
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/home-cards?email=${adminEmail}`, {
           method: 'POST',
-          headers: buildBotHeaders({ 'Content-Type': 'application/json' }),
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title, image_url, logo_url, description, sort_order })
         });
         const data = await res.json().catch(() => ({}));
@@ -1081,9 +1090,9 @@
     if (!confirm('¿Eliminar esta tarjeta?')) return;
     const adminEmail = encodeURIComponent(currentUser.user_email);
     try {
-      const res = await fetch(`${BOT_BASE_URL}/admin/home-cards/delete?email=${adminEmail}`, {
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/home-cards/delete?email=${adminEmail}`, {
         method: 'POST',
-        headers: buildBotHeaders({ 'Content-Type': 'application/json' }),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: cardId })
       });
       const data = await res.json().catch(() => ({}));
@@ -1339,9 +1348,7 @@
       const url = `${BOT_BASE_URL}/pc/check-binding?email=${encodeURIComponent(
         email
       )}&pc=${encodeURIComponent(name)}`;
-      const res = await fetch(url, {
-        headers: buildBotHeaders()
-      });
+      const res = await fetchBot(url);
       const payload = await res.json().catch(() => ({}));
 
       if (!res.ok || !payload || typeof payload.allowed !== 'boolean') {
@@ -1440,9 +1447,7 @@
 
     try {
       const mpUrl = `${BOT_BASE_URL}/mp/status?email=${encodeURIComponent(email)}`;
-      const res = await fetch(mpUrl, {
-        headers: buildBotHeaders()
-      });
+      const res = await fetchBot(mpUrl);
       const payload = await res.json().catch(() => ({}));
 
       if (!res.ok || !payload || !payload.success) {
@@ -1525,9 +1530,7 @@
       const url = `${BOT_BASE_URL}/u/state?email=${encodeURIComponent(
         currentUser.user_email
       )}`;
-      const res = await fetch(url, {
-        headers: buildBotHeaders()
-      });
+      const res = await fetchBot(url);
       const payload = await res.json().catch(() => ({}));
 
       if (!res.ok || !payload || !payload.success) {
@@ -1766,18 +1769,15 @@
   const rememberMe = document.getElementById('rememberMe');
 
   function restoreRememberedCredentials() {
-    // Cargar credenciales guardadas (si el usuario eligió recordarlas)
+    // Solo recordar usuario (nunca guardar contraseña por seguridad)
     try {
       const savedRaw = localStorage.getItem('auth2027_remember');
       if (!savedRaw) return;
       const saved = JSON.parse(savedRaw);
       if (!saved || typeof saved !== 'object') return;
       if (saved.u) usernameInput.value = saved.u;
-      if (saved.p) passwordInput.value = saved.p;
       if (rememberMe) rememberMe.checked = true;
-    } catch (_) {
-      // ignorar errores de JSON / storage
-    }
+    } catch (_) {}
   }
 
   // Al iniciar la app, rellenar si había "Recordar usuario y contraseña"
@@ -1816,7 +1816,7 @@
 
       if (rememberMe && rememberMe.checked) {
         try {
-          localStorage.setItem('auth2027_remember', JSON.stringify({ u: username, p: password }));
+          localStorage.setItem('auth2027_remember', JSON.stringify({ u: username }));
         } catch (_) {}
       } else {
         localStorage.removeItem('auth2027_remember');
@@ -2186,16 +2186,16 @@
       const statusText = row.status || '-';
 
       tr.innerHTML = `
-        <td>${row.email || '-'}</td>
-        <td>${row.discord_username || row.discord_id || '-'}</td>
-        <td>${statusText}</td>
-        <td>${displayRole}</td>
-        <td>${mpText}</td>
-        <td>${row.pc_name || '-'}</td>
+        <td>${escapeHtml(row.email || '-')}</td>
+        <td>${escapeHtml(row.discord_username || row.discord_id || '-')}</td>
+        <td>${escapeHtml(statusText)}</td>
+        <td>${escapeHtml(displayRole)}</td>
+        <td>${escapeHtml(mpText)}</td>
+        <td>${escapeHtml(row.pc_name || '-')}</td>
         <td>
           <div class="users-admin-actions">
-            <button type="button" class="users-admin-btn users-admin-btn--edit" data-user-id="${row.id}">Editar</button>
-            <button type="button" class="users-admin-btn users-admin-btn--delete" data-user-id="${row.id}">Eliminar</button>
+            <button type="button" class="users-admin-btn users-admin-btn--edit" data-user-id="${escapeHtml(String(row.id))}">Editar</button>
+            <button type="button" class="users-admin-btn users-admin-btn--delete" data-user-id="${escapeHtml(String(row.id))}">Eliminar</button>
           </div>
         </td>
       `;
@@ -2216,9 +2216,7 @@
 
     try {
       const email = encodeURIComponent(currentUser.user_email);
-      const res = await fetch(`${BOT_BASE_URL}/admin/users?email=${email}`, {
-        headers: buildBotHeaders()
-      });
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/users?email=${email}`);
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data || !data.success || !Array.isArray(data.users)) {
@@ -2254,11 +2252,9 @@
         }
       };
 
-      const res = await fetch(`${BOT_BASE_URL}/admin/users/update?email=${adminEmail}`, {
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/users/update?email=${adminEmail}`, {
         method: 'POST',
-        headers: buildBotHeaders({
-          'Content-Type': 'application/json'
-        }),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
@@ -2289,11 +2285,9 @@
     try {
       const adminEmail = encodeURIComponent(currentUser.user_email);
       const payload = { email: currentUser.user_email, id };
-      const res = await fetch(`${BOT_BASE_URL}/admin/users/delete?email=${adminEmail}`, {
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/users/delete?email=${adminEmail}`, {
         method: 'POST',
-        headers: buildBotHeaders({
-          'Content-Type': 'application/json'
-        }),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
@@ -2323,13 +2317,11 @@
       }
 
       const row = currentDiscordRow;
-      const stateValue =
-        (row && (row.id || row.link_code || row.email)) ||
-        (currentUser && currentUser.user_email) ||
-        null;
+      // Usar solo id o link_code (nunca email) para evitar que alguien vincule su Discord a la cuenta de otro
+      const stateValue = (row && (row.id || row.link_code)) || null;
 
       if (!stateValue) {
-        alert('No se pudo preparar el enlace con Discord (sin identificador). Intenta volver a iniciar sesión.');
+        alert('No se pudo preparar el enlace con Discord. Asegúrate de tener sesión iniciada y vuelve a intentarlo.');
         return;
       }
 
