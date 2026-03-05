@@ -21,7 +21,8 @@
   // Config que puede actualizarse desde main (app empaquetada) o desde el bot (/config)
   const appConfig = {
     discordOAuthBaseUrl: (apiConfig.discordOAuthBaseUrl != null && apiConfig.discordOAuthBaseUrl !== '') ? String(apiConfig.discordOAuthBaseUrl).trim() : '',
-    botSharedSecret: (apiConfig.botSharedSecret != null && apiConfig.botSharedSecret !== '') ? String(apiConfig.botSharedSecret).trim() : ''
+    botSharedSecret: (apiConfig.botSharedSecret != null && apiConfig.botSharedSecret !== '') ? String(apiConfig.botSharedSecret).trim() : '',
+    pcName: (apiConfig.pcName != null && apiConfig.pcName !== '') ? String(apiConfig.pcName).trim() : ''
   };
   // Bot remoto desplegado en Railway
   const BOT_BASE_URL = 'https://auth2027-production.up.railway.app';
@@ -766,6 +767,7 @@
         if (c && typeof c === 'object') {
           if (c.botSharedSecret) appConfig.botSharedSecret = String(c.botSharedSecret).trim();
           if (c.discordOAuthBaseUrl) appConfig.discordOAuthBaseUrl = String(c.discordOAuthBaseUrl).trim();
+          if (c.pcName != null && String(c.pcName).trim() !== '') appConfig.pcName = String(c.pcName).trim();
         }
       } catch (_) {}
     }
@@ -852,9 +854,13 @@
       panel.classList.toggle('dash-tab--active', active);
       panel.hidden = !active;
     });
-    // Al abrir Perfil, solo refrescamos la UI desde el estado actual en memoria
+    // Al abrir Perfil, refrescar siempre el estado Discord (roles) desde el servidor si hay usuario anclado
     if (tabName === 'profile') {
-      updateDiscordUI();
+      if (currentUser) {
+        refreshDiscordFromSupabase().catch(() => {});
+      } else {
+        updateDiscordUI();
+      }
     }
     // Al abrir Switcher, comprobamos mods obligatorios y cargamos marcadores/TVs
     if (tabName === 'Switcher') {
@@ -1244,13 +1250,29 @@
     await refreshDiscordFromSupabase();
   }
 
+  async function getEffectivePcName() {
+    let name = (appConfig.pcName != null && appConfig.pcName !== '') ? appConfig.pcName : pcName;
+    if (name) return name;
+    if (window.electronAPI && typeof window.electronAPI.getConfig === 'function') {
+      try {
+        const c = await window.electronAPI.getConfig();
+        if (c && c.pcName != null && String(c.pcName).trim() !== '') {
+          appConfig.pcName = String(c.pcName).trim();
+          return appConfig.pcName;
+        }
+      } catch (_) {}
+    }
+    return '';
+  }
+
   async function checkPcBindingForEmail(email) {
-    if (!pcName) return true;
+    const name = await getEffectivePcName();
+    if (!name) return true;
 
     try {
       const url = `${BOT_BASE_URL}/pc/check-binding?email=${encodeURIComponent(
         email
-      )}&pc=${encodeURIComponent(pcName)}`;
+      )}&pc=${encodeURIComponent(name)}`;
       const res = await fetch(url, {
         headers: buildBotHeaders()
       });
@@ -1716,7 +1738,8 @@
     if (user) {
       // Validar que la cuenta esté anclada (o se ancle ahora) a este PC
       let pcOk = true;
-      if (pcName) {
+      const effectivePc = await getEffectivePcName();
+      if (effectivePc) {
         pcOk = await checkPcBindingForEmail(user.user_email);
       }
 
@@ -2353,4 +2376,15 @@
       if (window.electronAPI.quitAndInstall) window.electronAPI.quitAndInstall();
     });
   }
+
+  // Al volver a la app (p. ej. desde Discord), refrescar estado y roles si el usuario está anclado
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!currentUser || !panelDashboard || panelDashboard.hidden) return;
+    refreshDiscordFromSupabase().catch(() => {});
+  });
+  window.addEventListener('focus', () => {
+    if (!currentUser || !panelDashboard || panelDashboard.hidden) return;
+    refreshDiscordFromSupabase().catch(() => {});
+  });
 })();

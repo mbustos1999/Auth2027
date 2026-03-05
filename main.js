@@ -18,21 +18,45 @@ if (app.isPackaged) {
   }
 }
 // Cargar config al arranque (en el instalador __dirname apunta a app.asar); se reutiliza en app:getConfig
+const USER_DATA_CONFIG_FILENAME = 'argenmod-auth-config.json';
 let sharedAppConfig = {};
 try {
   const config = require('./config.js');
   if (config) {
     process.env.AUTH_APP_BASE_URL = (config.API_BASE_URL != null) ? String(config.API_BASE_URL).trim() : '';
     process.env.AUTH_APP_AUTH_ENDPOINT = (config.AUTH_ENDPOINT != null) ? String(config.AUTH_ENDPOINT).trim() : '';
+    const defaultPcName = (process.env.AUTH_APP_PC_NAME != null) ? String(process.env.AUTH_APP_PC_NAME).trim() : (typeof os.hostname === 'function' ? os.hostname() : '');
     sharedAppConfig = {
       baseUrl: (config.API_BASE_URL != null) ? String(config.API_BASE_URL).trim() : '',
       authEndpoint: (config.AUTH_ENDPOINT != null) ? String(config.AUTH_ENDPOINT).trim() : '',
       discordOAuthBaseUrl: (config.DISCORD_OAUTH_BASE_URL != null) ? String(config.DISCORD_OAUTH_BASE_URL).trim() : '',
-      pcName: (process.env.AUTH_APP_PC_NAME != null) ? String(process.env.AUTH_APP_PC_NAME).trim() : (os.hostname ? os.hostname() : ''),
+      pcName: defaultPcName || 'PC',
       botSharedSecret: (config.BOT_SHARED_SECRET != null) ? String(config.BOT_SHARED_SECRET).trim() : ''
     };
   }
 } catch (_) {}
+
+function loadPersistedPcName() {
+  try {
+    const userDataPath = app.getPath('userData');
+    const configPath = path.join(userDataPath, USER_DATA_CONFIG_FILENAME);
+    if (fs.existsSync(configPath)) {
+      const raw = fs.readFileSync(configPath, 'utf8');
+      const data = JSON.parse(raw);
+      if (data && typeof data.pcName === 'string' && data.pcName.trim() !== '') {
+        sharedAppConfig.pcName = data.pcName.trim();
+        return;
+      }
+    }
+  } catch (_) {}
+  try {
+    const userDataPath = app.getPath('userData');
+    const configPath = path.join(userDataPath, USER_DATA_CONFIG_FILENAME);
+    const dir = path.dirname(configPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify({ pcName: sharedAppConfig.pcName || (typeof os.hostname === 'function' ? os.hostname() : 'PC') }, null, 2), 'utf8');
+  } catch (_) {}
+}
 
 // Nombre del PC (para anclar cuenta a equipo)
 if (!process.env.AUTH_APP_PC_NAME) {
@@ -557,6 +581,7 @@ function setupAutoUpdater() {
 }
 
 app.whenReady().then(() => {
+  loadPersistedPcName();
   createWindow();
   setupAutoUpdater();
 });
