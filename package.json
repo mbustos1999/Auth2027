@@ -1,6 +1,6 @@
 {
   "name": "auth-2027",
-  "version": "1.0.12",
+  "version": "1.0.14",
   "description": "Aplicación Electron con autenticación WordPress",
   "main": "main.js",
   "repository": {
@@ -76,7 +76,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "include": "build/installer.nsh"
     },
     "mac": {
       "target": [

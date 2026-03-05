@@ -1187,6 +1187,8 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
       });
       req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       req.setHeader('Accept', 'application/zip,*/*');
+      req.setHeader('Cache-Control', 'no-cache, no-store');
+      req.setHeader('Pragma', 'no-cache');
       if (cookieHeader) req.setHeader('Cookie', cookieHeader);
       req.on('response', (response) => {
         if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -1216,19 +1218,24 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
     });
   };
   try {
-    // Si ya hay mods, borrarlos antes de descargar los nuevos
+    // Siempre borrar por completo la carpeta de mods y caché antes de descargar (evita que detecte mods viejos)
     if (fs.existsSync(destDir)) {
-      const entries = fs.readdirSync(destDir, { withFileTypes: true });
-      for (const e of entries) {
-        const full = path.join(destDir, e.name);
-        try {
-          if (e.isDirectory()) fs.rmSync(full, { recursive: true, force: true });
-          else fs.unlinkSync(full);
-        } catch (_) {}
-      }
-    } else {
-      fs.mkdirSync(destDir, { recursive: true });
+      try {
+        fs.rmSync(destDir, { recursive: true, force: true, maxRetries: 3 });
+      } catch (_) {}
     }
+    fs.mkdirSync(destDir, { recursive: true });
+
+    // Limpiar zips temporales de descargas anteriores
+    try {
+      const tmpDir = os.tmpdir();
+      const tmpEntries = fs.readdirSync(tmpDir, { withFileTypes: true });
+      for (const e of tmpEntries) {
+        if (e.isFile() && e.name.startsWith('auth2027-mods-') && e.name.endsWith('.zip')) {
+          try { fs.unlinkSync(path.join(tmpDir, e.name)); } catch (_) {}
+        }
+      }
+    } catch (_) {}
 
     // Múltiples URLs: descarga cada una directamente a destDir (sin ZIP)
     if (isMultiple) {
@@ -1243,6 +1250,8 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
             const req = net.request({ method: 'GET', url, redirect: 'follow' });
             req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
             req.setHeader('Accept', 'application/octet-stream,*/*');
+            req.setHeader('Cache-Control', 'no-cache, no-store');
+            req.setHeader('Pragma', 'no-cache');
             req.on('response', (res) => {
               if (res.statusCode < 200 || res.statusCode >= 300) {
                 resolve({ action: 'retry', token: null, cookie: null });
@@ -1375,6 +1384,8 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
         const req = net.request({ method: 'GET', url: singleUrl, redirect: 'follow' });
         req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         req.setHeader('Accept', 'application/zip,*/*');
+        req.setHeader('Cache-Control', 'no-cache, no-store');
+        req.setHeader('Pragma', 'no-cache');
         req.on('response', (res) => {
           if (res.statusCode < 200 || res.statusCode >= 300) {
             resolve({ action: 'retry', token: null, cookie: null });

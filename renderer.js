@@ -12,7 +12,6 @@
   const discordHeaderLinkedEl = document.getElementById('discordHeaderLinked');
   const discordHeaderUnlinkedEl = document.getElementById('discordHeaderUnlinked');
   const btnLogout = document.getElementById('btnLogout');
-  const btnClearCache = document.getElementById('btnClearCache');
 
   const apiConfig = window.apiConfig || {};
   const baseUrl = (apiConfig.baseUrl != null && apiConfig.baseUrl !== '') ? String(apiConfig.baseUrl).trim() : '';
@@ -1200,6 +1199,7 @@
       }
       if (autoDownloadBtn && window.electronAPI?.downloadMods) {
         autoDownloadBtn.onclick = async () => {
+          try { localStorage.removeItem(MODS_VERSION_KEY); } catch (_) {}
           const urls = lastModsManifest?.downloadUrls;
           const singleUrl = lastModsManifest?.downloadUrl;
           const hasMultiple = Array.isArray(urls) && urls.length > 0;
@@ -1826,22 +1826,6 @@
   });
 
   btnLogout.addEventListener('click', showLogin);
-
-  if (btnClearCache) {
-    btnClearCache.addEventListener('click', async () => {
-      if (!window.electronAPI || typeof window.electronAPI.clearCache !== 'function') return;
-      try {
-        const res = await window.electronAPI.clearCache();
-        if (res && res.ok) {
-          alert('Caché limpiada correctamente.');
-        } else {
-          alert('Se limpió la caché con algunos avisos: ' + (res && res.message ? res.message : 'Error desconocido'));
-        }
-      } catch (_) {
-        alert('No se pudo limpiar la caché.');
-      }
-    });
-  }
 
   const forgotPasswordLink = document.getElementById('forgotPasswordLink');
   const createAccountLink = document.getElementById('createAccountLink');
