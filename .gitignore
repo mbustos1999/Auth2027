@@ -2,6 +2,7 @@ node_modules/
 package-lock.json
 .env
 bot/.env
+build-config.js
 dist/
 
 
