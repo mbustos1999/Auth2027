@@ -652,7 +652,23 @@
       </div>
     </div>
 
-    <!-- Modal: mods FC26 obligatorios (solo descarga automática) -->
+    <!-- Modal: actualización de la app (bloqueante) -->
+    <div id="updateModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content">
+        <h2>Actualización disponible</h2>
+        <p id="updateModalMessage">
+          Se ha descargado una nueva versión de la aplicación. Debes reiniciar para completar la actualización.
+        </p>
+        <div class="recover-actions">
+          <button type="button" id="updateModalRestart" class="recover-btn recover-btn-primary">
+            Reiniciar ahora
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: mods FC26 obligatorios (descarga automática o por archivo) -->
     <div id="modsRequiredModal" class="recover-modal" hidden>
       <div class="recover-modal-backdrop"></div>
       <div class="recover-modal-content mods-modal-content">
@@ -660,11 +676,15 @@
           <h2>Mods requeridos</h2>
           <button type="button" id="modsModalCloseX" class="mods-modal-close-x" aria-label="Cerrar">×</button>
         </div>
-        <p id="modsRequiredMessage" class="mods-modal-desc">Se requieren los mods de FC26 actualizados. Se descargarán e instalarán automáticamente (los mods anteriores se reemplazarán).</p>
+        <p id="modsRequiredMessage" class="mods-modal-desc">
+          Se requieren los mods de FC26 actualizados. Puedes descargar todos los archivos automáticamente o descargar solo uno de ellos.
+        </p>
         <p id="modsRequiredVersion" class="mods-modal-version"></p>
         <div id="modsDownloadStart" class="mods-download-start">
-          <button type="button" id="modsRequiredAutoDownload" class="mods-download-btn">Descargar mods</button>
+          <button type="button" id="modsRequiredAutoDownload" class="mods-download-btn">Descargar todos los mods</button>
+          <button type="button" id="modsRequiredSingleDownload" class="mods-download-btn">Descargar un archivo</button>
         </div>
+        <div id="modsSingleDownloadList" class="mods-single-download-list" hidden></div>
         <div id="modsDownloadProgressWrap" class="mods-download-progress-wrap" hidden>
           <p id="modsDownloadPhase" class="mods-download-phase"></p>
           <div id="modsDownloadFileList" class="mods-download-file-list"></div>

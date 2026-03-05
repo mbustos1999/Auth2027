@@ -1174,7 +1174,21 @@ function addCacheBust(url) {
   return url + sep + '_t=' + Date.now() + '&_r=' + Math.random().toString(36).slice(2, 11);
 }
 
-ipcMain.handle('mods:download', async (event, urlOrUrls) => {
+ipcMain.handle('mods:download', async (event, urlOrOptions) => {
+  // Compatibilidad hacia atrás:
+  // - string  -> una URL (zip o fifamod único)
+  // - array   -> varias URLs fifamod (borra carpeta antes de descargar)
+  // Nuevo formato:
+  // - { urls: [...], preserveExisting: true } -> varias URLs pero SIN borrar la carpeta existente
+  let preserveExisting = false;
+  let urlOrUrls = urlOrOptions;
+  if (urlOrOptions && typeof urlOrOptions === 'object' && !Array.isArray(urlOrOptions)) {
+    if (Array.isArray(urlOrOptions.urls)) {
+      urlOrUrls = urlOrOptions.urls;
+    }
+    preserveExisting = !!urlOrOptions.preserveExisting;
+  }
+
   const isMultiple = Array.isArray(urlOrUrls);
   let urls = isMultiple ? urlOrUrls.filter(u => u && String(u).startsWith('http')) : [urlOrUrls];
   urls = urls.map(u => normalizeDriveUrl(safeHeaderValue(String(u))));
@@ -1398,18 +1412,36 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
   };
 
   try {
-    // Siempre borrar por completo la carpeta de mods y caché antes de descargar (evita que detecte mods viejos)
-    if (fs.existsSync(destDir)) {
-      try {
-        fs.rmSync(destDir, { recursive: true, force: true, maxRetries: 3 });
-      } catch (e) {
-        return { ok: false, reason: 'no_se_pudo_borrar_carpeta_mods', message: 'No se pudo vaciar la carpeta de mods (permisos?). Prueba ejecutar la app como administrador o reinstalar en una carpeta donde tengas escritura.' };
+    // Borrado completo de carpeta solo cuando NO se indica preserveExisting.
+    // Para descargas individuales (modo "añadir un archivo") usamos preserveExisting = true.
+    if (!preserveExisting) {
+      if (fs.existsSync(destDir)) {
+        try {
+          fs.rmSync(destDir, { recursive: true, force: true, maxRetries: 3 });
+        } catch (e) {
+          return {
+            ok: false,
+            reason: 'no_se_pudo_borrar_carpeta_mods',
+            message:
+              'No se pudo vaciar la carpeta de mods (permisos?). Prueba ejecutar la app como administrador o reinstalar en una carpeta donde tengas escritura.'
+          };
+        }
       }
-    }
-    fs.mkdirSync(destDir, { recursive: true });
-    const remaining = fs.readdirSync(destDir).length;
-    if (remaining > 0) {
-      return { ok: false, reason: 'carpeta_mods_no_quedo_vacia', message: 'La carpeta de mods no se pudo vaciar. Reinstala la app en una carpeta con permisos de escritura (ej. Documentos) o ejecútala como administrador.' };
+      fs.mkdirSync(destDir, { recursive: true });
+      const remaining = fs.readdirSync(destDir).length;
+      if (remaining > 0) {
+        return {
+          ok: false,
+          reason: 'carpeta_mods_no_quedo_vacia',
+          message:
+            'La carpeta de mods no se pudo vaciar. Reinstala la app en una carpeta con permisos de escritura (ej. Documentos) o ejecútala como administrador.'
+        };
+      }
+    } else {
+      // En modo "preserveExisting" solo nos aseguramos de que la carpeta exista.
+      if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+      }
     }
 
     // Limpiar zips temporales de descargas anteriores
@@ -1429,7 +1461,21 @@ ipcMain.handle('mods:download', async (event, urlOrUrls) => {
         const url = safeHeaderValue(String(urls[i]));
         if (!url.startsWith('http')) continue;
         sendProgress({ phase: 'download', fileIndex: i + 1, totalFiles: urls.length, percent: 0, bytesReceived: 0, totalBytes: null });
-        const defaultName = `mod_${i + 1}.fifamod`;
+        // Nombre por defecto:
+        // - Descarga completa (preserveExisting === false): mod_1.fifamod, mod_2.fifamod, ...
+        // - Descarga individual (preserveExisting === true): usar el nombre real del archivo de la URL
+        let defaultName;
+        if (preserveExisting) {
+          try {
+            const u = new URL(url);
+            const last = path.basename(u.pathname) || '';
+            defaultName = last.trim() || `mod_${i + 1}.fifamod`;
+          } catch (_) {
+            defaultName = `mod_${i + 1}.fifamod`;
+          }
+        } else {
+          defaultName = `mod_${i + 1}.fifamod`;
+        }
         let outputPath = null;
         const defaultOutputPath = path.join(destDir, defaultName);
         let fileOk = false;

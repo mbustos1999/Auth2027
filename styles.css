@@ -2327,6 +2327,9 @@ html, body {
   margin-top: 1rem;
   display: flex;
   justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
 }
 .mods-download-btn {
   min-width: 160px;
@@ -2347,6 +2350,15 @@ html, body {
 }
 .mods-download-btn:active {
   transform: translateY(0);
+}
+.mods-single-download-list {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.mods-single-download-list .mods-download-btn {
+  width: 100%;
 }
 .mods-download-progress-wrap {
   margin-top: 1rem;

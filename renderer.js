@@ -1164,12 +1164,14 @@
     const versionEl = document.getElementById('modsRequiredVersion');
     const startWrap = document.getElementById('modsDownloadStart');
     const autoDownloadBtn = document.getElementById('modsRequiredAutoDownload');
+    const singleDownloadBtn = document.getElementById('modsRequiredSingleDownload');
     const progressWrap = document.getElementById('modsDownloadProgressWrap');
     const phaseEl = document.getElementById('modsDownloadPhase');
     const fileListEl = document.getElementById('modsDownloadFileList');
     const statsEl = document.getElementById('modsDownloadStats');
     const doneWrap = document.getElementById('modsDownloadDone');
     const closeBtn = document.getElementById('modsRequiredClose');
+    const singleListEl = document.getElementById('modsSingleDownloadList');
     if (!modal || !msgEl) return;
     try {
       let manifest = null;
@@ -1188,10 +1190,18 @@
       const needUpdate = !currentVersion || currentVersion !== requiredVersion;
       if (!forceShow && !needUpdate) return;
       lastModsManifest = manifest;
-      if (versionEl) versionEl.textContent = `Versión ${requiredVersion}${manifest.sizeHint ? ' · ' + manifest.sizeHint : ''}`;
+      if (versionEl) {
+        versionEl.textContent = `Versión ${requiredVersion}${
+          manifest.sizeHint ? ' · ' + manifest.sizeHint : ''
+        }`;
+      }
       if (progressWrap) progressWrap.hidden = true;
       if (doneWrap) doneWrap.hidden = true;
       if (startWrap) startWrap.hidden = false;
+      if (singleListEl) {
+        singleListEl.hidden = true;
+        singleListEl.innerHTML = '';
+      }
       if (closeBtn) {
         closeBtn.onclick = () => {
           if (requiredVersion) try { localStorage.setItem(MODS_VERSION_KEY, requiredVersion); } catch (_) {}
@@ -1200,86 +1210,172 @@
       }
       const closeX = document.getElementById('modsModalCloseX');
       if (closeX) {
-        closeX.onclick = () => { modal.hidden = true; };
+        closeX.onclick = () => {
+          modal.hidden = true;
+        };
       }
-      if (autoDownloadBtn && window.electronAPI?.downloadMods) {
-        autoDownloadBtn.onclick = async () => {
-          try { localStorage.removeItem(MODS_VERSION_KEY); } catch (_) {}
-          const urls = lastModsManifest?.downloadUrls;
-          const singleUrl = lastModsManifest?.downloadUrl;
-          const hasMultiple = Array.isArray(urls) && urls.length > 0;
-          const hasSingle = singleUrl && !singleUrl.includes('example.com') && !singleUrl.includes('REEMPLAZA');
-          if (!hasMultiple && !hasSingle) {
-            alert('Configura downloadUrl o downloadUrls en mods-manifest.json (enlaces directos a .zip o a archivos .fifamod).');
-            return;
+
+      // URLs disponibles en el manifest
+      const urls = Array.isArray(manifest.downloadUrls) ? manifest.downloadUrls : null;
+      const singleUrl = manifest.downloadUrl;
+      const hasMultiple = !!(urls && urls.length > 0);
+      const hasSingle =
+        !!singleUrl && !singleUrl.includes('example.com') && !singleUrl.includes('REEMPLAZA');
+
+      async function startModsDownload(rawUrls, options = {}) {
+        const preserveExisting = !!options.preserveExisting;
+        if (!window.electronAPI?.downloadMods || !Array.isArray(rawUrls) || rawUrls.length === 0) {
+          return;
+        }
+        try {
+          localStorage.removeItem(MODS_VERSION_KEY);
+        } catch (_) {}
+
+        const toDownload = rawUrls.map((u) => toDirectDownloadUrl(u));
+        const totalFiles = toDownload.length;
+
+        if (startWrap) startWrap.hidden = true;
+        if (singleListEl) singleListEl.hidden = true;
+        if (progressWrap) progressWrap.hidden = false;
+        if (phaseEl) {
+          phaseEl.textContent =
+            totalFiles > 1 ? `Descargando (0/${totalFiles})…` : 'Descargando…';
+        }
+        if (fileListEl) {
+          fileListEl.innerHTML = '';
+          for (let i = 0; i < totalFiles; i++) {
+            const row = document.createElement('div');
+            row.className = 'mods-download-file-row';
+            row.setAttribute('data-file-index', String(i + 1));
+            row.innerHTML = `
+              <span class="mods-file-check" aria-hidden="true"></span>
+              <div class="mods-file-info">
+                <div class="mods-file-label">Archivo ${i + 1}${
+                  totalFiles > 1 ? ' de ' + totalFiles : ''
+                }</div>
+                <div class="mods-file-bar-wrap"><div class="mods-file-bar-fill" style="width: 0%"></div></div>
+              </div>`;
+            fileListEl.appendChild(row);
           }
-          const toDownload = hasMultiple ? urls.map(u => toDirectDownloadUrl(u)) : [toDirectDownloadUrl(singleUrl)];
-          const totalFiles = toDownload.length;
-          if (startWrap) startWrap.hidden = true;
-          if (progressWrap) progressWrap.hidden = false;
-          if (phaseEl) phaseEl.textContent = totalFiles > 1 ? `Descargando (0/${totalFiles})…` : 'Descargando…';
-          if (fileListEl) {
-            fileListEl.innerHTML = '';
-            for (let i = 0; i < totalFiles; i++) {
-              const row = document.createElement('div');
-              row.className = 'mods-download-file-row';
-              row.setAttribute('data-file-index', String(i + 1));
-              row.innerHTML = `
-                <span class="mods-file-check" aria-hidden="true"></span>
-                <div class="mods-file-info">
-                  <div class="mods-file-label">Archivo ${i + 1}${totalFiles > 1 ? ' de ' + totalFiles : ''}</div>
-                  <div class="mods-file-bar-wrap"><div class="mods-file-bar-fill" style="width: 0%"></div></div>
-                </div>`;
-              fileListEl.appendChild(row);
+        }
+        if (statsEl) statsEl.textContent = '';
+
+        const unsub = window.electronAPI.onModsDownloadProgress((data) => {
+          if (data.phase === 'file_done' && data.fileIndex != null && data.totalFiles != null) {
+            const row = fileListEl?.querySelector(`[data-file-index="${data.fileIndex}"]`);
+            if (row) {
+              row.classList.add('done');
+              const fill = row.querySelector('.mods-file-bar-fill');
+              if (fill) fill.style.width = '100%';
+            }
+            if (phaseEl && data.totalFiles > 1) {
+              phaseEl.textContent = `Descargando (${data.fileIndex}/${data.totalFiles})…`;
+            }
+          } else if (data.phase === 'download' || data.phase === 'extract') {
+            const idx = data.fileIndex != null ? data.fileIndex : 1;
+            const total = data.totalFiles != null ? data.totalFiles : totalFiles;
+            if (phaseEl) {
+              phaseEl.textContent =
+                data.phase === 'extract'
+                  ? 'Extrayendo…'
+                  : total > 1
+                  ? `Descargando (${idx}/${total})…`
+                  : 'Descargando…';
+            }
+            const row = fileListEl?.querySelector(
+              `[data-file-index="${String(idx)}"]`
+            );
+            if (row && !row.classList.contains('done')) {
+              const fill = row.querySelector('.mods-file-bar-fill');
+              const pct = data.percent != null ? data.percent : 0;
+              if (fill) fill.style.width = pct + '%';
+            }
+            if (statsEl && data.bytesReceived != null) {
+              const totalB = data.totalBytes ? ` / ${formatBytes(data.totalBytes)}` : '';
+              statsEl.textContent = formatBytes(data.bytesReceived) + totalB;
             }
           }
-          if (statsEl) statsEl.textContent = '';
-          const unsub = window.electronAPI.onModsDownloadProgress((data) => {
-            if (data.phase === 'file_done' && data.fileIndex != null && data.totalFiles != null) {
-              const row = fileListEl?.querySelector(`[data-file-index="${data.fileIndex}"]`);
-              if (row) {
-                row.classList.add('done');
-                const fill = row.querySelector('.mods-file-bar-fill');
-                if (fill) fill.style.width = '100%';
-              }
-              if (phaseEl && data.totalFiles > 1) phaseEl.textContent = `Descargando (${data.fileIndex}/${data.totalFiles})…`;
-            } else if (data.phase === 'download' || data.phase === 'extract') {
-              const idx = data.fileIndex != null ? data.fileIndex : 1;
-              const total = data.totalFiles != null ? data.totalFiles : 1;
-              if (phaseEl) phaseEl.textContent = data.phase === 'extract' ? 'Extrayendo…' : (total > 1 ? `Descargando (${idx}/${total})…` : 'Descargando…');
-              const row = fileListEl?.querySelector(`[data-file-index="${String(idx)}"]`);
-              if (row && !row.classList.contains('done')) {
-                const fill = row.querySelector('.mods-file-bar-fill');
-                const pct = data.percent != null ? data.percent : 0;
-                if (fill) fill.style.width = pct + '%';
-              }
-              if (statsEl && data.bytesReceived != null) {
-                const totalB = data.totalBytes ? ` / ${formatBytes(data.totalBytes)}` : '';
-                statsEl.textContent = formatBytes(data.bytesReceived) + totalB;
-              }
+        });
+
+        try {
+          const payload = preserveExisting
+            ? { urls: toDownload, preserveExisting: true }
+            : (toDownload.length > 1 ? toDownload : toDownload[0]);
+          const result = await window.electronAPI.downloadMods(payload);
+          unsub();
+          if (result && result.ok) {
+            if (requiredVersion) {
+              try {
+                localStorage.setItem(MODS_VERSION_KEY, requiredVersion);
+              } catch (_) {}
             }
-          });
-          try {
-            const result = await window.electronAPI.downloadMods(toDownload.length > 1 ? toDownload : toDownload[0]);
-            unsub();
-            if (result && result.ok) {
-              if (requiredVersion) try { localStorage.setItem(MODS_VERSION_KEY, requiredVersion); } catch (_) {}
-              if (progressWrap) progressWrap.hidden = true;
-              if (doneWrap) doneWrap.hidden = false;
-              if (result.copyFailed && result.message) alert(result.message);
-            } else {
-              if (progressWrap) progressWrap.hidden = true;
-              if (startWrap) startWrap.hidden = false;
-              const msg = result?.message || result?.reason || 'Error al descargar o extraer.';
-              alert(msg);
-            }
-          } catch (e) {
-            unsub();
+            if (progressWrap) progressWrap.hidden = true;
+            if (doneWrap) doneWrap.hidden = false;
+            if (result.copyFailed && result.message) alert(result.message);
+          } else {
             if (progressWrap) progressWrap.hidden = true;
             if (startWrap) startWrap.hidden = false;
-            alert('No se pudo conectar con el servidor. Comprueba la red e inténtalo de nuevo.');
+            const msg = result?.message || result?.reason || 'Error al descargar o extraer.';
+            alert(msg);
           }
-        };
+        } catch (e) {
+          unsub();
+          if (progressWrap) progressWrap.hidden = true;
+          if (startWrap) startWrap.hidden = false;
+          alert('No se pudo conectar con el servidor. Comprueba la red e inténtalo de nuevo.');
+        }
+      }
+
+      if (autoDownloadBtn) {
+        if ((hasMultiple || hasSingle) && window.electronAPI?.downloadMods) {
+          autoDownloadBtn.onclick = async () => {
+            if (!hasMultiple && !hasSingle) {
+              alert(
+                'Configura downloadUrl o downloadUrls en mods-manifest.json (enlaces directos a .zip o a archivos .fifamod).'
+              );
+              return;
+            }
+            const rawUrls = hasMultiple ? urls : [singleUrl];
+            await startModsDownload(rawUrls, { preserveExisting: false });
+          };
+        } else {
+          autoDownloadBtn.onclick = () => {
+            alert(
+              'Configura downloadUrl o downloadUrls en mods-manifest.json (enlaces directos a .zip o a archivos .fifamod).'
+            );
+          };
+        }
+      }
+
+      if (singleDownloadBtn && singleListEl) {
+        if (!hasMultiple || !window.electronAPI?.downloadMods) {
+          singleDownloadBtn.hidden = true;
+        } else {
+          singleDownloadBtn.hidden = false;
+          singleDownloadBtn.disabled = false;
+          singleListEl.hidden = true;
+          singleListEl.innerHTML = '';
+
+          urls.forEach((rawUrl, index) => {
+            const container = document.createElement('div');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'mods-download-btn';
+            const fileName = decodeURIComponent(
+              (String(rawUrl).split('/').pop() || `Archivo ${index + 1}`).trim()
+            );
+            btn.textContent = `Descargar archivo ${index + 1}: ${fileName}`;
+            btn.addEventListener('click', () => {
+              startModsDownload([rawUrl], { preserveExisting: true });
+            });
+            container.appendChild(btn);
+            singleListEl.appendChild(container);
+          });
+
+          singleDownloadBtn.onclick = () => {
+            singleListEl.hidden = !singleListEl.hidden;
+          };
+        }
       }
       modal.hidden = false;
       const modsBackdrop = modal.querySelector('.recover-modal-backdrop');
@@ -1772,13 +1868,14 @@
   const rememberMe = document.getElementById('rememberMe');
 
   function restoreRememberedCredentials() {
-    // Solo recordar usuario (nunca guardar contraseña por seguridad)
+    // Recordar usuario y contraseña (a petición del usuario)
     try {
       const savedRaw = localStorage.getItem('auth2027_remember');
       if (!savedRaw) return;
       const saved = JSON.parse(savedRaw);
       if (!saved || typeof saved !== 'object') return;
       if (saved.u) usernameInput.value = saved.u;
+      if (saved.p) passwordInput.value = saved.p;
       if (rememberMe) rememberMe.checked = true;
     } catch (_) {}
   }
@@ -1819,7 +1916,7 @@
 
       if (rememberMe && rememberMe.checked) {
         try {
-          localStorage.setItem('auth2027_remember', JSON.stringify({ u: username }));
+          localStorage.setItem('auth2027_remember', JSON.stringify({ u: username, p: password }));
         } catch (_) {}
       } else {
         localStorage.removeItem('auth2027_remember');
@@ -2408,6 +2505,17 @@
   const updateBanner = document.getElementById('updateBanner');
   const updateBannerText = document.getElementById('updateBannerText');
   const btnRestartToUpdate = document.getElementById('btnRestartToUpdate');
+  const updateModal = document.getElementById('updateModal');
+  const updateModalMessage = document.getElementById('updateModalMessage');
+  const updateModalRestart = document.getElementById('updateModalRestart');
+
+  function showUpdateModal(message) {
+    if (!updateModal) return;
+    if (updateModalMessage && typeof message === 'string' && message.trim() !== '') {
+      updateModalMessage.textContent = message;
+    }
+    updateModal.hidden = false;
+  }
   if (window.electronAPI.getAppVersion) {
     window.electronAPI.getAppVersion().then((v) => {
       if (appVersionEl && v) appVersionEl.textContent = 'v' + v;
@@ -2416,13 +2524,19 @@
   if (window.electronAPI.onUpdateStatus && updateBanner && updateBannerText && btnRestartToUpdate) {
     window.electronAPI.onUpdateStatus((payload) => {
       if (payload.type === 'update-available') {
-        updateBannerText.textContent = 'Nueva versión ' + (payload.version || '') + ' disponible. Descargando…';
+        updateBannerText.textContent =
+          'Nueva versión ' + (payload.version || '') + ' disponible. Descargando…';
         btnRestartToUpdate.hidden = true;
         updateBanner.hidden = false;
       } else if (payload.type === 'update-downloaded') {
-        updateBannerText.textContent = 'Actualización lista. Reinicia la aplicación para instalar.';
+        const versionLabel = payload.version ? ` (${payload.version})` : '';
+        updateBannerText.textContent =
+          'Actualización lista' + versionLabel + '. Reinicia la aplicación para instalar.';
         btnRestartToUpdate.hidden = false;
         updateBanner.hidden = false;
+        showUpdateModal(
+          `Se ha descargado una nueva versión${versionLabel}. Debes reiniciar Argenmod Auth para completar la actualización.`
+        );
       } else if (payload.type === 'update-not-available') {
         updateBanner.hidden = true;
       } else if (payload.type === 'error') {
@@ -2434,6 +2548,11 @@
   }
   if (btnRestartToUpdate) {
     btnRestartToUpdate.addEventListener('click', () => {
+      if (window.electronAPI.quitAndInstall) window.electronAPI.quitAndInstall();
+    });
+  }
+  if (updateModalRestart) {
+    updateModalRestart.addEventListener('click', () => {
       if (window.electronAPI.quitAndInstall) window.electronAPI.quitAndInstall();
     });
   }
