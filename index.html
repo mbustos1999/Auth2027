@@ -223,6 +223,11 @@
               <span class="dash-nav-label">Usuarios</span>
               <span class="dash-nav-crown" title="Solo administradores">👑</span>
             </button>
+            <button class="dash-nav-item" data-tab="mpAdmin">
+              <span class="dash-nav-icon">💳</span>
+              <span class="dash-nav-label">MP</span>
+              <span class="dash-nav-crown" title="Solo administradores">👑</span>
+            </button>
             <button class="dash-nav-item" data-tab="config">
               <span class="dash-nav-icon">🛠️</span>
               <span class="dash-nav-label">Configuración</span>
@@ -470,9 +475,14 @@
                     placeholder="Filtrar por Discord"
                   />
                 </div>
-                <button type="button" class="login-btn-secondary" id="usersAdminRefresh">
-                  Recargar lista
-                </button>
+                <div class="users-admin-actions-right">
+                  <button type="button" class="login-btn-secondary" id="usersAdminSyncRoles">
+                    Refrescar roles
+                  </button>
+                  <button type="button" class="login-btn-secondary" id="usersAdminRefresh">
+                    Recargar lista
+                  </button>
+                </div>
               </div>
               <div class="users-admin-table-wrapper">
                 <table class="users-admin-table">
@@ -538,6 +548,46 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- ADMIN: Mercado Pago (solo roles admin) -->
+          <div class="dash-tab" data-tab-panel="mpAdmin" hidden>
+            <section class="dash-card dash-card-wide">
+              <h3>Mercado Pago (admin)</h3>
+              <p class="dash-card-text">
+                Busca el estado de suscripción de un correo en Mercado Pago. Solo los administradores pueden usar este panel.
+              </p>
+              <div id="mpAdminError" class="message message-error" role="alert" hidden></div>
+              <div class="users-admin-toolbar">
+                <div class="users-admin-filters">
+                  <input
+                    type="email"
+                    id="mpAdminEmail"
+                    class="recover-input"
+                    placeholder="Correo a consultar"
+                  />
+                </div>
+                <div class="users-admin-actions-right">
+                  <button type="button" class="login-btn-secondary" id="mpAdminSearch">
+                    Buscar
+                  </button>
+                </div>
+              </div>
+              <div id="mpAdminResult" class="mp-admin-result" hidden>
+                <p class="dash-card-text">
+                  <strong>Correo:</strong> <span id="mpAdminResultEmail">-</span>
+                </p>
+                <p class="dash-card-text">
+                  <strong>¿Tiene suscripción?</strong> <span id="mpAdminResultHasSub">-</span>
+                </p>
+                <p class="dash-card-text">
+                  <strong>Estado:</strong> <span id="mpAdminResultStatus">-</span>
+                </p>
+                <p class="dash-card-text">
+                  <strong>Días restantes:</strong> <span id="mpAdminResultDays">-</span>
+                </p>
+              </div>
+            </section>
           </div>
 
           <!-- CONFIGURACIÓN: Tarjetas del Inicio (solo admins) -->

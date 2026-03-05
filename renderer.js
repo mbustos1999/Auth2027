@@ -1413,8 +1413,10 @@
     const roles = Array.isArray(row?.roles) ? row.roles.map((r) => String(r)) : [];
 
     const { canAccessProtected, hasAdminRole } = evaluateAccessFlags(linked, roles);
-    // Usuarios y Configuración solo para admins
-    if (tabName === 'users' || tabName === 'config') return !!(linked && hasAdminRole);
+    // Usuarios, MP y Configuración solo para admins
+    if (tabName === 'users' || tabName === 'config' || tabName === 'mpAdmin') {
+      return !!(linked && hasAdminRole);
+    }
     return canAccessProtected;
   }
 
@@ -1813,6 +1815,7 @@
       const isProfile = tab === 'profile';
       const isUsersTab = tab === 'users';
       const isConfigTab = tab === 'config';
+      const isMpAdminTab = tab === 'mpAdmin';
 
       // Perfil siempre accesible
       if (isProfile) {
@@ -1822,8 +1825,8 @@
         return;
       }
 
-      // Menú Usuarios y Configuración: requieren admin sí o sí
-      if (isUsersTab || isConfigTab) {
+      // Menús Usuarios, MP y Configuración: requieren admin sí o sí
+      if (isUsersTab || isConfigTab || isMpAdminTab) {
         if (!isLinked || !hasAdminRole) {
           btn.classList.add('dash-nav-item--locked');
           btn.setAttribute('data-locked', 'admin-only');
@@ -1947,6 +1950,7 @@
   // Admin usuarios
   const usersAdminErrorEl = document.getElementById('usersAdminError');
   const usersAdminRefreshBtn = document.getElementById('usersAdminRefresh');
+  const usersAdminSyncRolesBtn = document.getElementById('usersAdminSyncRoles');
   const usersAdminTableBody = document.getElementById('usersAdminTableBody');
   const usersAdminFilterEmail = document.getElementById('usersAdminFilterEmail');
   const usersAdminFilterDiscord = document.getElementById('usersAdminFilterDiscord');
@@ -1960,6 +1964,16 @@
   const userEditSaveBtn = document.getElementById('userEditSave');
   let userEditCurrentId = null;
   let usersAdminCache = [];
+
+  // Admin MP
+  const mpAdminEmailInput = document.getElementById('mpAdminEmail');
+  const mpAdminSearchBtn = document.getElementById('mpAdminSearch');
+  const mpAdminErrorEl = document.getElementById('mpAdminError');
+  const mpAdminResultEl = document.getElementById('mpAdminResult');
+  const mpAdminResultEmailEl = document.getElementById('mpAdminResultEmail');
+  const mpAdminResultHasSubEl = document.getElementById('mpAdminResultHasSub');
+  const mpAdminResultStatusEl = document.getElementById('mpAdminResultStatus');
+  const mpAdminResultDaysEl = document.getElementById('mpAdminResultDays');
 
   function openRecoverModal() {
     if (!recoverModal) return;
@@ -2138,6 +2152,18 @@
     if (!usersAdminErrorEl) return;
     usersAdminErrorEl.textContent = msg;
     usersAdminErrorEl.hidden = false;
+  }
+
+  function clearMpAdminError() {
+    if (!mpAdminErrorEl) return;
+    mpAdminErrorEl.hidden = true;
+    mpAdminErrorEl.textContent = '';
+  }
+
+  function showMpAdminError(msg) {
+    if (!mpAdminErrorEl) return;
+    mpAdminErrorEl.textContent = msg;
+    mpAdminErrorEl.hidden = false;
   }
 
   function openUserEditModal(row) {
@@ -2423,6 +2449,90 @@
   if (usersAdminRefreshBtn) {
     usersAdminRefreshBtn.addEventListener('click', () => {
       fetchAdminUsers();
+    });
+  }
+
+  if (usersAdminSyncRolesBtn) {
+    usersAdminSyncRolesBtn.addEventListener('click', async () => {
+      clearUsersAdminError();
+      if (!currentUser || !currentUser.user_email) {
+        showUsersAdminError('No hay sesión válida.');
+        return;
+      }
+      usersAdminSyncRolesBtn.disabled = true;
+      usersAdminSyncRolesBtn.textContent = 'Sincronizando...';
+      try {
+        const adminEmail = encodeURIComponent(currentUser.user_email);
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/users/sync-roles?email=${adminEmail}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data || !data.success) {
+          showUsersAdminError(data.message || 'No se pudieron refrescar los roles.');
+        } else {
+          await fetchAdminUsers();
+        }
+      } catch (_) {
+        showUsersAdminError('Error de conexión al refrescar roles.');
+      } finally {
+        usersAdminSyncRolesBtn.disabled = false;
+        usersAdminSyncRolesBtn.textContent = 'Refrescar roles';
+      }
+    });
+  }
+
+  if (mpAdminSearchBtn && mpAdminEmailInput && mpAdminResultEl) {
+    mpAdminSearchBtn.addEventListener('click', async () => {
+      clearMpAdminError();
+      if (mpAdminResultEl) mpAdminResultEl.hidden = true;
+      if (!currentUser || !currentUser.user_email) {
+        showMpAdminError('No hay sesión válida.');
+        return;
+      }
+      const email = (mpAdminEmailInput.value || '').trim();
+      if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        showMpAdminError('Introduce un correo electrónico válido.');
+        return;
+      }
+      mpAdminSearchBtn.disabled = true;
+      const originalText = mpAdminSearchBtn.textContent;
+      mpAdminSearchBtn.textContent = 'Buscando...';
+      try {
+        const adminEmail = encodeURIComponent(currentUser.user_email);
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/mp/status?email=${adminEmail}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data || !data.success) {
+          showMpAdminError(data.message || 'No se pudo obtener el estado de Mercado Pago.');
+          return;
+        }
+        if (mpAdminResultEmailEl) mpAdminResultEmailEl.textContent = data.email || email;
+        if (mpAdminResultHasSubEl) {
+          mpAdminResultHasSubEl.textContent = data.has_subscription ? 'Sí' : 'No';
+        }
+        if (mpAdminResultStatusEl) {
+          mpAdminResultStatusEl.textContent = data.status_label || data.raw_status || '-';
+        }
+        if (mpAdminResultDaysEl) {
+          if (typeof data.days_left === 'number') {
+            mpAdminResultDaysEl.textContent =
+              data.days_left + ' día' + (data.days_left === 1 ? '' : 's');
+          } else {
+            mpAdminResultDaysEl.textContent = '-';
+          }
+        }
+        mpAdminResultEl.hidden = false;
+      } catch (_) {
+        showMpAdminError('Error de conexión al consultar Mercado Pago.');
+      } finally {
+        mpAdminSearchBtn.disabled = false;
+        mpAdminSearchBtn.textContent = originalText || 'Buscar';
+      }
     });
   }
 

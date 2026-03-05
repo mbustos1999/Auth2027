@@ -933,6 +933,18 @@ html, body {
   flex: 1;
 }
 
+.users-admin-actions-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mp-admin-result {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.4);
+}
+
 .users-admin-filters .recover-input {
   max-width: 220px;
 }

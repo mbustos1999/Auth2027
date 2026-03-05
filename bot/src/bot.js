@@ -1069,6 +1069,86 @@ function startOAuthServer() {
           return;
         }
 
+        if (url.pathname === '/admin/users/sync-roles' && req.method === 'POST') {
+          try {
+            // Forzar sincronización inmediata de roles (Discord + Supabase + MP)
+            await syncAllLinkedUsersRoles();
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            console.error('Error inesperado en /admin/users/sync-roles:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/mp/status' && req.method === 'POST') {
+          try {
+            const body = await readJsonBody(req);
+            const targetEmailRaw = body && typeof body.email === 'string' ? body.email.trim() : '';
+            if (!targetEmailRaw) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'Falta el correo a consultar.' }));
+              return;
+            }
+
+            const row = await fetchMercadoPagoAndUpdateRowForEmail(targetEmailRaw).catch(() => null);
+            if (!row) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'No se pudo obtener estado de MercadoPago.' }));
+              return;
+            }
+
+            let mpData = row.mercadopago_data;
+            if (typeof mpData === 'string') {
+              try {
+                mpData = JSON.parse(mpData);
+              } catch {
+                mpData = null;
+              }
+            }
+            const meta = mpData && typeof mpData === 'object' ? mpData.meta || {} : {};
+            const effective =
+              (meta.effective_status || row.mercadopago_status || '').toString().toLowerCase();
+            const uiLabel = meta.ui_label || (effective || '-');
+            const daysLeft =
+              typeof meta.days_left === 'number' ? meta.days_left : null;
+            const rawStatus = meta.raw_status || row.mercadopago_status || null;
+            const hasSubscription =
+              !!effective &&
+              effective !== 'not_found' &&
+              effective !== 'error' &&
+              effective !== 'unknown';
+            const isActive = effective === 'active';
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(
+              JSON.stringify({
+                success: true,
+                email: row.email || targetEmailRaw,
+                mercadopago_status: row.mercadopago_status || null,
+                has_subscription: hasSubscription,
+                is_active: isActive,
+                days_left: daysLeft,
+                status_label: uiLabel,
+                raw_status: rawStatus
+              })
+            );
+          } catch (e) {
+            console.error('Error inesperado en /admin/mp/status:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
         if (url.pathname === '/admin/users/update' && req.method === 'POST') {
           const body = await readJsonBody(req);
           const { id, updates } = body || {};
