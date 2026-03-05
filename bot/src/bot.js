@@ -1116,8 +1116,18 @@ function startOAuthServer() {
             const effective =
               (meta.effective_status || row.mercadopago_status || '').toString().toLowerCase();
             const uiLabel = meta.ui_label || (effective || '-');
-            const daysLeft =
+            let daysLeft =
               typeof meta.days_left === 'number' ? meta.days_left : null;
+            // Recalcular días restantes si no viene precalculado pero tenemos una fecha de fin
+            if (daysLeft == null && typeof meta.end_date === 'string' && meta.end_date.trim()) {
+              const end = new Date(meta.end_date);
+              if (!Number.isNaN(end.getTime())) {
+                const now = new Date();
+                const diffMs = end.getTime() - now.getTime();
+                const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+                daysLeft = Math.max(0, Math.ceil(diffMs / ONE_DAY_MS));
+              }
+            }
             const rawStatus = meta.raw_status || row.mercadopago_status || null;
             const hasSubscription =
               !!effective &&
