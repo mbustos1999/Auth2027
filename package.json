@@ -1,6 +1,6 @@
 {
-  "name": "auth-2027",
-  "version": "1.0.25",
+  "name": "Argenmod Auth",
+  "version": "1.0.26",
   "description": "ArgenMod Auth",
   "main": "main.js",
   "repository": {
