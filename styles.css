@@ -509,6 +509,13 @@ html, body {
   text-align: left;
 }
 
+.dash-nav-crown {
+  font-size: 11px;
+  opacity: 0.9;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
 .dash-logout {
   margin-top: auto;
   display: flex;
@@ -2651,7 +2658,7 @@ html, body {
   width: 100%;
   margin: 0 -22px -18px;
   padding: 24px 22px 24px;
-  background: #A4152C;
+  background: transparent;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
