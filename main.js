@@ -1492,35 +1492,18 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
   };
 
   try {
-    // Borrado completo de carpeta solo cuando NO se indica preserveExisting.
-    // Para descargas individuales (modo "añadir un archivo") usamos preserveExisting = true.
-    if (!preserveExisting) {
-      if (fs.existsSync(destDir)) {
-        try {
-          fs.rmSync(destDir, { recursive: true, force: true, maxRetries: 3 });
-        } catch (e) {
-          return {
-            ok: false,
-            reason: 'no_se_pudo_borrar_carpeta_mods',
-            message:
-              'No se pudo vaciar la carpeta de mods (permisos?). Prueba ejecutar la app como administrador o reinstalar en una carpeta donde tengas escritura.'
-          };
-        }
-      }
-      fs.mkdirSync(destDir, { recursive: true });
-      const remaining = fs.readdirSync(destDir).length;
-      if (remaining > 0) {
+    // Nueva política: NUNCA borramos archivos de la carpeta de mods del usuario.
+    // Solo nos aseguramos de que la carpeta exista y sea escribible.
+    if (!fs.existsSync(destDir)) {
+      try {
+        fs.mkdirSync(destDir, { recursive: true });
+      } catch (e) {
         return {
           ok: false,
-          reason: 'carpeta_mods_no_quedo_vacia',
+          reason: 'no_se_pudo_crear_carpeta_mods',
           message:
-            'La carpeta de mods no se pudo vaciar. Reinstala la app en una carpeta con permisos de escritura (ej. Documentos) o ejecútala como administrador.'
+            'No se pudo crear la carpeta de mods en tu usuario (permisos?). Prueba ejecutar la app como administrador o reinstalarla en una carpeta donde tengas escritura (por ejemplo Documentos).'
         };
-      }
-    } else {
-      // En modo "preserveExisting" solo nos aseguramos de que la carpeta exista.
-      if (!fs.existsSync(destDir)) {
-        fs.mkdirSync(destDir, { recursive: true });
       }
     }
 

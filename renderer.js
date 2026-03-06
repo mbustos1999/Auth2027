@@ -526,17 +526,22 @@
     try {
       const res = await window.electronAPI.checkSquadStatus();
       squadStatusLoaded = true;
+      squadStatusText.classList.remove('switcher-squad-status--ok', 'switcher-squad-status--error');
       if (!res || res.ok === false) {
         squadStatusText.textContent = 'No se encontró ninguna squad en la carpeta aplicarSquad.';
+        squadStatusText.classList.add('switcher-squad-status--error');
         return;
       }
       if (res.applied) {
         squadStatusText.textContent = 'Squad ya está aplicada en EA SPORTS FC 26.';
+        squadStatusText.classList.add('switcher-squad-status--ok');
       } else {
         squadStatusText.textContent = 'Falta aplicar squad.';
+        squadStatusText.classList.add('switcher-squad-status--error');
       }
     } catch (_) {
       squadStatusText.textContent = 'No se pudo comprobar el estado de la squad.';
+      squadStatusText.classList.add('switcher-squad-status--error');
     }
   }
 
@@ -1185,6 +1190,7 @@
 
   let lastModsManifest = null;
   let lastModsRequiredVersion = '';
+  let modsDownloadInProgress = false;
 
   function toDirectDownloadUrl(url) {
     if (typeof url !== 'string') return url;
@@ -1264,8 +1270,13 @@
         !!singleUrl && !singleUrl.includes('example.com') && !singleUrl.includes('REEMPLAZA');
 
       async function startModsDownload(rawUrls, options = {}) {
+        if (modsDownloadInProgress) {
+          return;
+        }
+        modsDownloadInProgress = true;
         const preserveExisting = !!options.preserveExisting;
         if (!window.electronAPI?.downloadMods || !Array.isArray(rawUrls) || rawUrls.length === 0) {
+          modsDownloadInProgress = false;
           return;
         }
         try {
@@ -1342,7 +1353,6 @@
             ? { urls: toDownload, preserveExisting: true }
             : (toDownload.length > 1 ? toDownload : toDownload[0]);
           const result = await window.electronAPI.downloadMods(payload);
-          unsub();
           if (result && result.ok) {
             if (requiredVersion) {
               try {
@@ -1351,10 +1361,32 @@
             }
             if (progressWrap) progressWrap.hidden = true;
             if (doneWrap) doneWrap.hidden = false;
+            const warningEl = document.getElementById('modsDownloadCopyWarning');
+            const openFolderBtn = document.getElementById('modsOpenModsFolder');
+            if (warningEl) {
+              warningEl.hidden = true;
+              warningEl.textContent = '';
+            }
+            if (openFolderBtn) {
+              openFolderBtn.hidden = true;
+              openFolderBtn.onclick = null;
+            }
             if (result.copyFailed && result.message) {
-              alert(result.message);
-              if (result.path && window.electronAPI?.openFolder && confirm('¿Abrir la carpeta donde se descargaron los mods para copiarlos manualmente?')) {
-                window.electronAPI.openFolder(result.path);
+              if (warningEl) {
+                warningEl.textContent = result.message;
+                warningEl.hidden = false;
+              } else {
+                alert(result.message);
+              }
+              if (result.path && window.electronAPI?.openFolder) {
+                if (openFolderBtn) {
+                  openFolderBtn.hidden = false;
+                  openFolderBtn.onclick = () => {
+                    window.electronAPI.openFolder(result.path);
+                  };
+                } else if (confirm('¿Abrir la carpeta donde se descargaron los mods para copiarlos manualmente?')) {
+                  window.electronAPI.openFolder(result.path);
+                }
               }
             }
           } else {
@@ -1364,10 +1396,12 @@
             alert(msg);
           }
         } catch (e) {
-          unsub();
           if (progressWrap) progressWrap.hidden = true;
           if (singleListEl) singleListEl.hidden = false;
           alert('No se pudo conectar con el servidor. Comprueba la red e inténtalo de nuevo.');
+        } finally {
+          unsub();
+          modsDownloadInProgress = false;
         }
       }
 
