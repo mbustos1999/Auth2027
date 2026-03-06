@@ -1593,6 +1593,7 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
             const dest = path.join(resourcesModsDir, f.name);
             if (f.isDirectory()) copyDirRecursive(src, dest);
             else fs.copyFileSync(src, dest);
+            await new Promise((r) => setImmediate(r));
           }
         } catch (copyErr) {
           return { ok: true, path: destDir, copyFailed: true, message: 'Los mods se descargaron bien, pero no se pudieron copiar a la carpeta del Mod Manager (permisos). Puedes copiar manualmente el contenido de la carpeta donde se guardaron, o reinstalar la app fuera de Program Files.' };
@@ -1712,6 +1713,7 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
           const dest = path.join(resourcesModsDir, f.name);
           if (f.isDirectory()) copyDirRecursive(src, dest);
           else fs.copyFileSync(src, dest);
+          await new Promise((r) => setImmediate(r));
         }
       } catch (copyErr) {
         return { ok: true, path: destDir, copyFailed: true, message: 'Los mods se descargaron bien, pero no se pudieron copiar a la carpeta del Mod Manager (permisos). Puedes copiar manualmente el contenido de la carpeta donde se guardaron, o reinstalar la app fuera de Program Files.' };

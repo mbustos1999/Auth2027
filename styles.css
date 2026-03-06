@@ -2724,8 +2724,31 @@ html, body {
 .mods-single-item-check {
   font-weight: 700;
 }
+.mods-single-item-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.mods-single-item-buttons .mods-download-btn:first-child {
+  flex: 1;
+  min-width: 140px;
+}
+.mods-download-btn-manual {
+  flex: 0 0 auto;
+  min-width: 72px;
+  background: rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+}
+.mods-download-btn-manual:hover {
+  background: rgba(148, 163, 184, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
 .mods-single-download-list .mods-download-btn {
-  width: 100%;
+  width: auto;
+}
+.mods-single-download-list .mods-single-item-buttons .mods-download-btn {
+  width: auto;
 }
 .mods-download-btn--disabled {
   opacity: 0.6;
