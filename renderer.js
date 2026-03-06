@@ -887,6 +887,7 @@
     restoreRememberedCredentials();
     currentUser = null;
     currentDiscordRow = null;
+    stopAccessRequestPolling();
     if (discordHeaderLinkedEl) discordHeaderLinkedEl.hidden = true;
     if (discordHeaderUnlinkedEl) discordHeaderUnlinkedEl.hidden = false;
     setMercadoPagoUI('loading');
@@ -1921,6 +1922,12 @@
 
     if (isLinked && (hasAdminRole || hasSupportRole)) {
       loadMpAdminPendingCount();
+      getAccessRequestPendingCount().then((c) => {
+        lastAccessRequestCount = c;
+        startAccessRequestPolling();
+      });
+    } else {
+      stopAccessRequestPolling();
     }
   }
 
@@ -2036,22 +2043,81 @@
   const mpAdminRequestsBadge = document.getElementById('mpAdminRequestsBadge');
   const mpNavBadge = document.getElementById('mpNavBadge');
 
-  async function loadMpAdminPendingCount() {
-    if (!currentUser || !currentUser.user_email) return;
+  let lastAccessRequestCount = null;
+  let accessRequestPollingIntervalId = null;
+
+  function playAccessRequestBell() {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const duration = 5;
+      const dingInterval = 1;
+      const dingDuration = 0.35;
+      const freq = 784;
+
+      function playDing(atTime) {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        gain.gain.setValueAtTime(0, atTime);
+        gain.gain.linearRampToValueAtTime(0.25, atTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.01, atTime + dingDuration, 1);
+        osc.start(atTime);
+        osc.stop(atTime + dingDuration);
+      }
+
+      for (let t = 0; t < duration; t += dingInterval) {
+        playDing(t);
+      }
+    } catch (_) {}
+  }
+
+  async function getAccessRequestPendingCount() {
+    if (!currentUser || !currentUser.user_email) return 0;
     const adminEmail = encodeURIComponent(currentUser.user_email);
     try {
       const res = await fetchBot(`${BOT_BASE_URL}/admin/access-requests/pending-count?email=${adminEmail}`);
       const data = await res.json().catch(() => ({}));
-      const count = (data.success && typeof data.count === 'number') ? data.count : 0;
-      if (mpAdminRequestsBadge) {
-        mpAdminRequestsBadge.textContent = count;
-        mpAdminRequestsBadge.hidden = count === 0;
+      return (data.success && typeof data.count === 'number') ? data.count : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  async function loadMpAdminPendingCount() {
+    if (!currentUser || !currentUser.user_email) return;
+    const count = await getAccessRequestPendingCount();
+    if (mpAdminRequestsBadge) {
+      mpAdminRequestsBadge.textContent = count;
+      mpAdminRequestsBadge.hidden = count === 0;
+    }
+    if (mpNavBadge) {
+      mpNavBadge.textContent = count;
+      mpNavBadge.hidden = count === 0;
+    }
+  }
+
+  function startAccessRequestPolling() {
+    if (accessRequestPollingIntervalId) return;
+    accessRequestPollingIntervalId = setInterval(async () => {
+      if (!currentUser || !currentUser.user_email) return;
+      const count = await getAccessRequestPendingCount();
+      if (lastAccessRequestCount !== null && count > lastAccessRequestCount) {
+        playAccessRequestBell();
+        loadMpAdminPendingCount();
       }
-      if (mpNavBadge) {
-        mpNavBadge.textContent = count;
-        mpNavBadge.hidden = count === 0;
-      }
-    } catch (_) {}
+      lastAccessRequestCount = count;
+    }, 20000);
+  }
+
+  function stopAccessRequestPolling() {
+    if (accessRequestPollingIntervalId) {
+      clearInterval(accessRequestPollingIntervalId);
+      accessRequestPollingIntervalId = null;
+    }
+    lastAccessRequestCount = null;
   }
 
   async function loadMpAdminPendingRequests() {
