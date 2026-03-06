@@ -59,6 +59,9 @@
   const mercadopagoDaysLeftEl = document.getElementById('mercadopagoDaysLeft');
   const mercadopagoRequestAccessWrap = document.getElementById('mercadopagoRequestAccessWrap');
   const mercadopagoRequestAccessBtn = document.getElementById('mercadopagoRequestAccessBtn');
+  const mercadopagoRejectionMessageEl = document.getElementById('mercadopagoRejectionMessage');
+  const mercadopagoRequestSuccessMessageEl = document.getElementById('mercadopagoRequestSuccessMessage');
+  const mercadopagoRequestAccessDefaultTextEl = document.getElementById('mercadopagoRequestAccessDefaultText');
   const kofiPatreonCardEl = document.getElementById('kofiPatreonCard');
   const kofiStatusBoxEl = document.getElementById('kofiStatusBox');
   const patreonStatusBoxEl = document.getElementById('patreonStatusBox');
@@ -676,40 +679,71 @@
   const LAUNCHER_OPENED_KEY = 'auth2027_launcher_opened';
   const launcherRequiredModal = document.getElementById('launcherRequiredModal');
   const launcherRequiredConfirm = document.getElementById('launcherRequiredConfirm');
+  const playChoiceModal = document.getElementById('playChoiceModal');
+  const playChoiceJugarBtn = document.getElementById('playChoiceJugar');
+  const playChoiceLiveEditorBtn = document.getElementById('playChoiceLiveEditor');
+
+  function closePlayChoiceModal() {
+    if (playChoiceModal) playChoiceModal.hidden = true;
+  }
+
+  function showLauncherRequiredIfNeeded(launcherRes) {
+    if (!window.electronAPI || !window.electronAPI.launchLauncher) return;
+    if (launcherRes && launcherRes.ok === true) {
+      try { localStorage.setItem(LAUNCHER_OPENED_KEY, '1'); } catch (_) {}
+    } else {
+      const alreadyAccepted = !!localStorage.getItem(LAUNCHER_OPENED_KEY);
+      if (!alreadyAccepted && launcherRequiredModal) launcherRequiredModal.hidden = false;
+    }
+  }
 
   if (btnPlayModManager) {
-    btnPlayModManager.addEventListener('click', async () => {
-      if (!window.electronAPI || !window.electronAPI.launchModManager) return;
-      try {
-        const res = await window.electronAPI.launchModManager();
-        if (res && res.ok === false) {
-          const msg = res.reason === 'not_found'
-            ? 'No se encontró FIFA Mod Manager.exe en la carpeta modManager.'
-            : 'No se pudo abrir FIFA Mod Manager.';
-          alert(msg);
-        }
-      } catch (_) {
-        alert('No se pudo abrir FIFA Mod Manager.');
-      }
+    btnPlayModManager.addEventListener('click', () => {
+      if (playChoiceModal) playChoiceModal.hidden = false;
+    });
+  }
 
+  if (playChoiceModal) {
+    const playChoiceBackdrop = playChoiceModal.querySelector('.recover-modal-backdrop');
+    if (playChoiceBackdrop) playChoiceBackdrop.addEventListener('click', closePlayChoiceModal);
+  }
+
+  if (playChoiceLiveEditorBtn) {
+    playChoiceLiveEditorBtn.addEventListener('click', async () => {
+      closePlayChoiceModal();
       if (window.electronAPI && window.electronAPI.launchLauncher) {
         try {
           const launcherRes = await window.electronAPI.launchLauncher();
-          if (launcherRes && launcherRes.ok === true) {
-            try { localStorage.setItem(LAUNCHER_OPENED_KEY, '1'); } catch (_) {}
-          } else if (launcherRes && launcherRes.ok === false) {
-            const alreadyAccepted = !!localStorage.getItem(LAUNCHER_OPENED_KEY);
-            if (!alreadyAccepted && launcherRequiredModal) {
-              launcherRequiredModal.hidden = false;
-            }
-          }
+          showLauncherRequiredIfNeeded(launcherRes);
         } catch (_) {
-          const alreadyAccepted = !!localStorage.getItem(LAUNCHER_OPENED_KEY);
-          if (!alreadyAccepted && launcherRequiredModal) {
-            launcherRequiredModal.hidden = false;
-          }
+          showLauncherRequiredIfNeeded({ ok: false });
         }
       }
+    });
+  }
+
+  if (playChoiceJugarBtn) {
+    playChoiceJugarBtn.addEventListener('click', async () => {
+      closePlayChoiceModal();
+      const api = window.electronAPI;
+      const promises = [];
+      if (api && api.launchModManager) {
+        promises.push(api.launchModManager().catch(() => null));
+      }
+      if (api && api.launchLauncher) {
+        promises.push(api.launchLauncher().catch(() => ({ ok: false })));
+      }
+      const results = await Promise.all(promises);
+      const hasModManager = !!(api && api.launchModManager);
+      const modManagerRes = hasModManager ? results[0] : null;
+      const launcherRes = api && api.launchLauncher ? (hasModManager ? results[1] : results[0]) : null;
+      if (modManagerRes && modManagerRes.ok === false) {
+        const msg = modManagerRes.reason === 'not_found'
+          ? 'No se encontró FIFA Mod Manager.exe en la carpeta modManager.'
+          : 'No se pudo abrir FIFA Mod Manager.';
+        alert(msg);
+      }
+      if (launcherRes) showLauncherRequiredIfNeeded(launcherRes);
     });
   }
 
@@ -1416,14 +1450,24 @@
         const existingSet = new Set(existingNames.map((n) => n.toLowerCase()));
         listUrls.forEach((rawUrl, index) => {
           let fileName;
+          let fsName;
           try {
             const u = new URL(rawUrl);
             const seg = (u.pathname || '').split('/').filter(Boolean).pop() || '';
-            fileName = decodeURIComponent(seg).trim() || `Archivo ${index + 1}`;
+            const decoded = decodeURIComponent(seg).trim();
+            fileName = decoded || `Archivo ${index + 1}`;
+            // Normalizar como en main.js (safeBasename) para comparar con nombres en disco
+            const withoutSlashes = decoded.replace(/[/\\]/g, '');
+            fsName = withoutSlashes.replace(/[^\w.\-()\s]/gi, '_').slice(0, 200) || decoded;
           } catch (_) {
-            fileName = decodeURIComponent((String(rawUrl).split('/').pop() || `Archivo ${index + 1}`).trim());
+            const last = String(rawUrl).split('/').pop() || `Archivo ${index + 1}`;
+            const decoded = decodeURIComponent(last).trim();
+            fileName = decoded || `Archivo ${index + 1}`;
+            const withoutSlashes = decoded.replace(/[/\\]/g, '');
+            fsName = withoutSlashes.replace(/[^\w.\-()\s]/gi, '_').slice(0, 200) || decoded;
           }
-          const alreadyDownloaded = existingSet.has(fileName.toLowerCase());
+          const nameForMatch = (fsName || fileName).toLowerCase();
+          const alreadyDownloaded = existingSet.has(nameForMatch);
           const container = document.createElement('div');
           container.className = 'mods-single-item';
           if (alreadyDownloaded) {
@@ -1435,12 +1479,18 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'mods-download-btn';
-          btn.textContent = `Descargar archivo ${index + 1}: ${fileName}`;
-          btn.setAttribute('data-download-url', rawUrl);
-          btn.addEventListener('click', () => {
-            const url = btn.getAttribute('data-download-url');
-            if (url) startModsDownload([url], { preserveExisting: true });
-          });
+          if (alreadyDownloaded) {
+            btn.disabled = true;
+            btn.classList.add('mods-download-btn--disabled');
+            btn.textContent = `Ya descargado: ${fileName}`;
+          } else {
+            btn.textContent = `Descargar archivo ${index + 1}: ${fileName}`;
+            btn.setAttribute('data-download-url', rawUrl);
+            btn.addEventListener('click', () => {
+              const url = btn.getAttribute('data-download-url');
+              if (url) startModsDownload([url], { preserveExisting: true });
+            });
+          }
           container.appendChild(btn);
           singleListEl.appendChild(container);
         });
@@ -1544,6 +1594,18 @@
     const hasAccesoManual = roles.some((r) => r === 'acceso manual');
     const show = lastMercadoPagoState === 'not_found' && linked && !hasAccesoManual;
     mercadopagoRequestAccessWrap.hidden = !show;
+    if (show) {
+      const reason = row && typeof row.access_request_rejection_reason === 'string' && row.access_request_rejection_reason.trim();
+      if (mercadopagoRejectionMessageEl) {
+        mercadopagoRejectionMessageEl.hidden = !reason;
+        mercadopagoRejectionMessageEl.textContent = reason
+          ? `Tu última solicitud fue rechazada: ${row.access_request_rejection_reason.trim()}. Puedes volver a solicitar acceso.`
+          : '';
+      }
+      if (mercadopagoRequestSuccessMessageEl) mercadopagoRequestSuccessMessageEl.hidden = true;
+      if (mercadopagoRequestAccessDefaultTextEl) mercadopagoRequestAccessDefaultTextEl.hidden = false;
+      if (mercadopagoRequestAccessBtn) mercadopagoRequestAccessBtn.hidden = false;
+    }
   }
 
   function setMercadoPagoUI(state, statusText) {
@@ -2161,8 +2223,11 @@
       });
     }
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && comprobanteFullscreenModal && !comprobanteFullscreenModal.hidden) {
+      if (e.key !== 'Escape') return;
+      if (comprobanteFullscreenModal && !comprobanteFullscreenModal.hidden) {
         closeComprobanteFullscreen();
+      } else if (rejectRequestModal && !rejectRequestModal.hidden) {
+        closeRejectRequestModal();
       }
     });
   }
@@ -2174,10 +2239,11 @@
   function playAccessRequestBell() {
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const duration = 5;
+      const duration = 10;
       const dingInterval = 1;
       const dingDuration = 0.35;
       const freq = 784;
+      const volume = 0.6;
 
       function playDing(atTime) {
         const osc = audioContext.createOscillator();
@@ -2187,7 +2253,7 @@
         osc.connect(gain);
         gain.connect(audioContext.destination);
         gain.gain.setValueAtTime(0, atTime);
-        gain.gain.linearRampToValueAtTime(0.25, atTime + 0.02);
+        gain.gain.linearRampToValueAtTime(volume, atTime + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.01, atTime + dingDuration, 1);
         osc.start(atTime);
         osc.stop(atTime + dingDuration);
@@ -2266,8 +2332,12 @@
         card.className = 'mp-admin-request-card';
         const created = req.created_at ? new Date(req.created_at).toLocaleString() : '-';
         const email = req.user_email || '-';
+        const discordUser = req.discord_username || req.discord_id || null;
         let html = '<div class="mp-admin-request-meta">';
         html += `<p class="dash-card-text"><strong>Correo:</strong> ${escapeHtml(email)}</p>`;
+        if (discordUser) {
+          html += `<p class="dash-card-text"><strong>Usuario Discord:</strong> ${escapeHtml(String(discordUser))}</p>`;
+        }
         html += `<p class="dash-card-text"><strong>Fecha:</strong> ${escapeHtml(created)}</p>`;
         if (req.comprobante_data && req.comprobante_data.startsWith('data:image/')) {
           const safeSrc = (req.comprobante_data || '').replace(/"/g, '&quot;');
@@ -2327,30 +2397,77 @@
         });
       });
       mpAdminRequestsList.querySelectorAll('.mp-admin-request-reject').forEach((btn) => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => {
           const id = Number(btn.getAttribute('data-id'));
           if (!id) return;
-          btn.disabled = true;
-          try {
-            const res = await fetchBot(`${BOT_BASE_URL}/admin/access-requests/reject?email=${adminEmail}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id })
-            });
-            const data = await res.json().catch(() => ({}));
-            if (data.success) {
-              loadMpAdminPendingRequests();
-              loadMpAdminPendingCount();
-            }
-          } catch (_) {}
-          finally {
-            btn.disabled = false;
-          }
+          openRejectRequestModal(id);
         });
       });
     } catch (_) {
       mpAdminRequestsList.innerHTML = '<p class="dash-card-text message-error">Error al cargar solicitudes.</p>';
     }
+  }
+
+  let pendingRejectRequestId = null;
+  const rejectRequestModal = document.getElementById('rejectRequestModal');
+  const rejectRequestReasonEl = document.getElementById('rejectRequestReason');
+  const rejectRequestModalCancel = document.getElementById('rejectRequestModalCancel');
+  const rejectRequestModalConfirm = document.getElementById('rejectRequestModalConfirm');
+  const rejectRequestModalErrorEl = document.getElementById('rejectRequestModalError');
+
+  function openRejectRequestModal(id) {
+    pendingRejectRequestId = id;
+    if (rejectRequestReasonEl) rejectRequestReasonEl.value = '';
+    if (rejectRequestModalErrorEl) {
+      rejectRequestModalErrorEl.hidden = true;
+      rejectRequestModalErrorEl.textContent = '';
+    }
+    if (rejectRequestModal) rejectRequestModal.hidden = false;
+  }
+
+  function closeRejectRequestModal() {
+    pendingRejectRequestId = null;
+    if (rejectRequestModal) rejectRequestModal.hidden = true;
+  }
+
+  if (rejectRequestModal) {
+    const backdrop = rejectRequestModal.querySelector('.recover-modal-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeRejectRequestModal);
+  }
+  if (rejectRequestModalCancel) rejectRequestModalCancel.addEventListener('click', closeRejectRequestModal);
+  if (rejectRequestModalConfirm) {
+    rejectRequestModalConfirm.addEventListener('click', async () => {
+      if (pendingRejectRequestId == null || !currentUser || !currentUser.user_email) return;
+      const adminEmail = encodeURIComponent(currentUser.user_email);
+      const reason = (rejectRequestReasonEl && rejectRequestReasonEl.value) ? rejectRequestReasonEl.value.trim() : '';
+      if (rejectRequestModalErrorEl) rejectRequestModalErrorEl.hidden = true;
+      rejectRequestModalConfirm.disabled = true;
+      try {
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/access-requests/reject?email=${adminEmail}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: pendingRejectRequestId, reason })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data.success) {
+          closeRejectRequestModal();
+          loadMpAdminPendingRequests();
+          loadMpAdminPendingCount();
+        } else {
+          if (rejectRequestModalErrorEl) {
+            rejectRequestModalErrorEl.textContent = data.message || 'Error al rechazar.';
+            rejectRequestModalErrorEl.hidden = false;
+          }
+        }
+      } catch (_) {
+        if (rejectRequestModalErrorEl) {
+          rejectRequestModalErrorEl.textContent = 'Error de conexión.';
+          rejectRequestModalErrorEl.hidden = false;
+        }
+      } finally {
+        rejectRequestModalConfirm.disabled = false;
+      }
+    });
   }
 
   function openRecoverModal() {
@@ -2491,7 +2608,10 @@
         if (res.ok && data.success) {
           closeAccessRequestModal();
           if (mercadopagoRequestAccessWrap) {
-            mercadopagoRequestAccessWrap.innerHTML = '<p class="discord-card-text message-success">Solicitud enviada. Un administrador la revisará pronto.</p>';
+            if (mercadopagoRejectionMessageEl) mercadopagoRejectionMessageEl.hidden = true;
+            if (mercadopagoRequestSuccessMessageEl) mercadopagoRequestSuccessMessageEl.hidden = false;
+            if (mercadopagoRequestAccessDefaultTextEl) mercadopagoRequestAccessDefaultTextEl.hidden = true;
+            if (mercadopagoRequestAccessBtn) mercadopagoRequestAccessBtn.hidden = true;
           }
         } else {
           if (accessRequestModalError) {

@@ -345,7 +345,9 @@
                   <p class="discord-card-text mercadopago-loading" id="mercadopagoLoading">Comprobando suscripción…</p>
                   <p class="discord-card-text mercadopago-not-found" id="mercadopagoNotFound" hidden>No hay suscripción con este correo.</p>
                   <div id="mercadopagoRequestAccessWrap" class="mercadopago-request-access-wrap" hidden>
-                    <p class="discord-card-text">Si tienes un comprobante de pago, puedes solicitar acceso manual.</p>
+                    <p id="mercadopagoRejectionMessage" class="discord-card-text mercadopago-rejection-message" hidden></p>
+                    <p id="mercadopagoRequestSuccessMessage" class="discord-card-text mercadopago-request-success-message" hidden>Solicitud enviada. Un administrador la revisará pronto.</p>
+                    <p id="mercadopagoRequestAccessDefaultText" class="discord-card-text">Si tienes un comprobante de pago, puedes solicitar acceso manual.</p>
                     <button type="button" id="mercadopagoRequestAccessBtn" class="mods-download-btn">Solicitar acceso</button>
                   </div>
                   <p class="discord-card-text mercadopago-found" id="mercadopagoFound" hidden>
@@ -511,6 +513,21 @@
                 </table>
               </div>
             </section>
+
+            <!-- Modal rechazar solicitud de acceso (motivo para el usuario) -->
+            <div id="rejectRequestModal" class="recover-modal" hidden>
+              <div class="recover-modal-backdrop"></div>
+              <div class="recover-modal-content">
+                <h2>Rechazar solicitud</h2>
+                <p>Indica el motivo del rechazo (opcional). El usuario lo verá en la tarjeta de Mercado Pago y podrá volver a solicitar acceso.</p>
+                <textarea id="rejectRequestReason" class="recover-input config-textarea" placeholder="Ej: Comprobante ilegible, falta de datos..." rows="3"></textarea>
+                <div id="rejectRequestModalError" class="recover-error" hidden></div>
+                <div class="recover-actions">
+                  <button type="button" id="rejectRequestModalCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
+                  <button type="button" id="rejectRequestModalConfirm" class="recover-btn recover-btn-primary">Rechazar</button>
+                </div>
+              </div>
+            </div>
 
             <div id="userEditModal" class="recover-modal" hidden>
               <div class="recover-modal-backdrop"></div>
@@ -802,6 +819,23 @@
           <button type="button" id="modsOpenModsFolder" class="mods-download-btn" hidden>Abrir carpeta de mods</button>
           <button type="button" id="modsRequiredClose" class="mods-download-btn">Cerrar</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Modal: elegir Jugar o Live Editor -->
+    <div id="playChoiceModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content play-choice-modal-content">
+        <h2>¿Qué quieres abrir?</h2>
+        <div class="play-choice-buttons">
+          <button type="button" id="playChoiceJugar" class="recover-btn recover-btn-primary play-choice-btn">
+            Jugar
+          </button>
+          <button type="button" id="playChoiceLiveEditor" class="recover-btn recover-btn-secondary play-choice-btn">
+            Live Editor
+          </button>
+        </div>
+        <p class="play-choice-footer">Live editor 26.2.7 necesario</p>
       </div>
     </div>
 

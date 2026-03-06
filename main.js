@@ -1524,19 +1524,15 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
         const url = safeHeaderValue(String(urls[i]));
         if (!url.startsWith('http')) continue;
         sendProgress({ phase: 'download', fileIndex: i + 1, totalFiles: urls.length, percent: 0, bytesReceived: 0, totalBytes: null });
-        // Nombre por defecto:
-        // - Descarga completa (preserveExisting === false): mod_1.fifamod, mod_2.fifamod, ...
-        // - Descarga individual (preserveExisting === true): usar el nombre real del archivo de la URL
+        // Nombre por defecto: intentar usar el nombre real del archivo de la URL
         let defaultName;
-        if (preserveExisting) {
-          try {
-            const u = new URL(url);
-            const last = path.basename(u.pathname) || '';
-            defaultName = last.trim() || `mod_${i + 1}.fifamod`;
-          } catch (_) {
-            defaultName = `mod_${i + 1}.fifamod`;
-          }
-        } else {
+        try {
+          const u = new URL(url);
+          const lastRaw = path.basename(u.pathname) || '';
+          const decoded = decodeURIComponent(lastRaw);
+          const safeName = safeBasename(decoded) || decoded.trim();
+          defaultName = safeName || `mod_${i + 1}.fifamod`;
+        } catch (_) {
           defaultName = `mod_${i + 1}.fifamod`;
         }
         let outputPath = null;
@@ -1608,6 +1604,19 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
     sendProgress({ phase: 'download', percent: 0, bytesReceived: 0, totalBytes: null });
     let singleZipOk = false;
     const singleMaxAttempts = 3;
+    const singleDefaultName = (() => {
+      if (!singleUrl) return 'mod_1.fifamod';
+      try {
+        const u = new URL(singleUrl);
+        const lastRaw = path.basename(u.pathname) || '';
+        const decoded = decodeURIComponent(lastRaw);
+        const safeName = safeBasename(decoded) || decoded.trim();
+        return safeName || 'mod_1.fifamod';
+      } catch (_) {
+        return 'mod_1.fifamod';
+      }
+    })();
+
     for (let attempt = 0; attempt < singleMaxAttempts && !singleZipOk; attempt++) {
       if (attempt > 0) {
         await new Promise((r) => setTimeout(r, 2500));
@@ -1617,7 +1626,7 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
       const singleProbeUrl = singleUrl + (singleUrl.includes('?') ? '&' : '?') + '_n=' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
       const driveResult = await driveProbeWithHttps(singleProbeUrl, {
         destDir,
-        defaultName: 'mod_1.fifamod',
+        defaultName: singleDefaultName,
         tempZipPath: tempZip,
         isSingleZip: true,
         sendProgress,
@@ -1655,7 +1664,7 @@ ipcMain.handle('mods:download', async (event, urlOrOptions) => {
     fs.closeSync(fd);
     if (zipHeader[0] !== 0x50 || zipHeader[1] !== 0x4b) {
       // Archivo no es ZIP (ej. .fifamod): guardarlo en destDir como mod único
-      const destFile = path.join(destDir, 'mod_1.fifamod');
+      const destFile = path.join(destDir, singleDefaultName);
       try {
         fs.renameSync(tempZip, destFile);
       } catch (e) {

@@ -1041,6 +1041,14 @@ function startOAuthServer() {
           res.end(JSON.stringify({ success: false, message: 'Error al guardar la solicitud.' }));
           return;
         }
+        await supabase
+          .from('user_discord_links')
+          .update({
+            access_request_rejection_reason: null,
+            access_request_rejection_at: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('email', userEmail);
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.end(JSON.stringify({ success: true, message: 'Solicitud enviada. Un administrador la revisará.' }));
@@ -1315,9 +1323,27 @@ function startOAuthServer() {
               .eq('status', 'pending')
               .order('created_at', { ascending: true });
             if (error) throw error;
+            const requests = rows || [];
+            const discordIds = [...new Set(requests.map((r) => r.discord_id).filter(Boolean))];
+            let discordUsernameById = {};
+            if (discordIds.length > 0) {
+              const { data: linkRows } = await supabase
+                .from('user_discord_links')
+                .select('discord_id, discord_username')
+                .in('discord_id', discordIds);
+              if (Array.isArray(linkRows)) {
+                linkRows.forEach((l) => {
+                  if (l.discord_id) discordUsernameById[l.discord_id] = l.discord_username || null;
+                });
+              }
+            }
+            const requestsWithDiscord = requests.map((r) => ({
+              ...r,
+              discord_username: r.discord_id ? discordUsernameById[r.discord_id] || null : null
+            }));
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            res.end(JSON.stringify({ success: true, requests: rows || [] }));
+            res.end(JSON.stringify({ success: true, requests: requestsWithDiscord }));
           } catch (e) {
             console.error('Error en /admin/access-requests/pending:', e);
             res.statusCode = 500;
@@ -1399,6 +1425,7 @@ function startOAuthServer() {
         if (url.pathname === '/admin/access-requests/reject' && req.method === 'POST') {
           const body = await readJsonBody(req);
           const id = body && body.id != null ? Number(body.id) : NaN;
+          const reason = body && typeof body.reason === 'string' ? body.reason.trim() : '';
           if (!Number.isInteger(id) || id < 1) {
             res.statusCode = 400;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1406,6 +1433,26 @@ function startOAuthServer() {
             return;
           }
           try {
+            const { data: reqRow, error: fetchErr } = await supabase
+              .from('access_requests')
+              .select('user_email')
+              .eq('id', id)
+              .eq('status', 'pending')
+              .maybeSingle();
+            if (fetchErr || !reqRow || !reqRow.user_email) {
+              res.statusCode = 404;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'Solicitud no encontrada o ya atendida.' }));
+              return;
+            }
+            await supabase
+              .from('user_discord_links')
+              .update({
+                access_request_rejection_reason: reason || null,
+                access_request_rejection_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .eq('email', reqRow.user_email);
             const { error } = await supabase.from('access_requests').delete().eq('id', id).eq('status', 'pending');
             if (error) throw error;
             res.statusCode = 200;
