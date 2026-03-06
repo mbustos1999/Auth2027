@@ -1854,14 +1854,17 @@
         return;
       }
 
-      // Menús Usuarios, MP y Configuración: requieren admin o soporte sí o sí
+      // Menús Usuarios, MP y Configuración: solo admin o soporte; invisibles para el resto
       if (isUsersTab || isConfigTab || isMpAdminTab) {
         if (!isLinked || (!hasAdminRole && !hasSupportRole)) {
-          btn.classList.add('dash-nav-item--locked');
-          btn.setAttribute('data-locked', 'admin-only');
-          btn.title = 'Este menú solo está disponible para administradores.';
+          btn.setAttribute('hidden', '');
           return;
         }
+        btn.removeAttribute('hidden');
+        btn.classList.remove('dash-nav-item--locked');
+        btn.removeAttribute('data-locked');
+        btn.removeAttribute('title');
+        return;
       }
 
       if (!isLinked) {

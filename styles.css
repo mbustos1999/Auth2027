@@ -480,6 +480,11 @@ html, body {
   margin-top: 4px;
 }
 
+.dash-nav-item[hidden] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
 .dash-nav-item {
   display: flex;
   align-items: center;
