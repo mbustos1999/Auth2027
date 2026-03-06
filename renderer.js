@@ -1592,9 +1592,20 @@
     const linked = !!row && !!row.discord_id && String(row.status || '').toLowerCase() === 'linked';
     const roles = Array.isArray(row?.roles) ? row.roles.map((r) => String(r).toLowerCase()) : [];
     const hasAccesoManual = roles.some((r) => r === 'acceso manual');
+    const hasPendingRequest = !!(row && row.has_pending_access_request);
     const show = lastMercadoPagoState === 'not_found' && linked && !hasAccesoManual;
     mercadopagoRequestAccessWrap.hidden = !show;
     if (show) {
+      if (hasPendingRequest) {
+        if (mercadopagoRejectionMessageEl) mercadopagoRejectionMessageEl.hidden = true;
+        if (mercadopagoRequestSuccessMessageEl) {
+          mercadopagoRequestSuccessMessageEl.textContent = 'Solicitud en curso. Un administrador la revisará.';
+          mercadopagoRequestSuccessMessageEl.hidden = false;
+        }
+        if (mercadopagoRequestAccessDefaultTextEl) mercadopagoRequestAccessDefaultTextEl.hidden = true;
+        if (mercadopagoRequestAccessBtn) mercadopagoRequestAccessBtn.hidden = true;
+        return;
+      }
       const reason = row && typeof row.access_request_rejection_reason === 'string' && row.access_request_rejection_reason.trim();
       if (mercadopagoRejectionMessageEl) {
         mercadopagoRejectionMessageEl.hidden = !reason;
@@ -2436,37 +2447,30 @@
   }
   if (rejectRequestModalCancel) rejectRequestModalCancel.addEventListener('click', closeRejectRequestModal);
   if (rejectRequestModalConfirm) {
-    rejectRequestModalConfirm.addEventListener('click', async () => {
+    rejectRequestModalConfirm.addEventListener('click', () => {
       if (pendingRejectRequestId == null || !currentUser || !currentUser.user_email) return;
-      const adminEmail = encodeURIComponent(currentUser.user_email);
+      const idToReject = pendingRejectRequestId;
       const reason = (rejectRequestReasonEl && rejectRequestReasonEl.value) ? rejectRequestReasonEl.value.trim() : '';
-      if (rejectRequestModalErrorEl) rejectRequestModalErrorEl.hidden = true;
-      rejectRequestModalConfirm.disabled = true;
-      try {
-        const res = await fetchBot(`${BOT_BASE_URL}/admin/access-requests/reject?email=${adminEmail}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: pendingRejectRequestId, reason })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (data.success) {
-          closeRejectRequestModal();
-          loadMpAdminPendingRequests();
-          loadMpAdminPendingCount();
-        } else {
-          if (rejectRequestModalErrorEl) {
-            rejectRequestModalErrorEl.textContent = data.message || 'Error al rechazar.';
-            rejectRequestModalErrorEl.hidden = false;
+      const adminEmail = encodeURIComponent(currentUser.user_email);
+      closeRejectRequestModal();
+      (async () => {
+        try {
+          const res = await fetchBot(`${BOT_BASE_URL}/admin/access-requests/reject?email=${adminEmail}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: idToReject, reason })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (data.success) {
+            loadMpAdminPendingRequests();
+            loadMpAdminPendingCount();
+          } else {
+            alert(data.message || 'Error al rechazar la solicitud.');
           }
+        } catch (_) {
+          alert('Error de conexión. No se pudo rechazar.');
         }
-      } catch (_) {
-        if (rejectRequestModalErrorEl) {
-          rejectRequestModalErrorEl.textContent = 'Error de conexión.';
-          rejectRequestModalErrorEl.hidden = false;
-        }
-      } finally {
-        rejectRequestModalConfirm.disabled = false;
-      }
+      })();
     });
   }
 

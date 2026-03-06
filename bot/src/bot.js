@@ -1028,6 +1028,22 @@ function startOAuthServer() {
           res.end(JSON.stringify({ success: false, message: 'Debes tener Discord vinculado para solicitar acceso.' }));
           return;
         }
+        const { data: existingPending } = await supabase
+          .from('access_requests')
+          .select('id')
+          .eq('user_email', userEmail)
+          .eq('status', 'pending')
+          .limit(1)
+          .maybeSingle();
+        if (existingPending) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({
+            success: false,
+            message: 'Ya tienes una solicitud en curso. Espera a que sea aprobada o rechazada antes de enviar otra.'
+          }));
+          return;
+        }
         const { error: insertErr } = await supabase.from('access_requests').insert({
           user_email: userEmail,
           discord_id: linkRow.discord_id,
@@ -1757,9 +1773,21 @@ function startOAuthServer() {
             bestRow = candidates[0] || null;
           }
 
+          let payloadRow = bestRow;
+          if (bestRow && bestRow.email) {
+            const { data: pendingReq } = await supabase
+              .from('access_requests')
+              .select('id')
+              .eq('user_email', bestRow.email)
+              .eq('status', 'pending')
+              .limit(1)
+              .maybeSingle();
+            payloadRow = { ...bestRow, has_pending_access_request: !!pendingReq };
+          }
+
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ success: true, row: bestRow }));
+          res.end(JSON.stringify({ success: true, row: payloadRow }));
         } catch (e) {
           console.error('Error inesperado en /u/state:', e);
           res.statusCode = 500;

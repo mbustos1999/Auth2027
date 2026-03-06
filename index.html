@@ -514,21 +514,6 @@
               </div>
             </section>
 
-            <!-- Modal rechazar solicitud de acceso (motivo para el usuario) -->
-            <div id="rejectRequestModal" class="recover-modal" hidden>
-              <div class="recover-modal-backdrop"></div>
-              <div class="recover-modal-content">
-                <h2>Rechazar solicitud</h2>
-                <p>Indica el motivo del rechazo (opcional). El usuario lo verá en la tarjeta de Mercado Pago y podrá volver a solicitar acceso.</p>
-                <textarea id="rejectRequestReason" class="recover-input config-textarea" placeholder="Ej: Comprobante ilegible, falta de datos..." rows="3"></textarea>
-                <div id="rejectRequestModalError" class="recover-error" hidden></div>
-                <div class="recover-actions">
-                  <button type="button" id="rejectRequestModalCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
-                  <button type="button" id="rejectRequestModalConfirm" class="recover-btn recover-btn-primary">Rechazar</button>
-                </div>
-              </div>
-            </div>
-
             <div id="userEditModal" class="recover-modal" hidden>
               <div class="recover-modal-backdrop"></div>
               <div class="recover-modal-content">
@@ -678,6 +663,21 @@
         </div>
       </div>
     </section>
+
+    <!-- Modal rechazar solicitud de acceso (motivo para el usuario) -->
+    <div id="rejectRequestModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content">
+        <h2>Rechazar solicitud</h2>
+        <p>Indica el motivo del rechazo (opcional). El usuario lo verá en la tarjeta de Mercado Pago y podrá volver a solicitar acceso.</p>
+        <textarea id="rejectRequestReason" class="recover-input config-textarea" placeholder="Ej: Comprobante ilegible, falta de datos..." rows="3"></textarea>
+        <div id="rejectRequestModalError" class="recover-error" hidden></div>
+        <div class="recover-actions">
+          <button type="button" id="rejectRequestModalCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
+          <button type="button" id="rejectRequestModalConfirm" class="recover-btn recover-btn-primary">Rechazar</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Modal recuperación de contraseña -->
     <div id="recoverModal" class="recover-modal" hidden>
