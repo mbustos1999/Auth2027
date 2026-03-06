@@ -153,16 +153,18 @@ async function findLinkRowByCode(linkCode) {
   return data || null;
 }
 
-async function updateDiscordLinkRow(rowId, { discordId, discordUsername, roles = [] }) {
-  const { error } = await supabase
-    .from('user_discord_links')
-    .update({
-      discord_id: discordId,
-      discord_username: discordUsername,
-      roles,
-      status: 'linked'
-    })
-    .eq('id', rowId);
+async function updateDiscordLinkRow(rowId, { discordId, discordUsername, roles = [], acceso_manual_until }) {
+  const patch = {
+    discord_id: discordId,
+    discord_username: discordUsername,
+    roles,
+    status: 'linked',
+    updated_at: new Date().toISOString()
+  };
+  if (acceso_manual_until !== undefined) {
+    patch.acceso_manual_until = acceso_manual_until;
+  }
+  const { error } = await supabase.from('user_discord_links').update(patch).eq('id', rowId);
 
   if (error) {
     console.error('Supabase error (updateDiscordLinkRow):', error);
@@ -685,6 +687,32 @@ async function assignRolesForLinkedUser(member, row, ancladoRoleName = 'Anclado'
         });
       }
     }
+  }
+
+  // 4) Acceso manual (30 días): si expiró, quitar rol y actualizar BD; si no, asegurar rol
+  const manualUntil = rowWithMp && rowWithMp.acceso_manual_until ? new Date(rowWithMp.acceso_manual_until) : null;
+  const now = new Date();
+  if (manualUntil && manualUntil <= now) {
+    const accRole = member.guild.roles.cache.find((r) => r.name === 'acceso manual');
+    if (accRole && member.roles.cache.has(accRole.id)) {
+      await member.roles.remove(accRole).catch((err) => {
+        console.error('No se pudo quitar rol acceso manual (expirado):', err);
+      });
+    }
+    const currentRoles = await getUserRolesInGuild(member);
+    const rolesWithoutManual = currentRoles.filter((r) => r.toLowerCase() !== 'acceso manual');
+    await supabase
+      .from('user_discord_links')
+      .update({
+        roles: rolesWithoutManual,
+        acceso_manual_until: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', rowWithMp.id);
+    return rolesWithoutManual;
+  }
+  if (manualUntil && manualUntil > now) {
+    await ensureRoleByName(member, 'acceso manual');
   }
 
   // Devolver listado actualizado de roles
@@ -1345,15 +1373,16 @@ function startOAuthServer() {
             await ensureRoleByName(member, 'acceso manual');
             const { data: linkRow } = await supabase.from('user_discord_links').select('roles').eq('discord_id', discordId).maybeSingle();
             const rolesArr = Array.isArray(linkRow?.roles) ? linkRow.roles.map((r) => String(r)) : [];
-            if (!rolesArr.some((r) => r.toLowerCase() === 'acceso manual')) {
-              await supabase
-                .from('user_discord_links')
-                .update({
-                  roles: [...rolesArr, 'acceso manual'],
-                  updated_at: new Date().toISOString()
-                })
-                .eq('discord_id', discordId);
-            }
+            const hasAccesoManual = rolesArr.some((r) => r.toLowerCase() === 'acceso manual');
+            const accesoManualUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            await supabase
+              .from('user_discord_links')
+              .update({
+                roles: hasAccesoManual ? rolesArr : [...rolesArr, 'acceso manual'],
+                acceso_manual_until: accesoManualUntil,
+                updated_at: new Date().toISOString()
+              })
+              .eq('discord_id', discordId);
             await supabase.from('access_requests').delete().eq('id', id).eq('status', 'pending');
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');

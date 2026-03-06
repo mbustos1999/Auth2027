@@ -631,6 +631,9 @@ function setupAutoUpdater() {
   autoUpdater.on('error', (err) => send({ type: 'error', message: err?.message || String(err) }));
   // Comprobar al arrancar (con un pequeño retraso para no bloquear la UI)
   setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 3000);
+  // Comprobar cada 5 minutos (carga mínima: una petición HTTP al servidor de actualizaciones)
+  const FIVE_MINUTES_MS = 5 * 60 * 1000;
+  setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), FIVE_MINUTES_MS);
 }
 
 // En Windows, con la app empaquetada: ocultar todos los archivos/carpetas del directorio de instalación excepto el .exe (ruta puede variar por usuario)

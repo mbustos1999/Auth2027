@@ -559,55 +559,69 @@
             </div>
           </div>
 
-          <!-- ADMIN: Mercado Pago (solo roles admin) -->
+          <!-- ADMIN: MP (Solicitudes de acceso + Mercado Pago en sub-tabs) -->
           <div class="dash-tab" data-tab-panel="mpAdmin" hidden>
-            <section class="dash-card dash-card-wide" id="mpAdminRequestsSection">
-              <h3>Solicitudes de acceso <span id="mpAdminRequestsBadge" class="mp-admin-requests-badge" hidden>0</span></h3>
-              <p class="dash-card-text">Solicitudes pendientes de usuarios sin suscripción MP que adjuntaron comprobante. Aprueba para asignar el rol "acceso manual" en Discord.</p>
-              <div id="mpAdminRequestsList" class="mp-admin-requests-list"></div>
-            </section>
-            <section class="dash-card dash-card-wide">
-              <h3>Mercado Pago (admin)</h3>
-              <p class="dash-card-text">
-                Busca el estado de suscripción de un correo en Mercado Pago. Solo los administradores pueden usar este panel.
-              </p>
-              <div id="mpAdminError" class="message message-error" role="alert" hidden></div>
-              <div class="users-admin-toolbar">
-                <div class="users-admin-filters">
-                  <input
-                    type="email"
-                    id="mpAdminEmail"
-                    class="recover-input"
-                    placeholder="Correo a consultar"
-                  />
-                </div>
-                <div class="users-admin-actions-right">
-                  <button type="button" class="login-btn-secondary" id="mpAdminSearch">
-                    Buscar
-                  </button>
-                </div>
+            <div class="mp-admin-tabs">
+              <div class="mp-admin-tab-bar" role="tablist">
+                <button type="button" class="mp-admin-tab-btn mp-admin-tab-btn--active" data-mp-tab="requests" role="tab" aria-selected="true">
+                  Solicitudes de acceso <span id="mpAdminRequestsBadge" class="mp-admin-requests-badge" hidden>0</span>
+                </button>
+                <button type="button" class="mp-admin-tab-btn" data-mp-tab="mercadopago" role="tab" aria-selected="false">
+                  Mercado Pago
+                </button>
               </div>
-              <div id="mpAdminResult" class="mp-admin-result" hidden>
-                <p class="dash-card-text">
-                  <strong>Correo:</strong> <span id="mpAdminResultEmail">-</span>
-                </p>
-                <p class="dash-card-text">
-                  <strong>¿Tiene suscripción?</strong> <span id="mpAdminResultHasSub">-</span>
-                </p>
-                <p class="dash-card-text">
-                  <strong>Estado:</strong> <span id="mpAdminResultStatus">-</span>
-                </p>
-                <p class="dash-card-text">
-                  <strong>Días restantes:</strong> <span id="mpAdminResultDays">-</span>
-                </p>
-                <p class="dash-card-text">
-                  <strong>Nombre:</strong> <span id="mpAdminResultPayerName">-</span>
-                </p>
-                <p class="dash-card-text">
-                  <strong>Referencia externa:</strong> <span id="mpAdminResultExternalRef">-</span>
-                </p>
+              <div class="mp-admin-tab-panel mp-admin-tab-panel--active" data-mp-panel="requests" role="tabpanel">
+                <section class="dash-card dash-card-wide mp-admin-requests-section">
+                  <h3 class="mp-admin-section-title">Solicitudes pendientes</h3>
+                  <p class="dash-card-text mp-admin-section-desc">Usuarios sin suscripción MP que adjuntaron comprobante. Aprueba para asignar el rol &quot;acceso manual&quot; en Discord.</p>
+                  <div id="mpAdminRequestsList" class="mp-admin-requests-list"></div>
+                </section>
               </div>
-            </section>
+              <div class="mp-admin-tab-panel" data-mp-panel="mercadopago" role="tabpanel" hidden>
+                <section class="dash-card dash-card-wide">
+                  <h3 class="mp-admin-section-title">Consultar suscripción</h3>
+                  <p class="dash-card-text">
+                    Busca el estado de suscripción de un correo en Mercado Pago.
+                  </p>
+                  <div id="mpAdminError" class="message message-error" role="alert" hidden></div>
+                  <div class="users-admin-toolbar">
+                    <div class="users-admin-filters">
+                      <input
+                        type="email"
+                        id="mpAdminEmail"
+                        class="recover-input"
+                        placeholder="Correo a consultar"
+                      />
+                    </div>
+                    <div class="users-admin-actions-right">
+                      <button type="button" class="login-btn-secondary" id="mpAdminSearch">
+                        Buscar
+                      </button>
+                    </div>
+                  </div>
+                  <div id="mpAdminResult" class="mp-admin-result" hidden>
+                    <p class="dash-card-text">
+                      <strong>Correo:</strong> <span id="mpAdminResultEmail">-</span>
+                    </p>
+                    <p class="dash-card-text">
+                      <strong>¿Tiene suscripción?</strong> <span id="mpAdminResultHasSub">-</span>
+                    </p>
+                    <p class="dash-card-text">
+                      <strong>Estado:</strong> <span id="mpAdminResultStatus">-</span>
+                    </p>
+                    <p class="dash-card-text">
+                      <strong>Días restantes:</strong> <span id="mpAdminResultDays">-</span>
+                    </p>
+                    <p class="dash-card-text">
+                      <strong>Nombre:</strong> <span id="mpAdminResultPayerName">-</span>
+                    </p>
+                    <p class="dash-card-text">
+                      <strong>Referencia externa:</strong> <span id="mpAdminResultExternalRef">-</span>
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </div>
           </div>
 
           <!-- CONFIGURACIÓN: Tarjetas del Inicio (solo admins) -->
@@ -681,6 +695,15 @@
           <button type="button" id="accessRequestCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
           <button type="button" id="accessRequestSubmit" class="recover-btn recover-btn-primary">Enviar solicitud</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Modal imagen comprobante a pantalla completa (admin) -->
+    <div id="comprobanteFullscreenModal" class="comprobante-fullscreen-modal" hidden>
+      <div class="comprobante-fullscreen-backdrop"></div>
+      <div class="comprobante-fullscreen-content">
+        <img id="comprobanteFullscreenImg" src="" alt="Comprobante" />
+        <p class="comprobante-fullscreen-hint">Clic o Escape para cerrar · Clic derecho en la imagen para descargar</p>
       </div>
     </div>
 

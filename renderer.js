@@ -1402,8 +1402,10 @@
           btn.type = 'button';
           btn.className = 'mods-download-btn';
           btn.textContent = `Descargar archivo ${index + 1}: ${fileName}`;
+          btn.setAttribute('data-download-url', rawUrl);
           btn.addEventListener('click', () => {
-            startModsDownload([rawUrl], { preserveExisting: true });
+            const url = btn.getAttribute('data-download-url');
+            if (url) startModsDownload([url], { preserveExisting: true });
           });
           container.appendChild(btn);
           singleListEl.appendChild(container);
@@ -1504,7 +1506,9 @@
     if (!mercadopagoRequestAccessWrap) return;
     const row = currentDiscordRow;
     const linked = !!row && !!row.discord_id && String(row.status || '').toLowerCase() === 'linked';
-    const show = lastMercadoPagoState === 'not_found' && linked;
+    const roles = Array.isArray(row?.roles) ? row.roles.map((r) => String(r).toLowerCase()) : [];
+    const hasAccesoManual = roles.some((r) => r === 'acceso manual');
+    const show = lastMercadoPagoState === 'not_found' && linked && !hasAccesoManual;
     mercadopagoRequestAccessWrap.hidden = !show;
   }
 
@@ -1530,6 +1534,25 @@
       }
     }
     updateMercadoPagoRequestAccessVisibility();
+    if (state === 'not_found') updateMercadoPagoManualAccessMessage();
+  }
+
+  function getAccesoManualDaysLeft(row) {
+    if (!row || !row.acceso_manual_until) return null;
+    const until = new Date(row.acceso_manual_until);
+    const now = new Date();
+    if (until <= now) return 0;
+    return Math.ceil((until - now) / (24 * 60 * 60 * 1000));
+  }
+
+  function updateMercadoPagoManualAccessMessage() {
+    if (!mercadopagoNotFoundEl || lastMercadoPagoState !== 'not_found') return;
+    const days = getAccesoManualDaysLeft(currentDiscordRow);
+    if (days != null && days > 0) {
+      mercadopagoNotFoundEl.textContent = `Tienes acceso manual por ${days} día${days === 1 ? '' : 's'}`;
+    } else {
+      mercadopagoNotFoundEl.textContent = 'No hay suscripción con este correo.';
+    }
   }
 
   function updateMercadoPagoHeaderIcon(status) {
@@ -1610,6 +1633,7 @@
           setMercadoPagoUI('found', uiLabel);
         } else if (statusToSave === 'not_found') {
           setMercadoPagoUI('not_found');
+          updateMercadoPagoManualAccessMessage();
         } else {
           setMercadoPagoUI('error');
         }
@@ -1808,6 +1832,7 @@
 
     updateMenuAccess(linked, roles);
     updateMercadoPagoRequestAccessVisibility();
+    updateMercadoPagoManualAccessMessage();
   }
 
   function evaluateAccessFlags(isLinked, roles) {
@@ -2042,6 +2067,72 @@
   const mpAdminRequestsList = document.getElementById('mpAdminRequestsList');
   const mpAdminRequestsBadge = document.getElementById('mpAdminRequestsBadge');
   const mpNavBadge = document.getElementById('mpNavBadge');
+  const comprobanteFullscreenModal = document.getElementById('comprobanteFullscreenModal');
+  const comprobanteFullscreenImg = document.getElementById('comprobanteFullscreenImg');
+
+  function openComprobanteFullscreen(dataUrl) {
+    if (!comprobanteFullscreenModal || !comprobanteFullscreenImg || !dataUrl) return;
+    comprobanteFullscreenImg.src = dataUrl;
+    comprobanteFullscreenModal.hidden = false;
+  }
+
+  function closeComprobanteFullscreen() {
+    if (comprobanteFullscreenModal) {
+      comprobanteFullscreenModal.hidden = true;
+      if (comprobanteFullscreenImg) comprobanteFullscreenImg.src = '';
+    }
+  }
+
+  function downloadComprobanteImage(dataUrl, email) {
+    if (!dataUrl || !dataUrl.startsWith('data:image/')) return;
+    try {
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `comprobante-${(email || 'solicitud').replace(/[^a-zA-Z0-9.-]/g, '_')}.png`;
+      a.click();
+    } catch (_) {}
+  }
+
+  function setupMpAdminSubTabs() {
+    const tabBtns = document.querySelectorAll('.mp-admin-tab-btn');
+    const panels = document.querySelectorAll('.mp-admin-tab-panel');
+    tabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-mp-tab');
+        if (!tab) return;
+        tabBtns.forEach((b) => {
+          b.classList.remove('mp-admin-tab-btn--active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('mp-admin-tab-btn--active');
+        btn.setAttribute('aria-selected', 'true');
+        panels.forEach((p) => {
+          const panelTab = p.getAttribute('data-mp-panel');
+          const active = panelTab === tab;
+          p.classList.toggle('mp-admin-tab-panel--active', active);
+          p.hidden = !active;
+        });
+      });
+    });
+  }
+
+  if (comprobanteFullscreenModal) {
+    const backdrop = comprobanteFullscreenModal.querySelector('.comprobante-fullscreen-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeComprobanteFullscreen);
+    if (comprobanteFullscreenImg) {
+      comprobanteFullscreenImg.addEventListener('click', closeComprobanteFullscreen);
+      comprobanteFullscreenImg.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if (comprobanteFullscreenImg.src) downloadComprobanteImage(comprobanteFullscreenImg.src, '');
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && comprobanteFullscreenModal && !comprobanteFullscreenModal.hidden) {
+        closeComprobanteFullscreen();
+      }
+    });
+  }
+  setupMpAdminSubTabs();
 
   let lastAccessRequestCount = null;
   let accessRequestPollingIntervalId = null;
@@ -2140,17 +2231,34 @@
         const card = document.createElement('div');
         card.className = 'mp-admin-request-card';
         const created = req.created_at ? new Date(req.created_at).toLocaleString() : '-';
-        let html = `<p class="dash-card-text"><strong>Correo:</strong> ${escapeHtml(req.user_email || '-')}</p>`;
+        const email = req.user_email || '-';
+        let html = '<div class="mp-admin-request-meta">';
+        html += `<p class="dash-card-text"><strong>Correo:</strong> ${escapeHtml(email)}</p>`;
         html += `<p class="dash-card-text"><strong>Fecha:</strong> ${escapeHtml(created)}</p>`;
         if (req.comprobante_data && req.comprobante_data.startsWith('data:image/')) {
           const safeSrc = (req.comprobante_data || '').replace(/"/g, '&quot;');
-          html += `<div class="mp-admin-request-preview"><img src="${safeSrc}" alt="Comprobante" class="mp-admin-request-img" /></div>`;
+          html += '</div>';
+          html += `<div class="mp-admin-request-preview-wrap" title="Clic para ampliar, clic derecho para descargar"><div class="mp-admin-request-preview"><img src="${safeSrc}" alt="Comprobante" class="mp-admin-request-img" data-comprobante-src="" /></div></div>`;
+        } else {
+          html += '</div>';
         }
         html += '<div class="mp-admin-request-actions">';
         html += `<button type="button" class="login-btn-secondary mp-admin-request-approve" data-id="${Number(req.id)}">Aprobar (dar acceso manual)</button>`;
         html += `<button type="button" class="recover-btn recover-btn-secondary mp-admin-request-reject" data-id="${Number(req.id)}">Rechazar</button>`;
         html += '</div>';
         card.innerHTML = html;
+        const wrap = card.querySelector('.mp-admin-request-preview-wrap');
+        if (wrap && req.comprobante_data) {
+          const img = card.querySelector('.mp-admin-request-img');
+          if (img) {
+            img.setAttribute('data-comprobante-src', req.comprobante_data);
+            wrap.addEventListener('click', () => openComprobanteFullscreen(req.comprobante_data));
+            wrap.addEventListener('contextmenu', (e) => {
+              e.preventDefault();
+              downloadComprobanteImage(req.comprobante_data, email);
+            });
+          }
+        }
         mpAdminRequestsList.appendChild(card);
       });
       mpAdminRequestsList.querySelectorAll('.mp-admin-request-approve').forEach((btn) => {
@@ -2530,6 +2638,11 @@
 
   function pickMercadoPagoLabel(row) {
     if (!row) return '-';
+
+    const manualDays = getAccesoManualDaysLeft(row);
+    if (manualDays != null && manualDays > 0) {
+      return `Manual (${manualDays} días)`;
+    }
 
     const status = (row.mercadopago_status || '').toString().toLowerCase();
 
