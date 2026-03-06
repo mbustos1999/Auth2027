@@ -978,6 +978,79 @@ html, body {
   border-top: 1px solid rgba(148, 163, 184, 0.4);
 }
 
+.mercadopago-request-access-wrap {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.mercadopago-request-access-wrap .mods-download-btn {
+  margin-top: 8px;
+}
+
+.access-request-preview {
+  margin: 10px 0;
+  max-width: 100%;
+}
+
+.access-request-preview-img {
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.mp-admin-requests-badge,
+.dash-nav-badge {
+  display: inline-block;
+  min-width: 1.25em;
+  padding: 0.15em 0.4em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: #dc2626;
+  border-radius: 999px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.dash-nav-badge {
+  margin-left: 4px;
+}
+
+.mp-admin-request-card {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.6);
+}
+
+.mp-admin-request-preview {
+  margin: 8px 0;
+}
+
+.mp-admin-request-img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.mp-admin-request-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.mp-admin-requests-list {
+  margin-top: 8px;
+}
+
 .users-admin-filters .recover-input {
   max-width: 220px;
 }

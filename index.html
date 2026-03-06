@@ -226,6 +226,7 @@
             <button class="dash-nav-item" data-tab="mpAdmin" hidden>
               <span class="dash-nav-icon">💳</span>
               <span class="dash-nav-label">MP</span>
+              <span id="mpNavBadge" class="dash-nav-badge" hidden>0</span>
               <span class="dash-nav-crown" title="Solo administradores">👑</span>
             </button>
             <button class="dash-nav-item" data-tab="config" hidden>
@@ -343,6 +344,10 @@
                 <div id="mercadopagoStatusContent" class="mercadopago-status-content">
                   <p class="discord-card-text mercadopago-loading" id="mercadopagoLoading">Comprobando suscripción…</p>
                   <p class="discord-card-text mercadopago-not-found" id="mercadopagoNotFound" hidden>No hay suscripción con este correo.</p>
+                  <div id="mercadopagoRequestAccessWrap" class="mercadopago-request-access-wrap" hidden>
+                    <p class="discord-card-text">Si tienes un comprobante de pago, puedes solicitar acceso manual.</p>
+                    <button type="button" id="mercadopagoRequestAccessBtn" class="mods-download-btn">Solicitar acceso</button>
+                  </div>
                   <p class="discord-card-text mercadopago-found" id="mercadopagoFound" hidden>
                     Estado: <strong id="mercadopagoStatusLabel">-</strong>
                   </p>
@@ -556,6 +561,11 @@
 
           <!-- ADMIN: Mercado Pago (solo roles admin) -->
           <div class="dash-tab" data-tab-panel="mpAdmin" hidden>
+            <section class="dash-card dash-card-wide" id="mpAdminRequestsSection">
+              <h3>Solicitudes de acceso <span id="mpAdminRequestsBadge" class="mp-admin-requests-badge" hidden>0</span></h3>
+              <p class="dash-card-text">Solicitudes pendientes de usuarios sin suscripción MP que adjuntaron comprobante. Aprueba para asignar el rol "acceso manual" en Discord.</p>
+              <div id="mpAdminRequestsList" class="mp-admin-requests-list"></div>
+            </section>
             <section class="dash-card dash-card-wide">
               <h3>Mercado Pago (admin)</h3>
               <p class="dash-card-text">
@@ -654,6 +664,22 @@
         <div class="recover-actions">
           <button type="button" id="recoverCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
           <button type="button" id="recoverSend" class="recover-btn recover-btn-primary">Enviar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal solicitar acceso (comprobante cuando no hay suscripción MP) -->
+    <div id="accessRequestModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content">
+        <h2>Solicitar acceso manual</h2>
+        <p>Adjunta una imagen del comprobante de pago (captura o foto). Un administrador revisará tu solicitud.</p>
+        <input type="file" id="accessRequestFile" class="recover-input" accept="image/*" />
+        <div id="accessRequestPreview" class="access-request-preview" hidden></div>
+        <div id="accessRequestModalError" class="recover-error" hidden></div>
+        <div class="recover-actions">
+          <button type="button" id="accessRequestCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
+          <button type="button" id="accessRequestSubmit" class="recover-btn recover-btn-primary">Enviar solicitud</button>
         </div>
       </div>
     </div>

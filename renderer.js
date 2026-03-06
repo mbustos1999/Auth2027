@@ -57,6 +57,8 @@
   const mercadopagoPayerNameEl = document.getElementById('mercadopagoPayerName');
   const mercadopagoStatusRawEl = document.getElementById('mercadopagoStatusRaw');
   const mercadopagoDaysLeftEl = document.getElementById('mercadopagoDaysLeft');
+  const mercadopagoRequestAccessWrap = document.getElementById('mercadopagoRequestAccessWrap');
+  const mercadopagoRequestAccessBtn = document.getElementById('mercadopagoRequestAccessBtn');
   const kofiPatreonCardEl = document.getElementById('kofiPatreonCard');
   const kofiStatusBoxEl = document.getElementById('kofiStatusBox');
   const patreonStatusBoxEl = document.getElementById('patreonStatusBox');
@@ -949,6 +951,10 @@
     }
     if (tabName === 'home') loadHomeCards();
     if (tabName === 'config') loadConfigCards();
+    if (tabName === 'mpAdmin') {
+      loadMpAdminPendingCount();
+      loadMpAdminPendingRequests();
+    }
   }
 
   async function loadHomeCards() {
@@ -1491,7 +1497,18 @@
 
   // Toda la creación/actualización de filas ahora la hace el bot (service_role).
 
+  let lastMercadoPagoState = '';
+
+  function updateMercadoPagoRequestAccessVisibility() {
+    if (!mercadopagoRequestAccessWrap) return;
+    const row = currentDiscordRow;
+    const linked = !!row && !!row.discord_id && String(row.status || '').toLowerCase() === 'linked';
+    const show = lastMercadoPagoState === 'not_found' && linked;
+    mercadopagoRequestAccessWrap.hidden = !show;
+  }
+
   function setMercadoPagoUI(state, statusText) {
+    lastMercadoPagoState = state || '';
     if (mercadopagoLoadingEl) mercadopagoLoadingEl.hidden = state !== 'loading';
     if (mercadopagoNotFoundEl) mercadopagoNotFoundEl.hidden = state !== 'not_found';
     if (mercadopagoFoundEl) {
@@ -1511,6 +1528,7 @@
         if (mercadopagoDaysLeftEl) mercadopagoDaysLeftEl.textContent = '-';
       }
     }
+    updateMercadoPagoRequestAccessVisibility();
   }
 
   function updateMercadoPagoHeaderIcon(status) {
@@ -1788,6 +1806,7 @@
     }
 
     updateMenuAccess(linked, roles);
+    updateMercadoPagoRequestAccessVisibility();
   }
 
   function evaluateAccessFlags(isLinked, roles) {
@@ -1801,7 +1820,8 @@
       'arg-1m',
       'argenmod argentina mensual',
       'arg-3m',
-      'chile-1 mes'
+      'chile-1 mes',
+      'acceso manual'
     ].map((r) => r.toLowerCase());
 
     const hasAdminRole = normalizedRoles.some((r) => adminRoles.includes(r));
@@ -1898,6 +1918,10 @@
 
     // Actualizar estado de Teams en el header
     updateTeamsHeaderStatus(hasGameAccess);
+
+    if (isLinked && (hasAdminRole || hasSupportRole)) {
+      loadMpAdminPendingCount();
+    }
   }
 
   const rememberMe = document.getElementById('rememberMe');
@@ -2008,6 +2032,118 @@
   const mpAdminResultDaysEl = document.getElementById('mpAdminResultDays');
   const mpAdminResultPayerNameEl = document.getElementById('mpAdminResultPayerName');
   const mpAdminResultExternalRefEl = document.getElementById('mpAdminResultExternalRef');
+  const mpAdminRequestsList = document.getElementById('mpAdminRequestsList');
+  const mpAdminRequestsBadge = document.getElementById('mpAdminRequestsBadge');
+  const mpNavBadge = document.getElementById('mpNavBadge');
+
+  async function loadMpAdminPendingCount() {
+    if (!currentUser || !currentUser.user_email) return;
+    const adminEmail = encodeURIComponent(currentUser.user_email);
+    try {
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/access-requests/pending-count?email=${adminEmail}`);
+      const data = await res.json().catch(() => ({}));
+      const count = (data.success && typeof data.count === 'number') ? data.count : 0;
+      if (mpAdminRequestsBadge) {
+        mpAdminRequestsBadge.textContent = count;
+        mpAdminRequestsBadge.hidden = count === 0;
+      }
+      if (mpNavBadge) {
+        mpNavBadge.textContent = count;
+        mpNavBadge.hidden = count === 0;
+      }
+    } catch (_) {}
+  }
+
+  async function loadMpAdminPendingRequests() {
+    if (!mpAdminRequestsList || !currentUser || !currentUser.user_email) return;
+    const adminEmail = encodeURIComponent(currentUser.user_email);
+    mpAdminRequestsList.innerHTML = '<p class="dash-card-text">Cargando…</p>';
+    try {
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/access-requests/pending?email=${adminEmail}`);
+      const data = await res.json().catch(() => ({}));
+      const requests = Array.isArray(data.requests) ? data.requests : [];
+      mpAdminRequestsList.innerHTML = '';
+      if (requests.length === 0) {
+        const p = document.createElement('p');
+        p.className = 'dash-card-text';
+        p.textContent = 'No hay solicitudes pendientes.';
+        mpAdminRequestsList.appendChild(p);
+        return;
+      }
+      requests.forEach((req) => {
+        const card = document.createElement('div');
+        card.className = 'mp-admin-request-card';
+        const created = req.created_at ? new Date(req.created_at).toLocaleString() : '-';
+        let html = `<p class="dash-card-text"><strong>Correo:</strong> ${escapeHtml(req.user_email || '-')}</p>`;
+        html += `<p class="dash-card-text"><strong>Fecha:</strong> ${escapeHtml(created)}</p>`;
+        if (req.comprobante_data && req.comprobante_data.startsWith('data:image/')) {
+          const safeSrc = (req.comprobante_data || '').replace(/"/g, '&quot;');
+          html += `<div class="mp-admin-request-preview"><img src="${safeSrc}" alt="Comprobante" class="mp-admin-request-img" /></div>`;
+        }
+        html += '<div class="mp-admin-request-actions">';
+        html += `<button type="button" class="login-btn-secondary mp-admin-request-approve" data-id="${Number(req.id)}">Aprobar (dar acceso manual)</button>`;
+        html += `<button type="button" class="recover-btn recover-btn-secondary mp-admin-request-reject" data-id="${Number(req.id)}">Rechazar</button>`;
+        html += '</div>';
+        card.innerHTML = html;
+        mpAdminRequestsList.appendChild(card);
+      });
+      mpAdminRequestsList.querySelectorAll('.mp-admin-request-approve').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = Number(btn.getAttribute('data-id'));
+          if (!id) return;
+          btn.disabled = true;
+          try {
+            const res = await fetchBot(`${BOT_BASE_URL}/admin/access-requests/approve?email=${adminEmail}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (data.success) {
+              loadMpAdminPendingRequests();
+              loadMpAdminPendingCount();
+            } else {
+              if (mpAdminErrorEl) {
+                mpAdminErrorEl.textContent = data.message || 'Error al aprobar.';
+                mpAdminErrorEl.hidden = false;
+              }
+            }
+          } catch (_) {
+            if (mpAdminErrorEl) {
+              mpAdminErrorEl.textContent = 'Error de conexión.';
+              mpAdminErrorEl.hidden = false;
+            }
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
+      mpAdminRequestsList.querySelectorAll('.mp-admin-request-reject').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = Number(btn.getAttribute('data-id'));
+          if (!id) return;
+          btn.disabled = true;
+          try {
+            const res = await fetchBot(`${BOT_BASE_URL}/admin/access-requests/reject?email=${adminEmail}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (data.success) {
+              loadMpAdminPendingRequests();
+              loadMpAdminPendingCount();
+            }
+          } catch (_) {}
+          finally {
+            btn.disabled = false;
+          }
+        });
+      });
+    } catch (_) {
+      mpAdminRequestsList.innerHTML = '<p class="dash-card-text message-error">Error al cargar solicitudes.</p>';
+    }
+  }
 
   function openRecoverModal() {
     if (!recoverModal) return;
@@ -2055,6 +2191,114 @@
       await solicitarRecuperacionPassword(email);
       // si no hay error de conexión, cerramos modal (el mensaje se muestra en el panel)
       closeRecoverModal();
+    });
+  }
+
+  // --- Modal solicitar acceso (comprobante cuando no hay suscripción MP) ---
+  const accessRequestModal = document.getElementById('accessRequestModal');
+  const accessRequestFile = document.getElementById('accessRequestFile');
+  const accessRequestPreview = document.getElementById('accessRequestPreview');
+  const accessRequestModalError = document.getElementById('accessRequestModalError');
+  const accessRequestCancel = document.getElementById('accessRequestCancel');
+  const accessRequestSubmit = document.getElementById('accessRequestSubmit');
+
+  let accessRequestDataUrl = null;
+
+  function closeAccessRequestModal() {
+    if (accessRequestModal) accessRequestModal.hidden = true;
+    if (accessRequestFile) accessRequestFile.value = '';
+    if (accessRequestPreview) {
+      accessRequestPreview.hidden = true;
+      accessRequestPreview.innerHTML = '';
+    }
+    if (accessRequestModalError) {
+      accessRequestModalError.hidden = true;
+      accessRequestModalError.textContent = '';
+    }
+    accessRequestDataUrl = null;
+  }
+
+  function openAccessRequestModal() {
+    if (!accessRequestModal) return;
+    closeAccessRequestModal();
+    accessRequestModal.hidden = false;
+  }
+
+  if (mercadopagoRequestAccessBtn) {
+    mercadopagoRequestAccessBtn.addEventListener('click', () => openAccessRequestModal());
+  }
+
+  if (accessRequestModal) {
+    const backdrop = accessRequestModal.querySelector('.recover-modal-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeAccessRequestModal);
+  }
+  if (accessRequestCancel) {
+    accessRequestCancel.addEventListener('click', closeAccessRequestModal);
+  }
+
+  if (accessRequestFile) {
+    accessRequestFile.addEventListener('change', () => {
+      accessRequestDataUrl = null;
+      if (accessRequestPreview) {
+        accessRequestPreview.hidden = true;
+        accessRequestPreview.innerHTML = '';
+      }
+      const file = accessRequestFile.files && accessRequestFile.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        accessRequestDataUrl = reader.result;
+        if (accessRequestPreview && typeof accessRequestDataUrl === 'string') {
+          const img = document.createElement('img');
+          img.src = accessRequestDataUrl;
+          img.alt = 'Vista previa del comprobante';
+          img.className = 'access-request-preview-img';
+          accessRequestPreview.innerHTML = '';
+          accessRequestPreview.appendChild(img);
+          accessRequestPreview.hidden = false;
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (accessRequestSubmit) {
+    accessRequestSubmit.addEventListener('click', async () => {
+      if (!accessRequestDataUrl) {
+        if (accessRequestModalError) {
+          accessRequestModalError.textContent = 'Selecciona una imagen del comprobante.';
+          accessRequestModalError.hidden = false;
+        }
+        return;
+      }
+      if (accessRequestModalError) accessRequestModalError.hidden = true;
+      accessRequestSubmit.disabled = true;
+      try {
+        const res = await fetchBot(`${BOT_BASE_URL}/access-request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comprobante: accessRequestDataUrl })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          closeAccessRequestModal();
+          if (mercadopagoRequestAccessWrap) {
+            mercadopagoRequestAccessWrap.innerHTML = '<p class="discord-card-text message-success">Solicitud enviada. Un administrador la revisará pronto.</p>';
+          }
+        } else {
+          if (accessRequestModalError) {
+            accessRequestModalError.textContent = data.message || 'Error al enviar la solicitud.';
+            accessRequestModalError.hidden = false;
+          }
+        }
+      } catch (_) {
+        if (accessRequestModalError) {
+          accessRequestModalError.textContent = 'Error de conexión. Intenta de nuevo.';
+          accessRequestModalError.hidden = false;
+        }
+      } finally {
+        accessRequestSubmit.disabled = false;
+      }
     });
   }
 

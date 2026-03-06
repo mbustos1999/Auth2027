@@ -943,6 +943,82 @@ function startOAuthServer() {
         return;
       }
 
+      // --- Solicitud de acceso manual (usuario con Discord vinculado, sin suscripción MP) ---
+      if (url.pathname === '/access-request' && req.method === 'POST') {
+        if (isRateLimited(getClientIp(req), 'access_request', 10)) {
+          res.statusCode = 429;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'rate_limited' }));
+          return;
+        }
+        const sessionHeader = req.headers['x-auth2027-session'];
+        const userEmail = typeof sessionHeader === 'string' && sessionHeader.trim()
+          ? verifySessionToken(sessionHeader.trim(), null)
+          : null;
+        if (!userEmail) {
+          res.statusCode = 401;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Sesión inválida o expirada.' }));
+          return;
+        }
+        const body = await new Promise((resolve) => {
+          let data = '';
+          req.on('data', (chunk) => {
+            data += chunk.toString();
+            if (data.length > 3e6) req.destroy();
+          });
+          req.on('end', () => {
+            try {
+              resolve(data ? JSON.parse(data) : {});
+            } catch {
+              resolve({});
+            }
+          });
+          req.on('error', () => resolve({}));
+        });
+        const comprobante = body && typeof body.comprobante === 'string' ? body.comprobante.trim() : '';
+        if (!comprobante || !comprobante.startsWith('data:image/')) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Debes adjuntar una imagen (comprobante).' }));
+          return;
+        }
+        if (comprobante.length > 2500000) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'La imagen es demasiado grande. Usa una más pequeña.' }));
+          return;
+        }
+        const { data: linkRow, error: linkError } = await supabase
+          .from('user_discord_links')
+          .select('id, discord_id, status')
+          .eq('email', userEmail)
+          .maybeSingle();
+        if (linkError || !linkRow || !linkRow.discord_id || String(linkRow.status || '').toLowerCase() !== 'linked') {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Debes tener Discord vinculado para solicitar acceso.' }));
+          return;
+        }
+        const { error: insertErr } = await supabase.from('access_requests').insert({
+          user_email: userEmail,
+          discord_id: linkRow.discord_id,
+          comprobante_data: comprobante,
+          status: 'pending'
+        });
+        if (insertErr) {
+          console.error('Error insertando access_request:', insertErr);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Error al guardar la solicitud.' }));
+          return;
+        }
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ success: true, message: 'Solicitud enviada. Un administrador la revisará.' }));
+        return;
+      }
+
       // --- Tarjetas del Inicio (público: cualquiera puede leer) ---
       if (url.pathname === '/home-cards' && req.method === 'GET') {
         try {
@@ -1177,6 +1253,137 @@ function startOAuthServer() {
             );
           } catch (e) {
             console.error('Error inesperado en /admin/mp/status:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/access-requests/pending-count' && req.method === 'GET') {
+          try {
+            const { count, error } = await supabase
+              .from('access_requests')
+              .select('*', { count: 'exact', head: true })
+              .eq('status', 'pending');
+            if (error) throw error;
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, count: count || 0 }));
+          } catch (e) {
+            console.error('Error en /admin/access-requests/pending-count:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, count: 0 }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/access-requests/pending' && req.method === 'GET') {
+          try {
+            const { data: rows, error } = await supabase
+              .from('access_requests')
+              .select('id, user_email, discord_id, comprobante_data, created_at')
+              .eq('status', 'pending')
+              .order('created_at', { ascending: true });
+            if (error) throw error;
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, requests: rows || [] }));
+          } catch (e) {
+            console.error('Error en /admin/access-requests/pending:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, requests: [] }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/access-requests/approve' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const id = body && body.id != null ? Number(body.id) : NaN;
+          if (!Number.isInteger(id) || id < 1) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'ID inválido.' }));
+            return;
+          }
+          try {
+            const { data: reqRow, error: fetchErr } = await supabase
+              .from('access_requests')
+              .select('*')
+              .eq('id', id)
+              .eq('status', 'pending')
+              .maybeSingle();
+            if (fetchErr || !reqRow) {
+              res.statusCode = 404;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'Solicitud no encontrada o ya atendida.' }));
+              return;
+            }
+            const discordId = reqRow.discord_id;
+            if (!discordId || !GUILD_ID) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'Falta discord_id o GUILD_ID.' }));
+              return;
+            }
+            const guild = await client.guilds.fetch(GUILD_ID).catch(() => null);
+            if (!guild) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'No se pudo acceder al servidor Discord.' }));
+              return;
+            }
+            const member = await guild.members.fetch(discordId).catch(() => null);
+            if (!member) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'Usuario no está en el servidor Discord.' }));
+              return;
+            }
+            await ensureRoleByName(member, 'acceso manual');
+            const { data: linkRow } = await supabase.from('user_discord_links').select('roles').eq('discord_id', discordId).maybeSingle();
+            const rolesArr = Array.isArray(linkRow?.roles) ? linkRow.roles.map((r) => String(r)) : [];
+            if (!rolesArr.some((r) => r.toLowerCase() === 'acceso manual')) {
+              await supabase
+                .from('user_discord_links')
+                .update({
+                  roles: [...rolesArr, 'acceso manual'],
+                  updated_at: new Date().toISOString()
+                })
+                .eq('discord_id', discordId);
+            }
+            await supabase.from('access_requests').delete().eq('id', id).eq('status', 'pending');
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, message: 'Rol "acceso manual" asignado en Discord. Solicitud eliminada.' }));
+          } catch (e) {
+            console.error('Error en /admin/access-requests/approve:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: e?.message || 'internal_error' }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/access-requests/reject' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const id = body && body.id != null ? Number(body.id) : NaN;
+          if (!Number.isInteger(id) || id < 1) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'ID inválido.' }));
+            return;
+          }
+          try {
+            const { error } = await supabase.from('access_requests').delete().eq('id', id).eq('status', 'pending');
+            if (error) throw error;
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, message: 'Solicitud rechazada y eliminada.' }));
+          } catch (e) {
+            console.error('Error en /admin/access-requests/reject:', e);
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.end(JSON.stringify({ success: false, message: 'internal_error' }));
