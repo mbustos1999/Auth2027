@@ -1476,34 +1476,21 @@
             status.innerHTML = '<span class="mods-single-item-check" aria-hidden="true">✓</span> Ya descargado';
             container.appendChild(status);
           }
-          const buttonsWrap = document.createElement('div');
-          buttonsWrap.className = 'mods-single-item-buttons';
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'mods-download-btn';
-          btn.textContent = alreadyDownloaded
-            ? `Descargar de nuevo: ${fileName}`
-            : `Descargar archivo ${index + 1}: ${fileName}`;
-          btn.setAttribute('data-download-index', String(index));
-          btn.addEventListener('click', () => {
-            const idx = parseInt(btn.getAttribute('data-download-index'), 10);
-            if (!Number.isFinite(idx) || !listUrls[idx]) return;
-            const oneUrl = listUrls[idx];
-            setTimeout(() => startModsDownload([oneUrl], { preserveExisting: true }), 0);
-          });
-          buttonsWrap.appendChild(btn);
+          const label = document.createElement('span');
+          label.className = 'mods-single-item-label';
+          label.textContent = `Archivo ${index + 1}: ${fileName}`;
+          container.appendChild(label);
           const manualBtn = document.createElement('button');
           manualBtn.type = 'button';
           manualBtn.className = 'mods-download-btn mods-download-btn-manual';
-          manualBtn.textContent = 'Manual';
-          manualBtn.title = 'Abrir enlace en el navegador para descargar manualmente';
+          manualBtn.textContent = 'Descarga manual';
+          manualBtn.title = 'Abrir enlace en el navegador para descargar';
           manualBtn.addEventListener('click', () => {
             if (rawUrl && window.electronAPI?.openExternal) {
               window.electronAPI.openExternal(rawUrl);
             }
           });
-          buttonsWrap.appendChild(manualBtn);
-          container.appendChild(buttonsWrap);
+          container.appendChild(manualBtn);
           singleListEl.appendChild(container);
         });
       }

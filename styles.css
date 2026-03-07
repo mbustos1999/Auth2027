@@ -2724,19 +2724,12 @@ html, body {
 .mods-single-item-check {
   font-weight: 700;
 }
-.mods-single-item-buttons {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.mods-single-item-buttons .mods-download-btn:first-child {
-  flex: 1;
-  min-width: 140px;
+.mods-single-item-label {
+  font-size: 13px;
+  color: #94a3b8;
 }
 .mods-download-btn-manual {
-  flex: 0 0 auto;
-  min-width: 72px;
+  min-width: 120px;
   background: rgba(148, 163, 184, 0.2);
   color: #e2e8f0;
 }
@@ -2745,9 +2738,6 @@ html, body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 .mods-single-download-list .mods-download-btn {
-  width: auto;
-}
-.mods-single-download-list .mods-single-item-buttons .mods-download-btn {
   width: auto;
 }
 .mods-download-btn--disabled {
