@@ -703,6 +703,52 @@
     });
   }
 
+  const arrowStepsToggle = document.getElementById('arrowStepsToggle');
+  const arrowStepsBody = document.getElementById('arrowStepsBody');
+  const arrowStepsContainer = document.getElementById('arrowStepsContainer');
+  if (arrowStepsToggle && arrowStepsBody && arrowStepsContainer) {
+    arrowStepsToggle.addEventListener('click', () => {
+      const isOpen = arrowStepsContainer.classList.toggle('is-open');
+      arrowStepsToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+  }
+
+  const tutorialSlider = document.getElementById('tutorialSlider');
+  const tutorialPrev = document.getElementById('tutorialPrev');
+  const tutorialNext = document.getElementById('tutorialNext');
+  const tutorialTrail = document.getElementById('tutorialTrail');
+  const TUTORIAL_SLIDES = 4;
+  let tutorialIndex = 0;
+
+  function tutorialSlideTo(index) {
+    tutorialIndex = Math.max(0, Math.min(index, TUTORIAL_SLIDES - 1));
+    const percent = tutorialIndex * 25;
+    if (tutorialSlider) tutorialSlider.style.transform = `translateX(-${percent}%)`;
+    const items = tutorialTrail && tutorialTrail.querySelectorAll('.tutorial-trail-item');
+    if (items) {
+      items.forEach((el, i) => el.classList.toggle('active', i === tutorialIndex));
+    }
+  }
+
+  function tutorialSlideNext() {
+    tutorialSlideTo(tutorialIndex < TUTORIAL_SLIDES - 1 ? tutorialIndex + 1 : 0);
+  }
+
+  function tutorialSlidePrev() {
+    tutorialSlideTo(tutorialIndex > 0 ? tutorialIndex - 1 : TUTORIAL_SLIDES - 1);
+  }
+
+  if (tutorialPrev) tutorialPrev.addEventListener('click', tutorialSlidePrev);
+  if (tutorialNext) tutorialNext.addEventListener('click', tutorialSlideNext);
+  if (tutorialTrail) {
+    tutorialTrail.addEventListener('click', (e) => {
+      const item = e.target && e.target.closest('.tutorial-trail-item');
+      if (!item) return;
+      const idx = parseInt(item.getAttribute('data-index'), 10);
+      if (Number.isFinite(idx)) tutorialSlideTo(idx);
+    });
+  }
+
   if (playChoiceModal) {
     const playChoiceBackdrop = playChoiceModal.querySelector('.recover-modal-backdrop');
     if (playChoiceBackdrop) playChoiceBackdrop.addEventListener('click', closePlayChoiceModal);
@@ -991,6 +1037,7 @@
     }
     if (tabName === 'home') loadHomeCards();
     if (tabName === 'config') loadConfigCards();
+    if (tabName === 'users') fetchAdminUsers();
     if (tabName === 'mpAdmin') {
       loadMpAdminPendingCount();
       loadMpAdminPendingRequests();
@@ -2158,6 +2205,7 @@
   const userEditSaveBtn = document.getElementById('userEditSave');
   let userEditCurrentId = null;
   let usersAdminCache = [];
+  let usersAdminSort = { column: null, direction: 'asc' };
 
   // Admin MP
   const mpAdminEmailInput = document.getElementById('mpAdminEmail');
@@ -2883,7 +2931,7 @@
     const emailFilter = (usersAdminFilterEmail?.value || '').trim().toLowerCase();
     const discordFilter = (usersAdminFilterDiscord?.value || '').trim().toLowerCase();
 
-    const filtered = usersAdminCache.filter((row) => {
+    let filtered = usersAdminCache.filter((row) => {
       const email = (row.email || '').toString().toLowerCase();
       const discord = (
         row.discord_username ||
@@ -2896,8 +2944,48 @@
       return true;
     });
 
+    const sortCol = usersAdminSort.column;
+    const sortDir = usersAdminSort.direction === 'desc' ? -1 : 1;
+    if (sortCol) {
+      const cmp = (a, b) => {
+        let va = '';
+        let vb = '';
+        switch (sortCol) {
+          case 'email':
+            va = (a.email || '').toString().toLowerCase();
+            vb = (b.email || '').toString().toLowerCase();
+            break;
+          case 'discord':
+            va = (a.discord_username || a.discord_id || '').toString().toLowerCase();
+            vb = (b.discord_username || b.discord_id || '').toString().toLowerCase();
+            break;
+          case 'estado':
+            va = (a.status || '').toString().toLowerCase();
+            vb = (b.status || '').toString().toLowerCase();
+            break;
+          case 'roles':
+            va = (pickDisplayRole(a.roles) || '').toLowerCase();
+            vb = (pickDisplayRole(b.roles) || '').toLowerCase();
+            break;
+          case 'mp':
+            va = (pickMercadoPagoLabel(a) || '').toLowerCase();
+            vb = (pickMercadoPagoLabel(b) || '').toLowerCase();
+            break;
+          case 'pc':
+            va = (a.pc_name || '').toString().toLowerCase();
+            vb = (b.pc_name || '').toString().toLowerCase();
+            break;
+          default:
+            return 0;
+        }
+        return va.localeCompare(vb, undefined, { sensitivity: 'base' }) * sortDir;
+      };
+      filtered = filtered.slice().sort(cmp);
+    }
+
     if (filtered.length === 0) {
       usersAdminTableBody.innerHTML = '<tr><td colspan="7">Sin resultados para este filtro.</td></tr>';
+      updateUsersAdminSortHeaders();
       return;
     }
 
@@ -2907,12 +2995,25 @@
       const tr = document.createElement('tr');
       const displayRole = pickDisplayRole(row.roles);
       const mpText = pickMercadoPagoLabel(row);
-      const statusText = row.status || '-';
+      const statusRaw = (row.status || '').toString().toLowerCase();
+      const statusClass = statusRaw === 'linked' ? 'linked' : statusRaw === 'pending' ? 'pending' : statusRaw === 'banned' || statusRaw === 'disabled' ? statusRaw : 'pending';
+      const statusLabel = row.status || '-';
+      const discordName = row.discord_username || row.discord_id || '-';
+      const discordInitials = discordName !== '-' && discordName.length >= 2
+        ? (discordName.slice(0, 2)).toUpperCase()
+        : discordName !== '-' && discordName.length === 1
+          ? discordName.toUpperCase()
+          : '?';
 
       tr.innerHTML = `
         <td>${escapeHtml(row.email || '-')}</td>
-        <td>${escapeHtml(row.discord_username || row.discord_id || '-')}</td>
-        <td>${escapeHtml(statusText)}</td>
+        <td>
+          <div class="assignee">
+            <div class="avatar">${escapeHtml(discordInitials)}</div>
+            ${escapeHtml(discordName)}
+          </div>
+        </td>
+        <td><span class="status ${escapeHtml(statusClass)}">${escapeHtml(statusLabel)}</span></td>
         <td>${escapeHtml(displayRole)}</td>
         <td>${escapeHtml(mpText)}</td>
         <td>${escapeHtml(row.pc_name || '-')}</td>
@@ -2925,6 +3026,23 @@
       `;
 
       usersAdminTableBody.appendChild(tr);
+    });
+
+    updateUsersAdminSortHeaders();
+  }
+
+  function updateUsersAdminSortHeaders() {
+    const table = usersAdminTableBody && usersAdminTableBody.closest('table');
+    if (!table) return;
+    const ths = table.querySelectorAll('thead th.users-admin-th-sortable');
+    const col = usersAdminSort.column;
+    const dir = usersAdminSort.direction;
+    ths.forEach((th) => {
+      const key = th.getAttribute('data-sort');
+      th.classList.remove('sort-asc', 'sort-desc');
+      if (key && key === col) {
+        th.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+      }
     });
   }
 
@@ -2944,7 +3062,10 @@
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data || !data.success || !Array.isArray(data.users)) {
-        showUsersAdminError(data.message || 'No se pudo cargar la lista de usuarios.');
+        const msg = data.message === 'rate_limited' || res.status === 429
+          ? 'Demasiadas peticiones. Espera un momento y vuelve a intentar.'
+          : (data.message || 'No se pudo cargar la lista de usuarios.');
+        showUsersAdminError(msg);
         usersAdminTableBody.innerHTML = '';
         return;
       }
@@ -3166,6 +3287,23 @@
 
   if (usersAdminFilterDiscord) {
     usersAdminFilterDiscord.addEventListener('input', () => {
+      renderAdminUsersTable();
+    });
+  }
+
+  const usersAdminTableWrapper = document.querySelector('.users-admin-table-wrapper');
+  if (usersAdminTableWrapper) {
+    usersAdminTableWrapper.addEventListener('click', (e) => {
+      const th = e.target && e.target.closest('th.users-admin-th-sortable');
+      if (!th) return;
+      const key = th.getAttribute('data-sort');
+      if (!key) return;
+      if (usersAdminSort.column === key) {
+        usersAdminSort.direction = usersAdminSort.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        usersAdminSort.column = key;
+        usersAdminSort.direction = 'asc';
+      }
       renderAdminUsersTable();
     });
   }

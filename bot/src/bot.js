@@ -105,7 +105,7 @@ function ensureAuthorizedRequest(req, res, bucket, limit, requestEmail) {
   if (bucket && limit && isRateLimited(ip, bucket, limit)) {
     res.statusCode = 429;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ success: false, message: 'rate_limited' }));
+    res.end(JSON.stringify({ success: false, message: 'Demasiadas peticiones. Espera un momento y vuelve a intentar.' }));
     return false;
   }
 
@@ -976,7 +976,7 @@ function startOAuthServer() {
         if (isRateLimited(getClientIp(req), 'access_request', 10)) {
           res.statusCode = 429;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ success: false, message: 'rate_limited' }));
+          res.end(JSON.stringify({ success: false, message: 'Demasiadas peticiones. Espera un momento y vuelve a intentar.' }));
           return;
         }
         const sessionHeader = req.headers['x-auth2027-session'];
@@ -1108,7 +1108,7 @@ function startOAuthServer() {
           res.end('Missing email');
           return;
         }
-        if (!ensureAuthorizedRequest(req, res, 'admin', 30, adminEmail)) return;
+        if (!ensureAuthorizedRequest(req, res, 'admin', 80, adminEmail)) return;
 
         async function isAdminByEmail(email) {
           try {
