@@ -1,0 +1,121 @@
+v26.2.7:
+    - Fixed game crash when opening player in player editor
+    - Added:
+        - Dedicated editor for managers
+        - "Is Regen" & "Has Miniface" columns in players list
+
+
+v26.2.6:
+    - Added Solution for "Not supported Career Mode Teams and Leagues" (more info on wiki)
+    - Added "Club Reputation" & "National Team Reputation to "Miscellaneous Features->Career Mode -> Player Career"
+    - Updated FUT Cards Presets
+    - Some minor bug fixes
+
+v26.2.5:
+    - Added "Disable negotiation status check" to "Miscellaneous Features->Player Contract"
+    - Added "Always allow transfer & loan approach" to "Miscellaneous Features->Transfer HUB"
+    - Updated FUT Cards Presets
+
+v26.2.4:
+    - Added:
+        - Create Player
+        - Clone Existing Player
+        - FUT Cards Presets
+
+v26.2.3:
+    - Work with FC26 v1.4.0
+
+v26.2.2:
+    - Added to Player Editor:
+        - Is Transfer/Loan Listed
+    - Added to Team Editor:
+        - Formation Editor
+    - Added to LUA API:
+        - Gameplay Attribulator (https://github.com/xAranaktu/FC-26-Live-Editor/wiki/LUA-API-v2-Gameplay-Attribulator) 
+
+v26.2.1:
+    - Added to Player Editor:
+        - Team selection bias
+        - Development exp boost
+    - Added to Team Editor:
+        - Create Job Offer
+    - Added to "Miscellaneous Features":
+        - Player Career (Funds, Wage, Attribute Points, Personality, Unlock Playstyles Slots, Contract Objectives Bypass)
+
+v26.2.0:
+    - Added to "Miscellaneous Features":
+        - Gameplay (CPU vs CPU, never tired players, unlimited subs, match time & score)
+
+v26.1.9:
+    - Work with FC26 v1.2.0
+
+v26.1.8:
+    - Added Transfer History
+    - Attributes boost in force player tier config are now separated for goalkeepers and field players.
+
+
+v26.1.7:
+    - Added to Player Editor:
+        - Season Statistics
+    - Added to Team Editor:
+        - League Standings
+        - Fixtures
+        - Match-fixing
+        - "islicensed" field for manager
+
+v26.1.6:
+    - Work with FC26 v1.1.0
+
+v26.1.5:
+    - Added to Player Editor:
+        - Delete Player
+        - Generate Miniface
+        - Change Name
+    - Added to "Miscellaneous Features":
+        - Match Setup: 
+            - Override Stadium, Weather, Fixture Time, Crowd Attendance
+        - Manager: 
+            - Unsackable
+    - Fixed:
+        - Importing miniface for VPRO Player
+
+v26.1.4:
+    - Increase default primary & secondary attributes boost in "force player tier" config. You should now get players with ovr around 70
+    - Added to Player Editor:
+        - Transfer/Loan Player
+        - Terminate Loan
+        - Release Player From Team
+    - Added to Team Editor:
+        - Coaches tab
+        - Scouts tab 
+        - Make every scout perfect
+        - Make every coach perfect
+    - Added Misc Features:
+        - Reveal Player Data
+
+v26.1.3:
+    - Added "Youth Academy" to "Miscellaneous Features"
+    - Fixed:
+        - Reseting playstyles in player career mode
+        - Invalid hidden traits IDs
+
+v26.1.2:
+    - Added to Player Editor:
+        - Release Clause
+    - Added to Team Editor:
+        - Change Team Name
+        - Transfer Budget
+        - Transfer Bans
+
+v26.1.1:
+    - Fixed game crash when opening youth academy team in team editor
+    - Player Editor now supports editing VPRO in player career mode
+    - Speedhack now works in gameplay too
+
+v26.1.0:
+    - First working version includes:
+        - Basic Player Editor (Editing player attributes, positions, playstyles etc. in manager career mode only))
+        - Basic Team Editor
+        - Legacy File Browser
+        - Speedhack (In menu, no gameplay yet)
+        - LUA Engine

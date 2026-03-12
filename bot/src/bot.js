@@ -1352,6 +1352,46 @@ function startOAuthServer() {
           return;
         }
 
+        if (url.pathname === '/admin/switcher-online' && req.method === 'GET') {
+          try {
+            const { data: rows, error } = await supabase
+              .from('user_discord_links')
+              .select('email, discord_username, roles')
+              .eq('switcher_abierto', true)
+              .eq('status', 'linked')
+              .not('discord_id', 'is', null);
+
+            if (error) {
+              console.error('Error leyendo switcher-online:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, users: [] }));
+              return;
+            }
+
+            const elevatedRoles = ['admin', '🛡️・𝑨𝑫𝑴𝑰𝑵 𝑺・🛡️'.toLowerCase(), '⚔️・𝑺𝑶𝑷𝑶𝑹𝑻𝑬・⚔️'.toLowerCase()];
+            const filtered = (rows || []).filter((r) => {
+              const rolesArr = Array.isArray(r?.roles) ? r.roles.map((x) => String(x).toLowerCase()) : [];
+              return rolesArr.some((role) => elevatedRoles.includes(role));
+            });
+
+            const users = filtered.map((r) => ({
+              email: r.email || '',
+              name: r.discord_username || r.email || '-'
+            }));
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, users }));
+          } catch (e) {
+            console.error('Error en /admin/switcher-online:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, users: [] }));
+          }
+          return;
+        }
+
         if (url.pathname === '/admin/users' && req.method === 'GET') {
           try {
             const { data: rows, error } = await supabase
@@ -1654,7 +1694,41 @@ function startOAuthServer() {
           return;
         }
 
-        // --- Admin: Bugs (listar, ver detalle, actualizar, marcar resuelto) ---
+        // --- Admin: Bugs (stats, listar, ver detalle, actualizar, marcar resuelto) ---
+        if (url.pathname === '/admin/bugs/stats' && req.method === 'GET') {
+          try {
+            const { data: rows, error } = await supabase
+              .from('bug_reports')
+              .select('status');
+
+            if (error) {
+              console.error('Error leyendo bug_reports stats:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, stats: { pending: 0, en_curso: 0, resolved: 0 } }));
+              return;
+            }
+
+            const stats = { pending: 0, en_curso: 0, resolved: 0 };
+            (rows || []).forEach((r) => {
+              const s = String(r?.status || '').toLowerCase();
+              if (s === 'pending') stats.pending++;
+              else if (s === 'en_curso') stats.en_curso++;
+              else if (s === 'resolved') stats.resolved++;
+            });
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, stats }));
+          } catch (e) {
+            console.error('Error en /admin/bugs/stats:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, stats: { pending: 0, en_curso: 0, resolved: 0 } }));
+          }
+          return;
+        }
+
         if (url.pathname === '/admin/bugs' && req.method === 'GET') {
           try {
             const statusFilter = url.searchParams.get('status') || '';

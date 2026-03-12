@@ -674,6 +674,10 @@
           <!-- ADMIN: MP (Solicitudes de acceso + Mercado Pago en sub-tabs) -->
           <div class="dash-tab" data-tab-panel="mpAdmin" hidden>
             <div class="mp-admin-tabs">
+              <div id="mpAdminSwitcherOnline" class="mp-admin-switcher-online" hidden>
+                <span class="mp-admin-switcher-online-label">Switcher abierto:</span>
+                <span id="mpAdminSwitcherOnlineList" class="mp-admin-switcher-online-list"></span>
+              </div>
               <div class="mp-admin-tab-bar" role="tablist">
                 <button type="button" class="mp-admin-tab-btn mp-admin-tab-btn--active" data-mp-tab="requests" role="tab" aria-selected="true">
                   Solicitudes de acceso <span id="mpAdminRequestsBadge" class="mp-admin-requests-badge" hidden>0</span>
@@ -741,6 +745,31 @@
             <section class="dash-card dash-card-wide">
               <h3>Reportes de Bugs</h3>
               <p class="dash-card-text">Bugs reportados por los usuarios. Puedes ver el enlace al archivo (Transfer.it), añadir notas, marcar "En curso", responder y marcar como resuelto.</p>
+              <div id="bugsAdminChart" class="bugs-admin-chart">
+                <div class="bugs-chart-bars">
+                  <div class="bugs-chart-bar-wrap">
+                    <span class="bugs-chart-label">Pendientes</span>
+                    <div class="bugs-chart-bar-track">
+                      <div id="bugsChartPending" class="bugs-chart-bar bugs-chart-bar--pending" style="width: 0%"></div>
+                    </div>
+                    <span id="bugsChartPendingCount" class="bugs-chart-count">0</span>
+                  </div>
+                  <div class="bugs-chart-bar-wrap">
+                    <span class="bugs-chart-label">En curso</span>
+                    <div class="bugs-chart-bar-track">
+                      <div id="bugsChartEnCurso" class="bugs-chart-bar bugs-chart-bar--en-curso" style="width: 0%"></div>
+                    </div>
+                    <span id="bugsChartEnCursoCount" class="bugs-chart-count">0</span>
+                  </div>
+                  <div class="bugs-chart-bar-wrap">
+                    <span class="bugs-chart-label">Resueltos</span>
+                    <div class="bugs-chart-bar-track">
+                      <div id="bugsChartResolved" class="bugs-chart-bar bugs-chart-bar--resolved" style="width: 0%"></div>
+                    </div>
+                    <span id="bugsChartResolvedCount" class="bugs-chart-count">0</span>
+                  </div>
+                </div>
+              </div>
               <div id="bugsAdminError" class="message message-error" role="alert" hidden></div>
               <div class="bugs-admin-toolbar users-admin-toolbar">
                 <div class="users-admin-filters">

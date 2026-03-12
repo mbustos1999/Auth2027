@@ -1106,8 +1106,10 @@
     if (tabName === 'mpAdmin') {
       loadMpAdminPendingCount();
       loadMpAdminPendingRequests();
+      loadMpAdminSwitcherOnline();
     }
     if (tabName === 'bugs') {
+      loadBugsAdminChart();
       loadBugsAdminList();
     }
   }
@@ -1145,14 +1147,14 @@
     return div.innerHTML;
   }
 
-  /** Formatea un valor booleano de setup (✓, ✗, ?) */
+  /** Formatea un valor booleano de setup (✓ verde, ✗ roja, ? amarillo) */
   function formatSetupCell(val) {
-    if (val === true) return '✓';
-    if (val === false) return '✗';
-    return '?';
+    if (val === true) return '<span class="setup-cell setup-cell--ok">✓</span>';
+    if (val === false) return '<span class="setup-cell setup-cell--error">✗</span>';
+    return '<span class="setup-cell setup-cell--unknown">?</span>';
   }
 
-  /** Formatea mod_order_ok, teams_ok, squad_applied para mostrar */
+  /** Formatea mod_order_ok, teams_ok, squad_applied para mostrar (HTML con colores) */
   function formatSetupInfo(obj) {
     if (!obj || typeof obj !== 'object') return '';
     const mod = obj.mod_order_ok;
@@ -2317,6 +2319,8 @@
   const mpAdminResultExternalRefEl = document.getElementById('mpAdminResultExternalRef');
   const mpAdminRequestsList = document.getElementById('mpAdminRequestsList');
   const mpAdminRequestsBadge = document.getElementById('mpAdminRequestsBadge');
+  const mpAdminSwitcherOnline = document.getElementById('mpAdminSwitcherOnline');
+  const mpAdminSwitcherOnlineList = document.getElementById('mpAdminSwitcherOnlineList');
   const mpNavBadge = document.getElementById('mpNavBadge');
   const comprobanteFullscreenModal = document.getElementById('comprobanteFullscreenModal');
   const comprobanteFullscreenImg = document.getElementById('comprobanteFullscreenImg');
@@ -2464,6 +2468,24 @@
       accessRequestPollingIntervalId = null;
     }
     lastAccessRequestCount = null;
+  }
+
+  async function loadMpAdminSwitcherOnline() {
+    if (!mpAdminSwitcherOnline || !mpAdminSwitcherOnlineList || !currentUser?.user_email) return;
+    try {
+      const adminEmail = encodeURIComponent(currentUser.user_email);
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/switcher-online?email=${adminEmail}`);
+      const data = await res.json().catch(() => ({}));
+      const users = Array.isArray(data.users) ? data.users : [];
+      if (users.length === 0) {
+        mpAdminSwitcherOnline.hidden = true;
+        return;
+      }
+      mpAdminSwitcherOnlineList.textContent = users.map((u) => u.name || u.email || '-').join(', ');
+      mpAdminSwitcherOnline.hidden = false;
+    } catch (_) {
+      mpAdminSwitcherOnline.hidden = true;
+    }
   }
 
   async function loadMpAdminPendingRequests() {
@@ -2895,6 +2917,12 @@
   const bugsAdminError = document.getElementById('bugsAdminError');
   const bugsAdminFilterStatus = document.getElementById('bugsAdminFilterStatus');
   const bugsAdminRefresh = document.getElementById('bugsAdminRefresh');
+  const bugsChartPending = document.getElementById('bugsChartPending');
+  const bugsChartEnCurso = document.getElementById('bugsChartEnCurso');
+  const bugsChartResolved = document.getElementById('bugsChartResolved');
+  const bugsChartPendingCount = document.getElementById('bugsChartPendingCount');
+  const bugsChartEnCursoCount = document.getElementById('bugsChartEnCursoCount');
+  const bugsChartResolvedCount = document.getElementById('bugsChartResolvedCount');
   const bugDetailModal = document.getElementById('bugDetailModal');
   const bugDetailId = document.getElementById('bugDetailId');
   const bugDetailContent = document.getElementById('bugDetailContent');
@@ -2907,6 +2935,33 @@
   const bugDetailModalCloseX = document.getElementById('bugDetailModalCloseX');
 
   let currentBugDetailId = null;
+
+  async function loadBugsAdminChart() {
+    if (!currentUser?.user_email || !bugsChartPending || !bugsChartEnCurso || !bugsChartResolved) return;
+    try {
+      const adminEmail = encodeURIComponent(currentUser.user_email);
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/bugs/stats?email=${adminEmail}`);
+      const data = await res.json().catch(() => ({}));
+      const stats = data?.stats || { pending: 0, en_curso: 0, resolved: 0 };
+      const total = stats.pending + stats.en_curso + stats.resolved;
+      const maxVal = Math.max(total, 1);
+      const pctP = (stats.pending / maxVal) * 100;
+      const pctE = (stats.en_curso / maxVal) * 100;
+      const pctR = (stats.resolved / maxVal) * 100;
+      if (bugsChartPending) {
+        bugsChartPending.style.width = `${pctP}%`;
+      }
+      if (bugsChartEnCurso) {
+        bugsChartEnCurso.style.width = `${pctE}%`;
+      }
+      if (bugsChartResolved) {
+        bugsChartResolved.style.width = `${pctR}%`;
+      }
+      if (bugsChartPendingCount) bugsChartPendingCount.textContent = stats.pending;
+      if (bugsChartEnCursoCount) bugsChartEnCursoCount.textContent = stats.en_curso;
+      if (bugsChartResolvedCount) bugsChartResolvedCount.textContent = stats.resolved;
+    } catch (_) {}
+  }
 
   async function loadBugsAdminList() {
     if (!bugsAdminList || !currentUser?.user_email) return;
@@ -2941,7 +2996,7 @@
           <td>${escapeHtml(bug.equipo || '-')}</td>
           <td>${bug.temporada || '-'}</td>
           <td title="${escapeHtml(bug.problema || '')}">${escapeHtml(problemaShort || '-')}</td>
-          <td>${escapeHtml(setupStr) || '-'}</td>
+          <td>${setupStr || '-'}</td>
           <td><span class="status ${statusClass}">${statusLabel}${enCursoInfo}</span></td>
           <td>${fileLink}</td>
           <td>
@@ -2959,7 +3014,7 @@
     }
   }
 
-  if (bugsAdminRefresh) bugsAdminRefresh.addEventListener('click', () => loadBugsAdminList());
+  if (bugsAdminRefresh) bugsAdminRefresh.addEventListener('click', () => { loadBugsAdminChart(); loadBugsAdminList(); });
   if (bugsAdminFilterStatus) bugsAdminFilterStatus.addEventListener('change', () => loadBugsAdminList());
 
   async function openBugDetailModal(id) {
@@ -2991,7 +3046,7 @@
       const enCursoBy = bug.en_curso_by ? ` (por ${escapeHtml(bug.en_curso_by)})` : '';
       content += `<p class="dash-card-text"><strong>Estado:</strong> ${statusLabel}${enCursoBy}</p>`;
       const setupStr = formatSetupInfo(bug);
-      if (setupStr) content += `<p class="dash-card-text"><strong>Setup al reportar:</strong> ${escapeHtml(setupStr)}</p>`;
+      if (setupStr) content += `<p class="dash-card-text"><strong>Setup al reportar:</strong> ${setupStr}</p>`;
       if (bug.career_file_url) {
         content += `<p class="dash-card-text"><a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="mods-download-btn" style="display:inline-block;margin-top:8px">Abrir archivo de modo carrera (Transfer.it)</a></p>`;
       }
@@ -3035,6 +3090,7 @@
         const data = await res.json().catch(() => ({}));
         if (data.success) {
           closeBugDetailModal();
+          loadBugsAdminChart();
           loadBugsAdminList();
         } else {
           if (bugDetailError) {
@@ -3071,6 +3127,7 @@
         const data = await res.json().catch(() => ({}));
         if (data.success) {
           closeBugDetailModal();
+          loadBugsAdminChart();
           loadBugsAdminList();
         } else {
           if (bugDetailError) {

@@ -1,0 +1,15 @@
+2026-03-06 12:02:17.429 [INF] Application version 9.3.1.0 started up, from path C:\Users\migue\Documents\Auth2027\modManager\FIFA Mod Manager.exe
+2026-03-06 12:02:18.469 [WRN] Another instance is running.
+2026-03-06 12:02:18.469 [INF] Shutting down new instance to maintain single existing instance.
+2026-03-06 12:02:34.520 [INF] Application version 9.3.1.0 started up, from path C:\Users\migue\Documents\Auth2027\modManager\FIFA Mod Manager.exe
+2026-03-06 12:02:35.556 [WRN] Another instance is running.
+2026-03-06 12:02:35.556 [INF] Shutting down new instance to maintain single existing instance.
+2026-03-06 12:02:45.808 [INF] Application version 9.3.1.0 started up, from path C:\Users\migue\Documents\Auth2027\modManager\FIFA Mod Manager.exe
+2026-03-06 12:02:45.834 [INF] Loading the general configuration file from "C:\Users\migue\Documents\Auth2027\modManager\FIFA Mod Manager.json".
+2026-03-06 12:02:47.346 [INF] Launching mod manager for game "EA Sports FC 26".
+2026-03-06 12:04:03.921 [INF] Application version 9.3.1.0 started up, from path C:\Users\migue\Documents\Auth2027\modManager\FIFA Mod Manager.exe
+2026-03-06 12:04:03.948 [INF] Loading the general configuration file from "C:\Users\migue\Documents\Auth2027\modManager\FIFA Mod Manager.json".
+2026-03-06 12:04:06.883 [INF] Launching mod manager for game "EA Sports FC 26".
+2026-03-06 12:27:55.903 [INF] Application version 9.3.1.0 started up, from path C:\Users\migue\Documents\Auth2027\modManager\FIFA Mod Manager.exe
+2026-03-06 12:27:55.928 [INF] Loading the general configuration file from "C:\Users\migue\Documents\Auth2027\modManager\FIFA Mod Manager.json".
+2026-03-06 12:27:57.641 [INF] Launching mod manager for game "EA Sports FC 26".
