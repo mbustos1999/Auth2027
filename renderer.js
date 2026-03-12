@@ -1144,6 +1144,13 @@
     return div.innerHTML;
   }
 
+  /** Formatea un valor booleano de setup (✓, ✗, ?) */
+  function formatSetupCell(val) {
+    if (val === true) return '✓';
+    if (val === false) return '✗';
+    return '?';
+  }
+
   /** Formatea mod_order_ok, teams_ok, squad_applied para mostrar */
   function formatSetupInfo(obj) {
     if (!obj || typeof obj !== 'object') return '';
@@ -1151,8 +1158,7 @@
     const teams = obj.teams_ok;
     const squad = obj.squad_applied;
     if (mod == null && teams == null && squad == null) return '-';
-    const fmt = (v) => v === true ? '✓' : v === false ? '✗' : '?';
-    return `Mods ${fmt(mod)} · Teams ${fmt(teams)} · Squad ${fmt(squad)}`;
+    return `Mods ${formatSetupCell(mod)} · Teams ${formatSetupCell(teams)} · Squad ${formatSetupCell(squad)}`;
   }
 
   let configCardsCache = [];
@@ -3409,9 +3415,17 @@
             va = (a.pc_name || '').toString().toLowerCase();
             vb = (b.pc_name || '').toString().toLowerCase();
             break;
-          case 'setup':
-            va = (formatSetupInfo(a) || '').toLowerCase();
-            vb = (formatSetupInfo(b) || '').toLowerCase();
+          case 'mod_order':
+            va = String(a.mod_order_ok ?? '?');
+            vb = String(b.mod_order_ok ?? '?');
+            break;
+          case 'teams':
+            va = String(a.teams_ok ?? '?');
+            vb = String(b.teams_ok ?? '?');
+            break;
+          case 'squad':
+            va = String(a.squad_applied ?? '?');
+            vb = String(b.squad_applied ?? '?');
             break;
           default:
             return 0;
@@ -3422,7 +3436,7 @@
     }
 
     if (filtered.length === 0) {
-      usersAdminTableBody.innerHTML = '<tr><td colspan="8">Sin resultados para este filtro.</td></tr>';
+      usersAdminTableBody.innerHTML = '<tr><td colspan="10">Sin resultados para este filtro.</td></tr>';
       updateUsersAdminSortHeaders();
       return;
     }
@@ -3455,7 +3469,9 @@
         <td>${escapeHtml(displayRole)}</td>
         <td>${escapeHtml(mpText)}</td>
         <td>${escapeHtml(row.pc_name || '-')}</td>
-        <td>${escapeHtml(formatSetupInfo(row)) || '-'}</td>
+        <td>${formatSetupCell(row.mod_order_ok)}</td>
+        <td>${formatSetupCell(row.teams_ok)}</td>
+        <td>${formatSetupCell(row.squad_applied)}</td>
         <td>
           <div class="users-admin-actions">
             <button type="button" class="users-admin-btn users-admin-btn--edit" data-user-id="${escapeHtml(String(row.id))}">Editar</button>
@@ -3493,7 +3509,7 @@
     }
     if (!usersAdminTableBody) return;
 
-    usersAdminTableBody.innerHTML = '<tr><td colspan="8">Cargando usuarios...</td></tr>';
+    usersAdminTableBody.innerHTML = '<tr><td colspan="10">Cargando usuarios...</td></tr>';
 
     try {
       const email = encodeURIComponent(currentUser.user_email);
@@ -3511,7 +3527,7 @@
 
       usersAdminCache = data.users;
       if (usersAdminCache.length === 0) {
-        usersAdminTableBody.innerHTML = '<tr><td colspan="8">No hay usuarios registrados.</td></tr>';
+        usersAdminTableBody.innerHTML = '<tr><td colspan="10">No hay usuarios registrados.</td></tr>';
         return;
       }
 

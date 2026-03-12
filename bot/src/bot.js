@@ -1190,25 +1190,43 @@ function startOAuthServer() {
         const teamsOk = body && typeof body.teams_ok === 'boolean' ? body.teams_ok : null;
         const squadApplied = body && typeof body.squad_applied === 'boolean' ? body.squad_applied : null;
         try {
-          const { data: row, error } = await supabase
+          let { data: row, error } = await supabase
             .from('user_discord_links')
             .select('id')
             .eq('email', userEmail)
             .maybeSingle();
-          if (error || !row) {
-            res.statusCode = 200;
+          if (error) {
+            console.error('Error leyendo user_discord_links en /user/setup-info:', error);
+            res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            res.end(JSON.stringify({ success: true }));
+            res.end(JSON.stringify({ success: false, message: 'db_error' }));
             return;
           }
+          const now = new Date().toISOString();
           const patch = {
             mod_order_ok: modOrderOk,
             teams_ok: teamsOk,
             squad_applied: squadApplied,
-            setup_info_updated_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            setup_info_updated_at: now,
+            updated_at: now
           };
-          await supabase.from('user_discord_links').update(patch).eq('id', row.id);
+          if (!row) {
+            const { error: insertErr } = await supabase.from('user_discord_links').insert({
+              email: userEmail,
+              status: 'pending',
+              ...patch,
+              created_at: now
+            });
+            if (insertErr) {
+              console.error('Error creando fila en /user/setup-info:', insertErr);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+          } else {
+            await supabase.from('user_discord_links').update(patch).eq('id', row.id);
+          }
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
           res.end(JSON.stringify({ success: true }));
