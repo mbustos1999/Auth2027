@@ -1071,6 +1071,113 @@ function startOAuthServer() {
         return;
       }
 
+      // --- Reportar Bug/Problema (usuario autenticado) ---
+      if (url.pathname === '/bug-report' && req.method === 'POST') {
+        if (isRateLimited(getClientIp(req), 'bug_report', 10)) {
+          res.statusCode = 429;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Demasiadas peticiones. Espera un momento y vuelve a intentar.' }));
+          return;
+        }
+        const sessionHeader = req.headers['x-auth2027-session'];
+        const userEmail = typeof sessionHeader === 'string' && sessionHeader.trim()
+          ? verifySessionToken(sessionHeader.trim(), null)
+          : null;
+        if (!userEmail) {
+          res.statusCode = 401;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Sesión inválida o expirada.' }));
+          return;
+        }
+        const body = await new Promise((resolve) => {
+          let data = '';
+          req.on('data', (chunk) => {
+            data += chunk.toString();
+            if (data.length > 2e7) req.destroy();
+          });
+          req.on('end', () => {
+            try {
+              resolve(data ? JSON.parse(data) : {});
+            } catch {
+              resolve({});
+            }
+          });
+          req.on('error', () => resolve({}));
+        });
+        const equipo = body && typeof body.equipo === 'string' ? body.equipo.trim() : '';
+        const temporada = body && body.temporada != null ? parseInt(body.temporada, 10) : NaN;
+        const problema = body && typeof body.problema === 'string' ? body.problema.trim() : '';
+        if (!equipo || !problema || !Number.isFinite(temporada) || temporada < 2026 || temporada > 2034) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Equipo, temporada (2026-2034) y problema son obligatorios.' }));
+          return;
+        }
+        const image1 = body && typeof body.image1 === 'string' ? body.image1.trim() : null;
+        const image2 = body && typeof body.image2 === 'string' ? body.image2.trim() : null;
+        const image3 = body && typeof body.image3 === 'string' ? body.image3.trim() : null;
+        const careerFile = body && typeof body.career_file === 'string' ? body.career_file.trim() : null;
+        const careerFileName = body && typeof body.career_file_name === 'string' ? body.career_file_name.trim() : null;
+        const MAX_IMAGE = 2500000;
+        const MAX_CAREER = 15000000;
+        if (image1 && image1.length > MAX_IMAGE) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'La imagen 1 es demasiado grande. Usa una más pequeña.' }));
+          return;
+        }
+        if (image2 && image2.length > MAX_IMAGE) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'La imagen 2 es demasiado grande. Usa una más pequeña.' }));
+          return;
+        }
+        if (image3 && image3.length > MAX_IMAGE) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'La imagen 3 es demasiado grande. Usa una más pequeña.' }));
+          return;
+        }
+        if (careerFile && careerFile.length > MAX_CAREER) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'El archivo de modo carrera es demasiado grande.' }));
+          return;
+        }
+        const { data: linkRow, error: linkError } = await supabase
+          .from('user_discord_links')
+          .select('id, discord_id, discord_username, status')
+          .eq('email', userEmail)
+          .maybeSingle();
+        const discordId = linkRow?.discord_id || null;
+        const discordUsername = linkRow?.discord_username || null;
+        const { error: insertErr } = await supabase.from('bug_reports').insert({
+          user_email: userEmail,
+          discord_id: discordId,
+          discord_username: discordUsername,
+          equipo,
+          temporada,
+          problema,
+          image1_data: image1 || null,
+          image2_data: image2 || null,
+          image3_data: image3 || null,
+          career_file_data: careerFile || null,
+          career_file_name: careerFileName || null,
+          status: 'pending'
+        });
+        if (insertErr) {
+          console.error('Error insertando bug_report:', insertErr);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Error al guardar el reporte.' }));
+          return;
+        }
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ success: true, message: 'Un administrador revisará tu caso y responderá a la brevedad.' }));
+        return;
+      }
+
       // --- Tarjetas del Inicio (público: cualquiera puede leer) ---
       if (url.pathname === '/home-cards' && req.method === 'GET') {
         try {
@@ -1476,6 +1583,129 @@ function startOAuthServer() {
             res.end(JSON.stringify({ success: true, message: 'Solicitud rechazada y eliminada.' }));
           } catch (e) {
             console.error('Error en /admin/access-requests/reject:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        // --- Admin: Bugs (listar, ver detalle, actualizar, marcar resuelto) ---
+        if (url.pathname === '/admin/bugs' && req.method === 'GET') {
+          try {
+            const statusFilter = url.searchParams.get('status') || '';
+            let query = supabase.from('bug_reports').select('*').order('created_at', { ascending: false });
+            if (statusFilter === 'pending' || statusFilter === 'resolved') {
+              query = query.eq('status', statusFilter);
+            }
+            const { data: rows, error } = await query;
+            if (error) {
+              console.error('Error leyendo bug_reports:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error', bugs: [] }));
+              return;
+            }
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, bugs: rows || [] }));
+          } catch (e) {
+            console.error('Error inesperado en /admin/bugs:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, bugs: [] }));
+          }
+          return;
+        }
+
+        if (url.pathname.startsWith('/admin/bugs/') && req.method === 'GET') {
+          const match = url.pathname.match(/^\/admin\/bugs\/(\d+)$/);
+          const id = match ? parseInt(match[1], 10) : NaN;
+          if (!Number.isFinite(id)) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'ID inválido.' }));
+            return;
+          }
+          try {
+            const { data: row, error } = await supabase
+              .from('bug_reports')
+              .select('*')
+              .eq('id', id)
+              .maybeSingle();
+            if (error || !row) {
+              res.statusCode = 404;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'Bug no encontrado.' }));
+              return;
+            }
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, bug: row }));
+          } catch (e) {
+            console.error('Error en /admin/bugs/:id:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        if (url.pathname.startsWith('/admin/bugs/') && req.method === 'PATCH') {
+          const match = url.pathname.match(/^\/admin\/bugs\/(\d+)$/);
+          const id = match ? parseInt(match[1], 10) : NaN;
+          if (!Number.isFinite(id)) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'ID inválido.' }));
+            return;
+          }
+          const body = await readJsonBody(req);
+          const { nota, respuesta, resolved } = body || {};
+          try {
+            const patch = { updated_at: new Date().toISOString() };
+            if (typeof nota === 'string') patch.admin_nota = nota.trim();
+            if (typeof respuesta === 'string') patch.admin_respuesta = respuesta.trim();
+            if (resolved === true) {
+              patch.status = 'resolved';
+              patch.resolved_at = new Date().toISOString();
+              patch.resolved_by = adminEmail;
+              patch.image1_data = null;
+              patch.image2_data = null;
+              patch.image3_data = null;
+              patch.career_file_data = null;
+              patch.career_file_name = null;
+            }
+            const { data: row, error } = await supabase
+              .from('bug_reports')
+              .update(patch)
+              .eq('id', id)
+              .select('*')
+              .maybeSingle();
+            if (error) throw error;
+            if (!row) {
+              res.statusCode = 404;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'Bug no encontrado.' }));
+              return;
+            }
+            if (typeof respuesta === 'string' && respuesta.trim() && row.discord_id && client?.users) {
+              try {
+                const dmChannel = await client.users.fetch(row.discord_id).then((u) => u.createDM()).catch(() => null);
+                if (dmChannel) {
+                  await dmChannel.send({
+                    content: `**ArgenMod - Respuesta a tu reporte de bug**\n\nUn administrador ha respondido a tu reporte:\n\n${respuesta.trim()}`
+                  });
+                }
+              } catch (dmErr) {
+                console.warn('No se pudo enviar DM al usuario:', dmErr?.message);
+              }
+            }
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, bug: row }));
+          } catch (e) {
+            console.error('Error en /admin/bugs/:id PATCH:', e);
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.end(JSON.stringify({ success: false, message: 'internal_error' }));

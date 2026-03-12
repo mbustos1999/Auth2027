@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, shell, net } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell, net, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -1172,6 +1172,57 @@ ipcMain.handle('shell:openFolder', async (_event, dirPath) => {
     return { ok: !err };
   } catch (e) {
     return { ok: false };
+  }
+});
+
+// Carpeta de squad del modo carrera (EA SPORTS FC 26 settings)
+ipcMain.handle('bugReport:getCareerFolderPath', () => {
+  return Promise.resolve(eaSettingsDir);
+});
+
+// Abrir carpeta de squad para que el usuario seleccione su archivo de modo carrera
+ipcMain.handle('bugReport:openCareerFolder', async () => {
+  try {
+    const err = await shell.openPath(eaSettingsDir);
+    return { ok: !err };
+  } catch (e) {
+    return { ok: false };
+  }
+});
+
+// Selector de archivo con carpeta por defecto = EA SPORTS FC 26 settings
+ipcMain.handle('bugReport:showFileDialog', async (_event, options) => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (!win) return { canceled: true, filePaths: [] };
+  const defaultPath = options && options.defaultPath ? options.defaultPath : eaSettingsDir;
+  const filters = (options && options.filters) || [{ name: 'Archivos de modo carrera', extensions: ['squads', 'squad', 'dat', '*'] }];
+  try {
+    const result = await dialog.showOpenDialog(win, {
+      title: options.title || 'Seleccionar archivo de modo carrera',
+      defaultPath,
+      filters,
+      properties: ['openFile']
+    });
+    return result;
+  } catch (e) {
+    return { canceled: true, filePaths: [] };
+  }
+});
+
+// Leer archivo y devolver como base64 (data URL)
+ipcMain.handle('bugReport:readFileAsBase64', async (_event, filePath) => {
+  if (typeof filePath !== 'string' || !filePath.trim()) return { ok: false, data: null, error: 'invalid_path' };
+  try {
+    const buf = fs.readFileSync(filePath.trim());
+    const base64 = buf.toString('base64');
+    const ext = path.extname(filePath).toLowerCase();
+    let mime = 'application/octet-stream';
+    if (['.squads', '.squad'].includes(ext)) mime = 'application/octet-stream';
+    if (['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)) mime = `image/${ext.slice(1)}`;
+    const dataUrl = `data:${mime};base64,${base64}`;
+    return { ok: true, data: dataUrl, error: null };
+  } catch (e) {
+    return { ok: false, data: null, error: e?.message || 'read_error' };
   }
 });
 

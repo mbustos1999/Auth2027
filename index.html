@@ -218,6 +218,15 @@
               <span class="dash-nav-icon">⚙️</span>
               <span class="dash-nav-label">Ajustes</span>
             </button>
+            <button class="dash-nav-item dash-nav-item--bug-report" id="btnReportBug" type="button">
+              <span class="dash-nav-icon">🐛</span>
+              <span class="dash-nav-label">Reportar Bug/Problema</span>
+            </button>
+            <button class="dash-nav-item" data-tab="bugs" hidden>
+              <span class="dash-nav-icon">🐛</span>
+              <span class="dash-nav-label">Bugs</span>
+              <span class="dash-nav-crown" title="Solo administradores y soporte">👑</span>
+            </button>
             <button class="dash-nav-item" data-tab="users" hidden>
               <span class="dash-nav-icon">👥</span>
               <span class="dash-nav-label">Usuarios</span>
@@ -720,6 +729,24 @@
             </div>
           </div>
 
+          <!-- BUGS: Panel admin/soporte para gestionar reportes -->
+          <div class="dash-tab" data-tab-panel="bugs" hidden>
+            <section class="dash-card dash-card-wide">
+              <h3>Reportes de Bugs</h3>
+              <p class="dash-card-text">Bugs reportados por los usuarios. Puedes ver imágenes, descargar archivos, añadir notas, responder y marcar como resuelto.</p>
+              <div id="bugsAdminError" class="message message-error" role="alert" hidden></div>
+              <div class="bugs-admin-toolbar">
+                <select id="bugsAdminFilterStatus" class="recover-input bugs-filter-select">
+                  <option value="">Todos</option>
+                  <option value="pending">Pendientes</option>
+                  <option value="resolved">Resueltos</option>
+                </select>
+                <button type="button" class="login-btn-secondary" id="bugsAdminRefresh">Recargar</button>
+              </div>
+              <div id="bugsAdminList" class="bugs-admin-list"></div>
+            </section>
+          </div>
+
           <!-- CONFIGURACIÓN: Tarjetas del Inicio (solo admins) -->
           <div class="dash-tab config-panel" data-tab-panel="config" hidden>
             <section class="discord-card-white config-cards-section">
@@ -806,6 +833,30 @@
           <button type="button" id="accessRequestCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
           <button type="button" id="accessRequestSubmit" class="recover-btn recover-btn-primary">Enviar solicitud</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Modal: detalle de bug (admin) - ver imágenes, descargar archivo, Resuelto/Nota/Respuesta -->
+    <div id="bugDetailModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content mods-modal-content bug-detail-modal-content">
+        <div class="mods-modal-header">
+          <h2>Bug #<span id="bugDetailId">-</span></h2>
+          <button type="button" id="bugDetailModalCloseX" class="mods-modal-close-x" aria-label="Cerrar">×</button>
+        </div>
+        <div id="bugDetailContent" class="bug-detail-content"></div>
+        <div class="bug-detail-admin-actions">
+          <label class="config-field-label">Nota interna (solo admin)</label>
+          <textarea id="bugDetailNota" class="recover-input config-textarea" placeholder="Notas internas..." rows="2"></textarea>
+          <label class="config-field-label">Respuesta al usuario</label>
+          <textarea id="bugDetailRespuesta" class="recover-input config-textarea" placeholder="Esta respuesta se enviará al usuario..." rows="3"></textarea>
+          <div class="recover-actions">
+            <button type="button" id="bugDetailSave" class="recover-btn recover-btn-primary">Guardar</button>
+            <button type="button" id="bugDetailResuelto" class="recover-btn recover-btn-primary">Marcar como Resuelto</button>
+            <button type="button" id="bugDetailCancel" class="recover-btn recover-btn-secondary">Cerrar</button>
+          </div>
+        </div>
+        <div id="bugDetailError" class="recover-error" hidden></div>
       </div>
     </div>
 
@@ -942,6 +993,56 @@
         <p class="recover-actions" style="margin-top: 1rem;">
           <button type="button" id="launcherRequiredConfirm" class="recover-btn recover-btn-primary">Ya lo abrí</button>
         </p>
+      </div>
+    </div>
+
+    <!-- Modal: Reportar Bug/Problema -->
+    <div id="bugReportModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content mods-modal-content bug-report-modal-content">
+        <div class="mods-modal-header">
+          <h2>Reportar Bug/Problema</h2>
+          <button type="button" id="bugReportModalCloseX" class="mods-modal-close-x" aria-label="Cerrar">×</button>
+        </div>
+        <p class="mods-modal-desc">Describe el problema que encontraste. Un administrador revisará tu caso y responderá a la brevedad.</p>
+        <div class="bug-report-form">
+          <label class="config-field-label">Equipo</label>
+          <input type="text" id="bugReportEquipo" class="recover-input" placeholder="Ej: Boca Juniors" required />
+          <label class="config-field-label">Temporada</label>
+          <select id="bugReportTemporada" class="recover-input" required>
+            <option value="">Selecciona temporada</option>
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+            <option value="2028">2028</option>
+            <option value="2029">2029</option>
+            <option value="2030">2030</option>
+            <option value="2031">2031</option>
+            <option value="2032">2032</option>
+            <option value="2033">2033</option>
+            <option value="2034">2034</option>
+          </select>
+          <label class="config-field-label">Problema</label>
+          <textarea id="bugReportProblema" class="recover-input config-textarea" placeholder="Describe el problema con detalle..." rows="4" required></textarea>
+          <label class="config-field-label">Imágenes (máx. 3)</label>
+          <div class="bug-report-images-row">
+            <input type="file" id="bugReportImage1" class="recover-input bug-report-file-input" accept="image/*" />
+            <input type="file" id="bugReportImage2" class="recover-input bug-report-file-input" accept="image/*" />
+            <input type="file" id="bugReportImage3" class="recover-input bug-report-file-input" accept="image/*" />
+          </div>
+          <div id="bugReportImagesPreview" class="bug-report-images-preview"></div>
+          <label class="config-field-label">Modo carrera (archivo .squads)</label>
+          <div class="bug-report-career-row">
+            <input type="text" id="bugReportCareerPath" class="recover-input" placeholder="Selecciona el archivo de tu modo carrera" readonly />
+            <button type="button" id="bugReportCareerOpen" class="mods-download-btn" title="Abre la carpeta donde está tu squad">Abrir carpeta</button>
+            <button type="button" id="bugReportCareerSelect" class="mods-download-btn" title="Seleccionar archivo">Seleccionar archivo</button>
+          </div>
+        </div>
+        <div id="bugReportModalError" class="recover-error" hidden></div>
+        <div id="bugReportSuccessMessage" class="message message-success" hidden>Un administrador revisará tu caso y responderá a la brevedad.</div>
+        <div class="recover-actions">
+          <button type="button" id="bugReportCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
+          <button type="button" id="bugReportSubmit" class="recover-btn recover-btn-primary">Enviar</button>
+        </div>
       </div>
     </div>
 

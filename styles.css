@@ -1256,6 +1256,135 @@ html, body {
   margin-top: 4px;
 }
 
+/* Bug report modal */
+.bug-report-modal-content .bug-report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.bug-report-images-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bug-report-file-input {
+  flex: 1;
+  min-width: 100px;
+}
+
+.bug-report-images-preview {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.bug-report-images-preview .bug-preview-img-wrap {
+  position: relative;
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(166, 207, 224, 0.3);
+}
+
+.bug-report-images-preview .bug-preview-img-wrap:hover {
+  border-color: var(--accent);
+}
+
+.bug-report-images-preview .bug-preview-img {
+  display: block;
+  max-width: 100px;
+  max-height: 80px;
+  object-fit: contain;
+}
+
+.bug-report-career-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.bug-report-career-row .recover-input {
+  flex: 1;
+  min-width: 180px;
+}
+
+/* Bugs admin panel */
+.bugs-admin-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.bugs-filter-select {
+  max-width: 180px;
+}
+
+.bugs-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bug-admin-card {
+  padding: 16px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.bug-admin-card.bug-admin-card--resolved {
+  opacity: 0.85;
+}
+
+.bug-admin-card-meta .dash-card-text {
+  margin-bottom: 6px;
+  color: #e5e7eb;
+}
+
+.bug-admin-card-images {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bug-admin-card-images .bug-admin-img-wrap {
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.bug-admin-card-images .bug-admin-img-wrap:hover {
+  border-color: var(--accent);
+}
+
+.bug-admin-card-images .bug-admin-img {
+  display: block;
+  max-width: 100px;
+  max-height: 80px;
+  object-fit: contain;
+}
+
+.bug-detail-modal-content .bug-detail-content {
+  margin-bottom: 20px;
+}
+
+.bug-detail-admin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .users-admin-filters .recover-input {
   max-width: 220px;
 }

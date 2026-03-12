@@ -1042,6 +1042,9 @@
       loadMpAdminPendingCount();
       loadMpAdminPendingRequests();
     }
+    if (tabName === 'bugs') {
+      loadBugsAdminList();
+    }
   }
 
   async function loadHomeCards() {
@@ -1577,8 +1580,8 @@
     const roles = Array.isArray(row?.roles) ? row.roles.map((r) => String(r)) : [];
 
     const { canAccessProtected, hasAdminRole, hasSupportRole } = evaluateAccessFlags(linked, roles);
-    // Usuarios, MP y Configuración solo para administradores o soporte
-    if (tabName === 'users' || tabName === 'config' || tabName === 'mpAdmin') {
+    // Usuarios, MP, Bugs y Configuración solo para administradores o soporte
+    if (tabName === 'users' || tabName === 'config' || tabName === 'mpAdmin' || tabName === 'bugs') {
       return !!(linked && (hasAdminRole || hasSupportRole));
     }
     return canAccessProtected;
@@ -2044,6 +2047,17 @@
       const isUsersTab = tab === 'users';
       const isConfigTab = tab === 'config';
       const isMpAdminTab = tab === 'mpAdmin';
+      const isBugsTab = tab === 'bugs';
+      const isBugReportBtn = btn.id === 'btnReportBug' || btn.classList.contains('dash-nav-item--bug-report');
+
+      // Reportar Bug: siempre visible para usuarios logueados, nunca bloqueado
+      if (isBugReportBtn) {
+        btn.removeAttribute('hidden');
+        btn.classList.remove('dash-nav-item--locked');
+        btn.removeAttribute('data-locked');
+        btn.removeAttribute('title');
+        return;
+      }
 
       // Perfil siempre accesible
       if (isProfile) {
@@ -2053,8 +2067,8 @@
         return;
       }
 
-      // Menús Usuarios, MP y Configuración: solo admin o soporte; invisibles para el resto
-      if (isUsersTab || isConfigTab || isMpAdminTab) {
+      // Menús Usuarios, MP, Bugs y Configuración: solo admin o soporte; invisibles para el resto
+      if (isUsersTab || isConfigTab || isMpAdminTab || isBugsTab) {
         if (!isLinked || (!hasAdminRole && !hasSupportRole)) {
           btn.setAttribute('hidden', '');
           return;
@@ -2677,6 +2691,453 @@
         }
       } finally {
         accessRequestSubmit.disabled = false;
+      }
+    });
+  }
+
+  // --- Reportar Bug/Problema ---
+  const btnReportBug = document.getElementById('btnReportBug');
+  const bugReportModal = document.getElementById('bugReportModal');
+  const bugReportModalCloseX = document.getElementById('bugReportModalCloseX');
+  const bugReportEquipo = document.getElementById('bugReportEquipo');
+  const bugReportTemporada = document.getElementById('bugReportTemporada');
+  const bugReportProblema = document.getElementById('bugReportProblema');
+  const bugReportImage1 = document.getElementById('bugReportImage1');
+  const bugReportImage2 = document.getElementById('bugReportImage2');
+  const bugReportImage3 = document.getElementById('bugReportImage3');
+  const bugReportCareerPath = document.getElementById('bugReportCareerPath');
+  const bugReportCareerOpen = document.getElementById('bugReportCareerOpen');
+  const bugReportCareerSelect = document.getElementById('bugReportCareerSelect');
+  const bugReportImagesPreview = document.getElementById('bugReportImagesPreview');
+  const bugReportModalError = document.getElementById('bugReportModalError');
+  const bugReportSuccessMessage = document.getElementById('bugReportSuccessMessage');
+  const bugReportCancel = document.getElementById('bugReportCancel');
+  const bugReportSubmit = document.getElementById('bugReportSubmit');
+
+  let bugReportImage1Data = null;
+  let bugReportImage2Data = null;
+  let bugReportImage3Data = null;
+  let bugReportCareerData = null;
+  let bugReportCareerFileName = null;
+
+  function closeBugReportModal() {
+    if (bugReportModal) bugReportModal.hidden = true;
+    if (bugReportEquipo) bugReportEquipo.value = '';
+    if (bugReportTemporada) bugReportTemporada.value = '';
+    if (bugReportProblema) bugReportProblema.value = '';
+    if (bugReportImage1) bugReportImage1.value = '';
+    if (bugReportImage2) bugReportImage2.value = '';
+    if (bugReportImage3) bugReportImage3.value = '';
+    if (bugReportCareerPath) bugReportCareerPath.value = '';
+    if (bugReportImagesPreview) bugReportImagesPreview.innerHTML = '';
+    if (bugReportModalError) {
+      bugReportModalError.hidden = true;
+      bugReportModalError.textContent = '';
+    }
+    if (bugReportSuccessMessage) bugReportSuccessMessage.hidden = true;
+    bugReportImage1Data = null;
+    bugReportImage2Data = null;
+    bugReportImage3Data = null;
+    bugReportCareerData = null;
+    bugReportCareerFileName = null;
+  }
+
+  function openBugReportModal() {
+    if (!bugReportModal) return;
+    closeBugReportModal();
+    bugReportModal.hidden = false;
+  }
+
+  if (btnReportBug) {
+    btnReportBug.addEventListener('click', () => {
+      if (btnReportBug.classList.contains('dash-nav-item--locked')) return;
+      openBugReportModal();
+    });
+  }
+
+  if (bugReportModal) {
+    const backdrop = bugReportModal.querySelector('.recover-modal-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeBugReportModal);
+  }
+  if (bugReportModalCloseX) bugReportModalCloseX.addEventListener('click', closeBugReportModal);
+  if (bugReportCancel) bugReportCancel.addEventListener('click', closeBugReportModal);
+
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function updateBugReportImagesPreview() {
+    if (!bugReportImagesPreview) return;
+    bugReportImagesPreview.innerHTML = '';
+    [bugReportImage1Data, bugReportImage2Data, bugReportImage3Data].forEach((dataUrl, i) => {
+      if (!dataUrl || !dataUrl.startsWith('data:image/')) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'bug-preview-img-wrap';
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.alt = `Imagen ${i + 1}`;
+      img.className = 'bug-preview-img';
+      wrap.appendChild(img);
+      wrap.addEventListener('click', () => openComprobanteFullscreen(dataUrl));
+      bugReportImagesPreview.appendChild(wrap);
+    });
+  }
+
+  [bugReportImage1, bugReportImage2, bugReportImage3].forEach((input, idx) => {
+    if (!input) return;
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file || !file.type.startsWith('image/')) {
+        const arr = [bugReportImage1Data, bugReportImage2Data, bugReportImage3Data];
+        arr[idx] = null;
+        bugReportImage1Data = arr[0];
+        bugReportImage2Data = arr[1];
+        bugReportImage3Data = arr[2];
+        updateBugReportImagesPreview();
+        return;
+      }
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        const arr = [bugReportImage1Data, bugReportImage2Data, bugReportImage3Data];
+        arr[idx] = dataUrl;
+        bugReportImage1Data = arr[0];
+        bugReportImage2Data = arr[1];
+        bugReportImage3Data = arr[2];
+        updateBugReportImagesPreview();
+      } catch (_) {}
+    });
+  });
+
+  if (bugReportCareerOpen) {
+    bugReportCareerOpen.addEventListener('click', async () => {
+      if (window.electronAPI?.openCareerFolder) {
+        await window.electronAPI.openCareerFolder();
+      }
+    });
+  }
+
+  if (bugReportCareerSelect) {
+    bugReportCareerSelect.addEventListener('click', async () => {
+      if (!window.electronAPI?.showBugReportFileDialog || !window.electronAPI?.readBugReportFile) return;
+      const folderPath = window.electronAPI.getCareerFolderPath ? await window.electronAPI.getCareerFolderPath() : undefined;
+      const result = await window.electronAPI.showBugReportFileDialog({
+        defaultPath: folderPath,
+        title: 'Seleccionar archivo de modo carrera',
+        filters: [{ name: 'Archivos de modo carrera', extensions: ['squads', 'squad', 'dat', '*'] }]
+      });
+      if (result.canceled || !result.filePaths?.length) return;
+      const filePath = result.filePaths[0];
+      if (bugReportCareerPath) bugReportCareerPath.value = filePath;
+      try {
+        const { ok, data, error } = await window.electronAPI.readBugReportFile(filePath);
+        if (ok && data) {
+          bugReportCareerData = data;
+          bugReportCareerFileName = filePath.split(/[/\\]/).pop() || 'career.squads';
+        } else {
+          if (bugReportModalError) {
+            bugReportModalError.textContent = error || 'No se pudo leer el archivo.';
+            bugReportModalError.hidden = false;
+          }
+        }
+      } catch (_) {
+        if (bugReportModalError) {
+          bugReportModalError.textContent = 'No se pudo leer el archivo.';
+          bugReportModalError.hidden = false;
+        }
+      }
+    });
+  }
+
+  if (bugReportSubmit) {
+    bugReportSubmit.addEventListener('click', async () => {
+      const equipo = bugReportEquipo?.value?.trim();
+      const temporada = bugReportTemporada?.value?.trim();
+      const problema = bugReportProblema?.value?.trim();
+      if (!equipo || !temporada || !problema) {
+        if (bugReportModalError) {
+          bugReportModalError.textContent = 'Equipo, temporada y problema son obligatorios.';
+          bugReportModalError.hidden = false;
+        }
+        return;
+      }
+      if (bugReportModalError) bugReportModalError.hidden = true;
+      bugReportSubmit.disabled = true;
+      try {
+        const payload = {
+          equipo,
+          temporada: parseInt(temporada, 10),
+          problema,
+          image1: bugReportImage1Data || undefined,
+          image2: bugReportImage2Data || undefined,
+          image3: bugReportImage3Data || undefined,
+          career_file: bugReportCareerData || undefined,
+          career_file_name: bugReportCareerFileName || undefined
+        };
+        const res = await fetchBot(`${BOT_BASE_URL}/bug-report`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          if (bugReportSuccessMessage) {
+            bugReportSuccessMessage.textContent = 'Un administrador revisará tu caso y responderá a la brevedad.';
+            bugReportSuccessMessage.hidden = false;
+          }
+          if (bugReportEquipo) bugReportEquipo.value = '';
+          if (bugReportTemporada) bugReportTemporada.value = '';
+          if (bugReportProblema) bugReportProblema.value = '';
+          if (bugReportImage1) bugReportImage1.value = '';
+          if (bugReportImage2) bugReportImage2.value = '';
+          if (bugReportImage3) bugReportImage3.value = '';
+          if (bugReportCareerPath) bugReportCareerPath.value = '';
+          if (bugReportImagesPreview) bugReportImagesPreview.innerHTML = '';
+          bugReportImage1Data = null;
+          bugReportImage2Data = null;
+          bugReportImage3Data = null;
+          bugReportCareerData = null;
+          bugReportCareerFileName = null;
+          setTimeout(closeBugReportModal, 2500);
+        } else {
+          if (bugReportModalError) {
+            bugReportModalError.textContent = data.message || 'Error al enviar el reporte.';
+            bugReportModalError.hidden = false;
+          }
+        }
+      } catch (_) {
+        if (bugReportModalError) {
+          bugReportModalError.textContent = 'Error de conexión. Intenta de nuevo.';
+          bugReportModalError.hidden = false;
+        }
+      } finally {
+        bugReportSubmit.disabled = false;
+      }
+    });
+  }
+
+  // --- Bugs admin panel ---
+  const bugsAdminList = document.getElementById('bugsAdminList');
+  const bugsAdminError = document.getElementById('bugsAdminError');
+  const bugsAdminFilterStatus = document.getElementById('bugsAdminFilterStatus');
+  const bugsAdminRefresh = document.getElementById('bugsAdminRefresh');
+  const bugDetailModal = document.getElementById('bugDetailModal');
+  const bugDetailId = document.getElementById('bugDetailId');
+  const bugDetailContent = document.getElementById('bugDetailContent');
+  const bugDetailNota = document.getElementById('bugDetailNota');
+  const bugDetailRespuesta = document.getElementById('bugDetailRespuesta');
+  const bugDetailSave = document.getElementById('bugDetailSave');
+  const bugDetailResuelto = document.getElementById('bugDetailResuelto');
+  const bugDetailCancel = document.getElementById('bugDetailCancel');
+  const bugDetailError = document.getElementById('bugDetailError');
+  const bugDetailModalCloseX = document.getElementById('bugDetailModalCloseX');
+
+  let currentBugDetailId = null;
+
+  async function loadBugsAdminList() {
+    if (!bugsAdminList || !currentUser?.user_email) return;
+    const adminEmail = encodeURIComponent(currentUser.user_email);
+    const status = bugsAdminFilterStatus?.value || '';
+    const url = status ? `${BOT_BASE_URL}/admin/bugs?email=${adminEmail}&status=${status}` : `${BOT_BASE_URL}/admin/bugs?email=${adminEmail}`;
+    bugsAdminList.innerHTML = '<p class="dash-card-text">Cargando…</p>';
+    if (bugsAdminError) bugsAdminError.hidden = true;
+    try {
+      const res = await fetchBot(url);
+      const data = await res.json().catch(() => ({}));
+      const bugs = Array.isArray(data.bugs) ? data.bugs : [];
+      bugsAdminList.innerHTML = '';
+      if (bugs.length === 0) {
+        const p = document.createElement('p');
+        p.className = 'dash-card-text';
+        p.textContent = 'No hay reportes de bugs.';
+        bugsAdminList.appendChild(p);
+        return;
+      }
+      bugs.forEach((bug) => {
+        const card = document.createElement('div');
+        card.className = `bug-admin-card${bug.status === 'resolved' ? ' bug-admin-card--resolved' : ''}`;
+        const created = bug.created_at ? new Date(bug.created_at).toLocaleString() : '-';
+        let html = '<div class="bug-admin-card-meta">';
+        html += `<p class="dash-card-text"><strong>#${bug.id}</strong> · ${escapeHtml(bug.equipo || '-')} · Temp. ${bug.temporada || '-'}</p>`;
+        html += `<p class="dash-card-text"><strong>Usuario:</strong> ${escapeHtml(bug.user_email || '-')}</p>`;
+        html += `<p class="dash-card-text"><strong>Problema:</strong> ${escapeHtml((bug.problema || '').slice(0, 120))}${(bug.problema || '').length > 120 ? '…' : ''}</p>`;
+        html += `<p class="dash-card-text"><strong>Fecha:</strong> ${escapeHtml(created)} · <strong>Estado:</strong> ${bug.status === 'resolved' ? 'Resuelto' : 'Pendiente'}</p>`;
+        const hasImages = !!(bug.image1_data || bug.image2_data || bug.image3_data);
+        if (hasImages) {
+          html += '<div class="bug-admin-card-images">';
+          [bug.image1_data, bug.image2_data, bug.image3_data].forEach((src, i) => {
+            if (!src || !src.startsWith('data:image/')) return;
+            html += `<div class="bug-admin-img-wrap" data-src="${(src || '').replace(/"/g, '&quot;')}"><img src="${(src || '').replace(/"/g, '&quot;')}" alt="Imagen ${i + 1}" class="bug-admin-img" /></div>`;
+          });
+          html += '</div>';
+        }
+        if (bug.career_file_data && bug.career_file_name) {
+          html += `<p class="dash-card-text"><button type="button" class="mods-download-btn bug-download-career" data-id="${bug.id}">Descargar archivo</button></p>`;
+        }
+        html += `<button type="button" class="login-btn-secondary bug-admin-view-detail" data-id="${bug.id}">Ver detalle</button>`;
+        html += '</div>';
+        card.innerHTML = html;
+        card.querySelectorAll('.bug-admin-img-wrap').forEach((wrap) => {
+          const src = wrap.querySelector('img')?.getAttribute('src');
+          if (src) wrap.addEventListener('click', () => openComprobanteFullscreen(src));
+        });
+        const viewBtn = card.querySelector('.bug-admin-view-detail');
+        if (viewBtn) viewBtn.addEventListener('click', () => openBugDetailModal(Number(viewBtn.getAttribute('data-id'))));
+        const downloadBtn = card.querySelector('.bug-download-career');
+        if (downloadBtn && bug.career_file_data) {
+          downloadBtn.addEventListener('click', () => {
+            const a = document.createElement('a');
+            a.href = bug.career_file_data;
+            a.download = bug.career_file_name || 'career.squads';
+            a.click();
+          });
+        }
+        bugsAdminList.appendChild(card);
+      });
+    } catch (_) {
+      bugsAdminList.innerHTML = '<p class="dash-card-text message-error">Error al cargar bugs.</p>';
+    }
+  }
+
+  if (bugsAdminRefresh) bugsAdminRefresh.addEventListener('click', () => loadBugsAdminList());
+  if (bugsAdminFilterStatus) bugsAdminFilterStatus.addEventListener('change', () => loadBugsAdminList());
+
+  async function openBugDetailModal(id) {
+    if (!currentUser?.user_email || !id) return;
+    const adminEmail = encodeURIComponent(currentUser.user_email);
+    try {
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/bugs/${id}?email=${adminEmail}`);
+      const data = await res.json().catch(() => ({}));
+      if (!data.success || !data.bug) {
+        if (bugsAdminError) {
+          bugsAdminError.textContent = 'No se pudo cargar el bug.';
+          bugsAdminError.hidden = false;
+        }
+        return;
+      }
+      const bug = data.bug;
+      currentBugDetailId = id;
+      if (bugDetailId) bugDetailId.textContent = id;
+      if (bugDetailNota) bugDetailNota.value = bug.admin_nota || '';
+      if (bugDetailRespuesta) bugDetailRespuesta.value = bug.admin_respuesta || '';
+      if (bugDetailError) bugDetailError.hidden = true;
+      let content = '<div class="bug-detail-content-inner">';
+      content += `<p class="dash-card-text"><strong>Equipo:</strong> ${escapeHtml(bug.equipo || '-')}</p>`;
+      content += `<p class="dash-card-text"><strong>Temporada:</strong> ${bug.temporada || '-'}</p>`;
+      content += `<p class="dash-card-text"><strong>Usuario:</strong> ${escapeHtml(bug.user_email || '-')}</p>`;
+      content += `<p class="dash-card-text"><strong>Discord:</strong> ${escapeHtml(bug.discord_username || bug.discord_id || '-')}</p>`;
+      content += `<p class="dash-card-text"><strong>Problema:</strong></p><p class="dash-card-text">${escapeHtml(bug.problema || '-')}</p>`;
+      content += `<p class="dash-card-text"><strong>Estado:</strong> ${bug.status === 'resolved' ? 'Resuelto' : 'Pendiente'}</p>`;
+      if (bug.image1_data || bug.image2_data || bug.image3_data) {
+        content += '<div class="bug-admin-card-images" style="margin-top:8px">';
+        [bug.image1_data, bug.image2_data, bug.image3_data].forEach((src, i) => {
+          if (!src || !src.startsWith('data:image/')) return;
+          content += `<div class="bug-admin-img-wrap" style="cursor:pointer" data-src=""><img src="${(src || '').replace(/"/g, '&quot;')}" alt="Imagen ${i + 1}" class="bug-admin-img" /></div>`;
+        });
+        content += '</div>';
+      }
+      if (bug.career_file_data && bug.career_file_name) {
+        content += `<p class="dash-card-text"><a href="${(bug.career_file_data || '').replace(/"/g, '&quot;')}" download="${escapeHtml(bug.career_file_name || 'career.squads')}" class="mods-download-btn" style="display:inline-block;margin-top:8px">Descargar archivo de modo carrera</a></p>`;
+      }
+      content += '</div>';
+      if (bugDetailContent) bugDetailContent.innerHTML = content;
+      bugDetailContent.querySelectorAll('.bug-admin-img-wrap').forEach((wrap) => {
+        const img = wrap.querySelector('img');
+        const src = img?.getAttribute('src');
+        if (src) wrap.addEventListener('click', () => openComprobanteFullscreen(src));
+      });
+      if (bugDetailModal) bugDetailModal.hidden = false;
+      if (bugDetailResuelto) bugDetailResuelto.hidden = bug.status === 'resolved';
+    } catch (_) {
+      if (bugsAdminError) {
+        bugsAdminError.textContent = 'Error al cargar el bug.';
+        bugsAdminError.hidden = false;
+      }
+    }
+  }
+
+  function closeBugDetailModal() {
+    currentBugDetailId = null;
+    if (bugDetailModal) bugDetailModal.hidden = true;
+  }
+
+  if (bugDetailModal) {
+    const backdrop = bugDetailModal.querySelector('.recover-modal-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeBugDetailModal);
+  }
+  if (bugDetailModalCloseX) bugDetailModalCloseX.addEventListener('click', closeBugDetailModal);
+  if (bugDetailCancel) bugDetailCancel.addEventListener('click', closeBugDetailModal);
+
+  if (bugDetailSave) {
+    bugDetailSave.addEventListener('click', async () => {
+      if (!currentBugDetailId || !currentUser?.user_email) return;
+      const adminEmail = encodeURIComponent(currentUser.user_email);
+      const nota = bugDetailNota?.value?.trim() || '';
+      const respuesta = bugDetailRespuesta?.value?.trim() || '';
+      if (bugDetailError) bugDetailError.hidden = true;
+      bugDetailSave.disabled = true;
+      try {
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/bugs/${currentBugDetailId}?email=${adminEmail}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nota, respuesta })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data.success) {
+          closeBugDetailModal();
+          loadBugsAdminList();
+        } else {
+          if (bugDetailError) {
+            bugDetailError.textContent = data.message || 'Error al guardar.';
+            bugDetailError.hidden = false;
+          }
+        }
+      } catch (_) {
+        if (bugDetailError) {
+          bugDetailError.textContent = 'Error de conexión.';
+          bugDetailError.hidden = false;
+        }
+      } finally {
+        bugDetailSave.disabled = false;
+      }
+    });
+  }
+
+  if (bugDetailResuelto) {
+    bugDetailResuelto.addEventListener('click', async () => {
+      if (!currentBugDetailId || !currentUser?.user_email) return;
+      const adminEmail = encodeURIComponent(currentUser.user_email);
+      const respuesta = bugDetailRespuesta?.value?.trim() || '';
+      if (bugDetailError) bugDetailError.hidden = true;
+      bugDetailResuelto.disabled = true;
+      try {
+        const patchBody = { respuesta: respuesta, resolved: true };
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/bugs/${currentBugDetailId}?email=${adminEmail}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patchBody)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data.success) {
+          closeBugDetailModal();
+          loadBugsAdminList();
+        } else {
+          if (bugDetailError) {
+            bugDetailError.textContent = data.message || 'Error al marcar como resuelto.';
+            bugDetailError.hidden = false;
+          }
+        }
+      } catch (_) {
+        if (bugDetailError) {
+          bugDetailError.textContent = 'Error de conexión.';
+          bugDetailError.hidden = false;
+        }
+      } finally {
+        bugDetailResuelto.disabled = false;
       }
     });
   }
