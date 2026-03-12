@@ -1257,6 +1257,16 @@ html, body {
 }
 
 /* Bug report modal */
+.bug-report-limits-msg {
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: rgba(166, 207, 224, 0.1);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+}
+
 .bug-report-modal-content .bug-report-form {
   display: flex;
   flex-direction: column;

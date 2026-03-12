@@ -2771,6 +2771,45 @@
     });
   }
 
+  const BUG_REPORT_MAX_IMAGE_BYTES = 700000;
+  function compressImageForBugReport(dataUrl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1024;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        let quality = 0.75;
+        let result = canvas.toDataURL('image/jpeg', quality);
+        while (result.length > BUG_REPORT_MAX_IMAGE_BYTES && quality > 0.3) {
+          quality -= 0.1;
+          result = canvas.toDataURL('image/jpeg', quality);
+        }
+        resolve(result);
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
   function updateBugReportImagesPreview() {
     if (!bugReportImagesPreview) return;
     bugReportImagesPreview.innerHTML = '';
@@ -2802,7 +2841,8 @@
         return;
       }
       try {
-        const dataUrl = await readFileAsDataUrl(file);
+        let dataUrl = await readFileAsDataUrl(file);
+        dataUrl = await compressImageForBugReport(dataUrl);
         const arr = [bugReportImage1Data, bugReportImage2Data, bugReportImage3Data];
         arr[idx] = dataUrl;
         bugReportImage1Data = arr[0];
@@ -2861,6 +2901,14 @@
       if (!equipo || !temporada || !problema) {
         if (bugReportModalError) {
           bugReportModalError.textContent = 'Equipo, temporada y problema son obligatorios.';
+          bugReportModalError.hidden = false;
+        }
+        return;
+      }
+      const totalSize = (bugReportImage1Data?.length || 0) + (bugReportImage2Data?.length || 0) + (bugReportImage3Data?.length || 0) + (bugReportCareerData?.length || 0);
+      if (totalSize > 8000000) {
+        if (bugReportModalError) {
+          bugReportModalError.textContent = 'El tamaño total supera 8 MB. Usa imágenes más pequeñas o no adjuntes el archivo de modo carrera.';
           bugReportModalError.hidden = false;
         }
         return;

@@ -1073,6 +1073,16 @@ function startOAuthServer() {
 
       // --- Reportar Bug/Problema (usuario autenticado) ---
       if (url.pathname === '/bug-report' && req.method === 'POST') {
+        const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+        if (contentLength > 9000000) {
+          res.statusCode = 413;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({
+            success: false,
+            message: 'La petición es demasiado grande (máx. 9 MB). Reduce el tamaño de las imágenes o no adjuntes el archivo de modo carrera.'
+          }));
+          return;
+        }
         if (isRateLimited(getClientIp(req), 'bug_report', 10)) {
           res.statusCode = 429;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1093,7 +1103,7 @@ function startOAuthServer() {
           let data = '';
           req.on('data', (chunk) => {
             data += chunk.toString();
-            if (data.length > 2e7) req.destroy();
+            if (data.length > 9500000) req.destroy();
           });
           req.on('end', () => {
             try {
@@ -1118,8 +1128,9 @@ function startOAuthServer() {
         const image3 = body && typeof body.image3 === 'string' ? body.image3.trim() : null;
         const careerFile = body && typeof body.career_file === 'string' ? body.career_file.trim() : null;
         const careerFileName = body && typeof body.career_file_name === 'string' ? body.career_file_name.trim() : null;
-        const MAX_IMAGE = 2500000;
-        const MAX_CAREER = 15000000;
+        const MAX_IMAGE = 800000;
+        const MAX_CAREER = 5000000;
+        const MAX_TOTAL_BODY = 8000000;
         if (image1 && image1.length > MAX_IMAGE) {
           res.statusCode = 400;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1141,7 +1152,17 @@ function startOAuthServer() {
         if (careerFile && careerFile.length > MAX_CAREER) {
           res.statusCode = 400;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ success: false, message: 'El archivo de modo carrera es demasiado grande.' }));
+          res.end(JSON.stringify({ success: false, message: 'El archivo de modo carrera es demasiado grande (máx. 5 MB).' }));
+          return;
+        }
+        const totalSize = (image1?.length || 0) + (image2?.length || 0) + (image3?.length || 0) + (careerFile?.length || 0);
+        if (totalSize > MAX_TOTAL_BODY) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({
+            success: false,
+            message: 'El tamaño total de imágenes y archivo supera el límite (8 MB). Reduce el tamaño de las imágenes o no adjuntes el archivo de modo carrera.'
+          }));
           return;
         }
         const { data: linkRow, error: linkError } = await supabase

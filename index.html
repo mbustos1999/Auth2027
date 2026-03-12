@@ -1005,6 +1005,9 @@
           <button type="button" id="bugReportModalCloseX" class="mods-modal-close-x" aria-label="Cerrar">×</button>
         </div>
         <p class="mods-modal-desc">Describe el problema que encontraste. Un administrador revisará tu caso y responderá a la brevedad.</p>
+        <div class="bug-report-limits-msg" role="note">
+          <strong>Límites:</strong> Imágenes máx. 800 KB cada una (se comprimen automáticamente). Archivo de modo carrera máx. 5 MB. Total máx. 8 MB. No superes estos límites o el envío fallará.
+        </div>
         <div class="bug-report-form">
           <label class="config-field-label">Equipo</label>
           <input type="text" id="bugReportEquipo" class="recover-input" placeholder="Ej: Boca Juniors" required />
@@ -1023,14 +1026,14 @@
           </select>
           <label class="config-field-label">Problema</label>
           <textarea id="bugReportProblema" class="recover-input config-textarea" placeholder="Describe el problema con detalle..." rows="4" required></textarea>
-          <label class="config-field-label">Imágenes (máx. 3)</label>
+          <label class="config-field-label">Imágenes (máx. 3, se comprimen automáticamente)</label>
           <div class="bug-report-images-row">
             <input type="file" id="bugReportImage1" class="recover-input bug-report-file-input" accept="image/*" />
             <input type="file" id="bugReportImage2" class="recover-input bug-report-file-input" accept="image/*" />
             <input type="file" id="bugReportImage3" class="recover-input bug-report-file-input" accept="image/*" />
           </div>
           <div id="bugReportImagesPreview" class="bug-report-images-preview"></div>
-          <label class="config-field-label">Modo carrera (archivo .squads)</label>
+          <label class="config-field-label">Modo carrera (archivo .squads, máx. 5 MB)</label>
           <div class="bug-report-career-row">
             <input type="text" id="bugReportCareerPath" class="recover-input" placeholder="Selecciona el archivo de tu modo carrera" readonly />
             <button type="button" id="bugReportCareerOpen" class="mods-download-btn" title="Abre la carpeta donde está tu squad">Abrir carpeta</button>
