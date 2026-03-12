@@ -125,6 +125,38 @@
     passwordInput.classList.remove('error');
   }
 
+  /** Obtiene el estado de setup local: orden mods, teams, squad aplicada */
+  async function getSetupInfo() {
+    if (!window.electronAPI) return { mod_order_ok: null, teams_ok: null, squad_applied: null };
+    try {
+      const [modRes, teamsRes, squadRes] = await Promise.all([
+        window.electronAPI.getModOrderStatus?.() ?? Promise.resolve({ ok: false, correct: false }),
+        window.electronAPI.getTeamsStatus?.() ?? Promise.resolve({ ok: false, present: false }),
+        window.electronAPI.checkSquadStatus?.() ?? Promise.resolve({ ok: false, applied: false })
+      ]);
+      return {
+        mod_order_ok: modRes?.ok ? !!modRes.correct : null,
+        teams_ok: teamsRes?.ok ? !!teamsRes.present : null,
+        squad_applied: squadRes?.ok ? !!squadRes.applied : null
+      };
+    } catch (_) {
+      return { mod_order_ok: null, teams_ok: null, squad_applied: null };
+    }
+  }
+
+  /** Envía el setup info al servidor (login/logout). No bloquea. */
+  async function updateUserSetupInfo() {
+    if (!currentUser?.user_email || typeof fetchBot !== 'function') return;
+    try {
+      const info = await getSetupInfo();
+      await fetchBot(`${BOT_BASE_URL}/user/setup-info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(info)
+      });
+    } catch (_) {}
+  }
+
   // Peticiones al bot: si hay electronAPI.fetchBot, el main añade secreto + token de sesión (el renderer no ve el secreto)
   async function fetchBot(url, options = {}) {
     if (window.electronAPI && typeof window.electronAPI.fetchBot === 'function') {
@@ -979,11 +1011,18 @@
         fetchMercadoPagoAndSave().catch(() => {});
       });
 
+    // Actualizar setup info (mod order, teams, squad) en el servidor al abrir sesión
+    updateUserSetupInfo().catch(() => {});
+
     // Al entrar al dashboard, ir directamente a la pestaña Perfil
     activateTab('profile');
   }
 
-  function showLogin() {
+  async function showLogin() {
+    // Actualizar setup info al cerrar sesión (antes de limpiar el token)
+    if (currentUser?.user_email) {
+      try { await updateUserSetupInfo(); } catch (_) {}
+    }
     if (window.electronAPI && typeof window.electronAPI.clearSessionUser === 'function') {
       try { window.electronAPI.clearSessionUser(); } catch (_) {}
     }
@@ -1103,6 +1142,17 @@
     const div = document.createElement('div');
     div.textContent = s;
     return div.innerHTML;
+  }
+
+  /** Formatea mod_order_ok, teams_ok, squad_applied para mostrar */
+  function formatSetupInfo(obj) {
+    if (!obj || typeof obj !== 'object') return '';
+    const mod = obj.mod_order_ok;
+    const teams = obj.teams_ok;
+    const squad = obj.squad_applied;
+    if (mod == null && teams == null && squad == null) return '-';
+    const fmt = (v) => v === true ? '✓' : v === false ? '✗' : '?';
+    return `Mods ${fmt(mod)} · Teams ${fmt(teams)} · Squad ${fmt(squad)}`;
   }
 
   let configCardsCache = [];
@@ -2209,7 +2259,7 @@
     }
   });
 
-  btnLogout.addEventListener('click', showLogin);
+  btnLogout.addEventListener('click', () => showLogin());
 
   const forgotPasswordLink = document.getElementById('forgotPasswordLink');
   const createAccountLink = document.getElementById('createAccountLink');
@@ -2728,44 +2778,23 @@
   const bugReportEquipo = document.getElementById('bugReportEquipo');
   const bugReportTemporada = document.getElementById('bugReportTemporada');
   const bugReportProblema = document.getElementById('bugReportProblema');
-  const bugReportImage1 = document.getElementById('bugReportImage1');
-  const bugReportImage2 = document.getElementById('bugReportImage2');
-  const bugReportImage3 = document.getElementById('bugReportImage3');
-  const bugReportCareerPath = document.getElementById('bugReportCareerPath');
-  const bugReportCareerOpen = document.getElementById('bugReportCareerOpen');
-  const bugReportCareerSelect = document.getElementById('bugReportCareerSelect');
-  const bugReportImagesPreview = document.getElementById('bugReportImagesPreview');
+  const bugReportCareerUrl = document.getElementById('bugReportCareerUrl');
   const bugReportModalError = document.getElementById('bugReportModalError');
   const bugReportSuccessMessage = document.getElementById('bugReportSuccessMessage');
   const bugReportCancel = document.getElementById('bugReportCancel');
   const bugReportSubmit = document.getElementById('bugReportSubmit');
-
-  let bugReportImage1Data = null;
-  let bugReportImage2Data = null;
-  let bugReportImage3Data = null;
-  let bugReportCareerData = null;
-  let bugReportCareerFileName = null;
 
   function closeBugReportModal() {
     if (bugReportModal) bugReportModal.hidden = true;
     if (bugReportEquipo) bugReportEquipo.value = '';
     if (bugReportTemporada) bugReportTemporada.value = '';
     if (bugReportProblema) bugReportProblema.value = '';
-    if (bugReportImage1) bugReportImage1.value = '';
-    if (bugReportImage2) bugReportImage2.value = '';
-    if (bugReportImage3) bugReportImage3.value = '';
-    if (bugReportCareerPath) bugReportCareerPath.value = '';
-    if (bugReportImagesPreview) bugReportImagesPreview.innerHTML = '';
+    if (bugReportCareerUrl) bugReportCareerUrl.value = '';
     if (bugReportModalError) {
       bugReportModalError.hidden = true;
       bugReportModalError.textContent = '';
     }
     if (bugReportSuccessMessage) bugReportSuccessMessage.hidden = true;
-    bugReportImage1Data = null;
-    bugReportImage2Data = null;
-    bugReportImage3Data = null;
-    bugReportCareerData = null;
-    bugReportCareerFileName = null;
   }
 
   function openBugReportModal() {
@@ -2788,142 +2817,12 @@
   if (bugReportModalCloseX) bugReportModalCloseX.addEventListener('click', closeBugReportModal);
   if (bugReportCancel) bugReportCancel.addEventListener('click', closeBugReportModal);
 
-  function readFileAsDataUrl(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  const BUG_REPORT_MAX_IMAGE_BYTES = 700000;
-  function compressImageForBugReport(dataUrl) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const maxDim = 1024;
-        let w = img.width;
-        let h = img.height;
-        if (w > maxDim || h > maxDim) {
-          if (w > h) {
-            h = Math.round((h * maxDim) / w);
-            w = maxDim;
-          } else {
-            w = Math.round((w * maxDim) / h);
-            h = maxDim;
-          }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(dataUrl);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, w, h);
-        let quality = 0.75;
-        let result = canvas.toDataURL('image/jpeg', quality);
-        while (result.length > BUG_REPORT_MAX_IMAGE_BYTES && quality > 0.3) {
-          quality -= 0.1;
-          result = canvas.toDataURL('image/jpeg', quality);
-        }
-        resolve(result);
-      };
-      img.onerror = () => resolve(dataUrl);
-      img.src = dataUrl;
-    });
-  }
-
-  function updateBugReportImagesPreview() {
-    if (!bugReportImagesPreview) return;
-    bugReportImagesPreview.innerHTML = '';
-    [bugReportImage1Data, bugReportImage2Data, bugReportImage3Data].forEach((dataUrl, i) => {
-      if (!dataUrl || !dataUrl.startsWith('data:image/')) return;
-      const wrap = document.createElement('div');
-      wrap.className = 'bug-preview-img-wrap';
-      const img = document.createElement('img');
-      img.src = dataUrl;
-      img.alt = `Imagen ${i + 1}`;
-      img.className = 'bug-preview-img';
-      wrap.appendChild(img);
-      wrap.addEventListener('click', () => openComprobanteFullscreen(dataUrl));
-      bugReportImagesPreview.appendChild(wrap);
-    });
-  }
-
-  [bugReportImage1, bugReportImage2, bugReportImage3].forEach((input, idx) => {
-    if (!input) return;
-    input.addEventListener('change', async () => {
-      const file = input.files?.[0];
-      if (!file || !file.type.startsWith('image/')) {
-        const arr = [bugReportImage1Data, bugReportImage2Data, bugReportImage3Data];
-        arr[idx] = null;
-        bugReportImage1Data = arr[0];
-        bugReportImage2Data = arr[1];
-        bugReportImage3Data = arr[2];
-        updateBugReportImagesPreview();
-        return;
-      }
-      try {
-        let dataUrl = await readFileAsDataUrl(file);
-        dataUrl = await compressImageForBugReport(dataUrl);
-        const arr = [bugReportImage1Data, bugReportImage2Data, bugReportImage3Data];
-        arr[idx] = dataUrl;
-        bugReportImage1Data = arr[0];
-        bugReportImage2Data = arr[1];
-        bugReportImage3Data = arr[2];
-        updateBugReportImagesPreview();
-      } catch (_) {}
-    });
-  });
-
-  if (bugReportCareerOpen) {
-    bugReportCareerOpen.addEventListener('click', async () => {
-      if (window.electronAPI?.openCareerFolder) {
-        await window.electronAPI.openCareerFolder();
-      }
-    });
-  }
-
-  if (bugReportCareerSelect) {
-    bugReportCareerSelect.addEventListener('click', async () => {
-      if (!window.electronAPI?.showBugReportFileDialog || !window.electronAPI?.readBugReportFile) return;
-      const folderPath = window.electronAPI.getCareerFolderPath ? await window.electronAPI.getCareerFolderPath() : undefined;
-      const result = await window.electronAPI.showBugReportFileDialog({
-        defaultPath: folderPath,
-        title: 'Seleccionar archivo de modo carrera',
-        filters: [{ name: 'Archivos de modo carrera', extensions: ['squads', 'squad', 'dat', '*'] }]
-      });
-      if (result.canceled || !result.filePaths?.length) return;
-      const filePath = result.filePaths[0];
-      if (bugReportCareerPath) bugReportCareerPath.value = filePath;
-      try {
-        const { ok, data, error } = await window.electronAPI.readBugReportFile(filePath);
-        if (ok && data) {
-          bugReportCareerData = data;
-          bugReportCareerFileName = filePath.split(/[/\\]/).pop() || 'career.squads';
-        } else {
-          if (bugReportModalError) {
-            bugReportModalError.textContent = error || 'No se pudo leer el archivo.';
-            bugReportModalError.hidden = false;
-          }
-        }
-      } catch (_) {
-        if (bugReportModalError) {
-          bugReportModalError.textContent = 'No se pudo leer el archivo.';
-          bugReportModalError.hidden = false;
-        }
-      }
-    });
-  }
-
   if (bugReportSubmit) {
     bugReportSubmit.addEventListener('click', async () => {
       const equipo = bugReportEquipo?.value?.trim();
       const temporada = bugReportTemporada?.value?.trim();
       const problema = bugReportProblema?.value?.trim();
+      const careerUrl = bugReportCareerUrl?.value?.trim() || '';
       if (!equipo || !temporada || !problema) {
         if (bugReportModalError) {
           bugReportModalError.textContent = 'Equipo, temporada y problema son obligatorios.';
@@ -2931,10 +2830,9 @@
         }
         return;
       }
-      const totalSize = (bugReportImage1Data?.length || 0) + (bugReportImage2Data?.length || 0) + (bugReportImage3Data?.length || 0) + (bugReportCareerData?.length || 0);
-      if (totalSize > 8000000) {
+      if (careerUrl && !careerUrl.toLowerCase().includes('transfer.it')) {
         if (bugReportModalError) {
-          bugReportModalError.textContent = 'El tamaño total supera 8 MB. Usa imágenes más pequeñas o no adjuntes el archivo de modo carrera.';
+          bugReportModalError.textContent = 'El enlace debe ser de transfer.it. Sube tu archivo en https://transfer.it/ y pega el enlace aquí.';
           bugReportModalError.hidden = false;
         }
         return;
@@ -2942,15 +2840,15 @@
       if (bugReportModalError) bugReportModalError.hidden = true;
       bugReportSubmit.disabled = true;
       try {
+        const setupInfo = await getSetupInfo();
         const payload = {
           equipo,
           temporada: parseInt(temporada, 10),
           problema,
-          image1: bugReportImage1Data || undefined,
-          image2: bugReportImage2Data || undefined,
-          image3: bugReportImage3Data || undefined,
-          career_file: bugReportCareerData || undefined,
-          career_file_name: bugReportCareerFileName || undefined
+          career_file_url: careerUrl || undefined,
+          mod_order_ok: setupInfo.mod_order_ok,
+          teams_ok: setupInfo.teams_ok,
+          squad_applied: setupInfo.squad_applied
         };
         const res = await fetchBot(`${BOT_BASE_URL}/bug-report`, {
           method: 'POST',
@@ -2966,16 +2864,7 @@
           if (bugReportEquipo) bugReportEquipo.value = '';
           if (bugReportTemporada) bugReportTemporada.value = '';
           if (bugReportProblema) bugReportProblema.value = '';
-          if (bugReportImage1) bugReportImage1.value = '';
-          if (bugReportImage2) bugReportImage2.value = '';
-          if (bugReportImage3) bugReportImage3.value = '';
-          if (bugReportCareerPath) bugReportCareerPath.value = '';
-          if (bugReportImagesPreview) bugReportImagesPreview.innerHTML = '';
-          bugReportImage1Data = null;
-          bugReportImage2Data = null;
-          bugReportImage3Data = null;
-          bugReportCareerData = null;
-          bugReportCareerFileName = null;
+          if (bugReportCareerUrl) bugReportCareerUrl.value = '';
           setTimeout(closeBugReportModal, 2500);
         } else {
           if (bugReportModalError) {
@@ -3005,6 +2894,7 @@
   const bugDetailNota = document.getElementById('bugDetailNota');
   const bugDetailRespuesta = document.getElementById('bugDetailRespuesta');
   const bugDetailSave = document.getElementById('bugDetailSave');
+  const bugDetailEnCurso = document.getElementById('bugDetailEnCurso');
   const bugDetailResuelto = document.getElementById('bugDetailResuelto');
   const bugDetailCancel = document.getElementById('bugDetailCancel');
   const bugDetailError = document.getElementById('bugDetailError');
@@ -3035,41 +2925,25 @@
         const card = document.createElement('div');
         card.className = `bug-admin-card${bug.status === 'resolved' ? ' bug-admin-card--resolved' : ''}`;
         const created = bug.created_at ? new Date(bug.created_at).toLocaleString() : '-';
+        const statusLabel = bug.status === 'resolved' ? 'Resuelto' : bug.status === 'en_curso' ? 'En curso' : 'Pendiente';
+        const enCursoInfo = bug.status === 'en_curso' && bug.en_curso_by
+          ? ` (por ${escapeHtml(bug.en_curso_by)})`
+          : '';
         let html = '<div class="bug-admin-card-meta">';
         html += `<p class="dash-card-text"><strong>#${bug.id}</strong> · ${escapeHtml(bug.equipo || '-')} · Temp. ${bug.temporada || '-'}</p>`;
         html += `<p class="dash-card-text"><strong>Usuario:</strong> ${escapeHtml(bug.user_email || '-')}</p>`;
         html += `<p class="dash-card-text"><strong>Problema:</strong> ${escapeHtml((bug.problema || '').slice(0, 120))}${(bug.problema || '').length > 120 ? '…' : ''}</p>`;
-        html += `<p class="dash-card-text"><strong>Fecha:</strong> ${escapeHtml(created)} · <strong>Estado:</strong> ${bug.status === 'resolved' ? 'Resuelto' : 'Pendiente'}</p>`;
-        const hasImages = !!(bug.image1_data || bug.image2_data || bug.image3_data);
-        if (hasImages) {
-          html += '<div class="bug-admin-card-images">';
-          [bug.image1_data, bug.image2_data, bug.image3_data].forEach((src, i) => {
-            if (!src || !src.startsWith('data:image/')) return;
-            html += `<div class="bug-admin-img-wrap" data-src="${(src || '').replace(/"/g, '&quot;')}"><img src="${(src || '').replace(/"/g, '&quot;')}" alt="Imagen ${i + 1}" class="bug-admin-img" /></div>`;
-          });
-          html += '</div>';
-        }
-        if (bug.career_file_data && bug.career_file_name) {
-          html += `<p class="dash-card-text"><button type="button" class="mods-download-btn bug-download-career" data-id="${bug.id}">Descargar archivo</button></p>`;
+        html += `<p class="dash-card-text"><strong>Fecha:</strong> ${escapeHtml(created)} · <strong>Estado:</strong> ${statusLabel}${enCursoInfo}</p>`;
+        const setupStr = formatSetupInfo(bug);
+        if (setupStr) html += `<p class="dash-card-text"><strong>Setup:</strong> ${setupStr}</p>`;
+        if (bug.career_file_url) {
+          html += `<p class="dash-card-text"><a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="mods-download-btn" style="display:inline-block">Abrir archivo (Transfer.it)</a></p>`;
         }
         html += `<button type="button" class="login-btn-secondary bug-admin-view-detail" data-id="${bug.id}">Ver detalle</button>`;
         html += '</div>';
         card.innerHTML = html;
-        card.querySelectorAll('.bug-admin-img-wrap').forEach((wrap) => {
-          const src = wrap.querySelector('img')?.getAttribute('src');
-          if (src) wrap.addEventListener('click', () => openComprobanteFullscreen(src));
-        });
         const viewBtn = card.querySelector('.bug-admin-view-detail');
         if (viewBtn) viewBtn.addEventListener('click', () => openBugDetailModal(Number(viewBtn.getAttribute('data-id'))));
-        const downloadBtn = card.querySelector('.bug-download-career');
-        if (downloadBtn && bug.career_file_data) {
-          downloadBtn.addEventListener('click', () => {
-            const a = document.createElement('a');
-            a.href = bug.career_file_data;
-            a.download = bug.career_file_name || 'career.squads';
-            a.click();
-          });
-        }
         bugsAdminList.appendChild(card);
       });
     } catch (_) {
@@ -3105,27 +2979,19 @@
       content += `<p class="dash-card-text"><strong>Usuario:</strong> ${escapeHtml(bug.user_email || '-')}</p>`;
       content += `<p class="dash-card-text"><strong>Discord:</strong> ${escapeHtml(bug.discord_username || bug.discord_id || '-')}</p>`;
       content += `<p class="dash-card-text"><strong>Problema:</strong></p><p class="dash-card-text">${escapeHtml(bug.problema || '-')}</p>`;
-      content += `<p class="dash-card-text"><strong>Estado:</strong> ${bug.status === 'resolved' ? 'Resuelto' : 'Pendiente'}</p>`;
-      if (bug.image1_data || bug.image2_data || bug.image3_data) {
-        content += '<div class="bug-admin-card-images" style="margin-top:8px">';
-        [bug.image1_data, bug.image2_data, bug.image3_data].forEach((src, i) => {
-          if (!src || !src.startsWith('data:image/')) return;
-          content += `<div class="bug-admin-img-wrap" style="cursor:pointer" data-src=""><img src="${(src || '').replace(/"/g, '&quot;')}" alt="Imagen ${i + 1}" class="bug-admin-img" /></div>`;
-        });
-        content += '</div>';
-      }
-      if (bug.career_file_data && bug.career_file_name) {
-        content += `<p class="dash-card-text"><a href="${(bug.career_file_data || '').replace(/"/g, '&quot;')}" download="${escapeHtml(bug.career_file_name || 'career.squads')}" class="mods-download-btn" style="display:inline-block;margin-top:8px">Descargar archivo de modo carrera</a></p>`;
+      const statusLabel = bug.status === 'resolved' ? 'Resuelto' : bug.status === 'en_curso' ? 'En curso' : 'Pendiente';
+      const enCursoBy = bug.en_curso_by ? ` (por ${escapeHtml(bug.en_curso_by)})` : '';
+      content += `<p class="dash-card-text"><strong>Estado:</strong> ${statusLabel}${enCursoBy}</p>`;
+      const setupStr = formatSetupInfo(bug);
+      if (setupStr) content += `<p class="dash-card-text"><strong>Setup al reportar:</strong> ${escapeHtml(setupStr)}</p>`;
+      if (bug.career_file_url) {
+        content += `<p class="dash-card-text"><a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="mods-download-btn" style="display:inline-block;margin-top:8px">Abrir archivo de modo carrera (Transfer.it)</a></p>`;
       }
       content += '</div>';
       if (bugDetailContent) bugDetailContent.innerHTML = content;
-      bugDetailContent.querySelectorAll('.bug-admin-img-wrap').forEach((wrap) => {
-        const img = wrap.querySelector('img');
-        const src = img?.getAttribute('src');
-        if (src) wrap.addEventListener('click', () => openComprobanteFullscreen(src));
-      });
       if (bugDetailModal) bugDetailModal.hidden = false;
       if (bugDetailResuelto) bugDetailResuelto.hidden = bug.status === 'resolved';
+      if (bugDetailEnCurso) bugDetailEnCurso.hidden = bug.status === 'resolved' || bug.status === 'en_curso';
     } catch (_) {
       if (bugsAdminError) {
         bugsAdminError.textContent = 'Error al cargar el bug.';
@@ -3177,6 +3043,39 @@
         }
       } finally {
         bugDetailSave.disabled = false;
+      }
+    });
+  }
+
+  if (bugDetailEnCurso) {
+    bugDetailEnCurso.addEventListener('click', async () => {
+      if (!currentBugDetailId || !currentUser?.user_email) return;
+      const adminEmail = encodeURIComponent(currentUser.user_email);
+      if (bugDetailError) bugDetailError.hidden = true;
+      bugDetailEnCurso.disabled = true;
+      try {
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/bugs/${currentBugDetailId}?email=${adminEmail}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ en_curso: true })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data.success) {
+          closeBugDetailModal();
+          loadBugsAdminList();
+        } else {
+          if (bugDetailError) {
+            bugDetailError.textContent = data.message || 'Error al marcar en curso.';
+            bugDetailError.hidden = false;
+          }
+        }
+      } catch (_) {
+        if (bugDetailError) {
+          bugDetailError.textContent = 'Error de conexión.';
+          bugDetailError.hidden = false;
+        }
+      } finally {
+        bugDetailEnCurso.disabled = false;
       }
     });
   }
@@ -3510,6 +3409,10 @@
             va = (a.pc_name || '').toString().toLowerCase();
             vb = (b.pc_name || '').toString().toLowerCase();
             break;
+          case 'setup':
+            va = (formatSetupInfo(a) || '').toLowerCase();
+            vb = (formatSetupInfo(b) || '').toLowerCase();
+            break;
           default:
             return 0;
         }
@@ -3519,7 +3422,7 @@
     }
 
     if (filtered.length === 0) {
-      usersAdminTableBody.innerHTML = '<tr><td colspan="7">Sin resultados para este filtro.</td></tr>';
+      usersAdminTableBody.innerHTML = '<tr><td colspan="8">Sin resultados para este filtro.</td></tr>';
       updateUsersAdminSortHeaders();
       return;
     }
@@ -3552,6 +3455,7 @@
         <td>${escapeHtml(displayRole)}</td>
         <td>${escapeHtml(mpText)}</td>
         <td>${escapeHtml(row.pc_name || '-')}</td>
+        <td>${escapeHtml(formatSetupInfo(row)) || '-'}</td>
         <td>
           <div class="users-admin-actions">
             <button type="button" class="users-admin-btn users-admin-btn--edit" data-user-id="${escapeHtml(String(row.id))}">Editar</button>
@@ -3589,7 +3493,7 @@
     }
     if (!usersAdminTableBody) return;
 
-    usersAdminTableBody.innerHTML = '<tr><td colspan="7">Cargando usuarios...</td></tr>';
+    usersAdminTableBody.innerHTML = '<tr><td colspan="8">Cargando usuarios...</td></tr>';
 
     try {
       const email = encodeURIComponent(currentUser.user_email);
@@ -3607,7 +3511,7 @@
 
       usersAdminCache = data.users;
       if (usersAdminCache.length === 0) {
-        usersAdminTableBody.innerHTML = '<tr><td colspan="7">No hay usuarios registrados.</td></tr>';
+        usersAdminTableBody.innerHTML = '<tr><td colspan="8">No hay usuarios registrados.</td></tr>';
         return;
       }
 

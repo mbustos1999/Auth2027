@@ -1073,16 +1073,6 @@ function startOAuthServer() {
 
       // --- Reportar Bug/Problema (usuario autenticado) ---
       if (url.pathname === '/bug-report' && req.method === 'POST') {
-        const contentLength = parseInt(req.headers['content-length'] || '0', 10);
-        if (contentLength > 9000000) {
-          res.statusCode = 413;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({
-            success: false,
-            message: 'La petición es demasiado grande (máx. 9 MB). Reduce el tamaño de las imágenes o no adjuntes el archivo de modo carrera.'
-          }));
-          return;
-        }
         if (isRateLimited(getClientIp(req), 'bug_report', 10)) {
           res.statusCode = 429;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1103,7 +1093,7 @@ function startOAuthServer() {
           let data = '';
           req.on('data', (chunk) => {
             data += chunk.toString();
-            if (data.length > 9500000) req.destroy();
+            if (data.length > 500000) req.destroy();
           });
           req.on('end', () => {
             try {
@@ -1123,49 +1113,29 @@ function startOAuthServer() {
           res.end(JSON.stringify({ success: false, message: 'Equipo, temporada (2026-2034) y problema son obligatorios.' }));
           return;
         }
-        const image1 = body && typeof body.image1 === 'string' ? body.image1.trim() : null;
-        const image2 = body && typeof body.image2 === 'string' ? body.image2.trim() : null;
-        const image3 = body && typeof body.image3 === 'string' ? body.image3.trim() : null;
-        const careerFile = body && typeof body.career_file === 'string' ? body.career_file.trim() : null;
-        const careerFileName = body && typeof body.career_file_name === 'string' ? body.career_file_name.trim() : null;
-        const MAX_IMAGE = 800000;
-        const MAX_CAREER = 5000000;
-        const MAX_TOTAL_BODY = 8000000;
-        if (image1 && image1.length > MAX_IMAGE) {
-          res.statusCode = 400;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ success: false, message: 'La imagen 1 es demasiado grande. Usa una más pequeña.' }));
-          return;
+        const careerFileUrl = body && typeof body.career_file_url === 'string' ? body.career_file_url.trim() : null;
+        if (careerFileUrl) {
+          const urlLower = careerFileUrl.toLowerCase();
+          if (!urlLower.includes('transfer.it')) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'El enlace debe ser de transfer.it. Sube tu archivo en https://transfer.it/ y pega el enlace aquí.' }));
+            return;
+          }
+          try {
+            new URL(careerFileUrl);
+          } catch {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'El enlace no es válido.' }));
+            return;
+          }
         }
-        if (image2 && image2.length > MAX_IMAGE) {
-          res.statusCode = 400;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ success: false, message: 'La imagen 2 es demasiado grande. Usa una más pequeña.' }));
-          return;
-        }
-        if (image3 && image3.length > MAX_IMAGE) {
-          res.statusCode = 400;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ success: false, message: 'La imagen 3 es demasiado grande. Usa una más pequeña.' }));
-          return;
-        }
-        if (careerFile && careerFile.length > MAX_CAREER) {
-          res.statusCode = 400;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ success: false, message: 'El archivo de modo carrera es demasiado grande (máx. 5 MB).' }));
-          return;
-        }
-        const totalSize = (image1?.length || 0) + (image2?.length || 0) + (image3?.length || 0) + (careerFile?.length || 0);
-        if (totalSize > MAX_TOTAL_BODY) {
-          res.statusCode = 400;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({
-            success: false,
-            message: 'El tamaño total de imágenes y archivo supera el límite (8 MB). Reduce el tamaño de las imágenes o no adjuntes el archivo de modo carrera.'
-          }));
-          return;
-        }
-        const { data: linkRow, error: linkError } = await supabase
+        const modOrderOk = body && typeof body.mod_order_ok === 'boolean' ? body.mod_order_ok : null;
+        const teamsOk = body && typeof body.teams_ok === 'boolean' ? body.teams_ok : null;
+        const squadApplied = body && typeof body.squad_applied === 'boolean' ? body.squad_applied : null;
+
+        const { data: linkRow } = await supabase
           .from('user_discord_links')
           .select('id, discord_id, discord_username, status')
           .eq('email', userEmail)
@@ -1179,11 +1149,10 @@ function startOAuthServer() {
           equipo,
           temporada,
           problema,
-          image1_data: image1 || null,
-          image2_data: image2 || null,
-          image3_data: image3 || null,
-          career_file_data: careerFile || null,
-          career_file_name: careerFileName || null,
+          career_file_url: careerFileUrl || null,
+          mod_order_ok: modOrderOk,
+          teams_ok: teamsOk,
+          squad_applied: squadApplied,
           status: 'pending'
         });
         if (insertErr) {
@@ -1196,6 +1165,59 @@ function startOAuthServer() {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.end(JSON.stringify({ success: true, message: 'Un administrador revisará tu caso y responderá a la brevedad.' }));
+        return;
+      }
+
+      // --- Actualizar setup info del usuario (login/logout) ---
+      if (url.pathname === '/user/setup-info' && req.method === 'POST') {
+        const sessionHeader = req.headers['x-auth2027-session'];
+        const userEmail = typeof sessionHeader === 'string' && sessionHeader.trim()
+          ? verifySessionToken(sessionHeader.trim(), null)
+          : null;
+        if (!userEmail) {
+          res.statusCode = 401;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Sesión inválida o expirada.' }));
+          return;
+        }
+        const body = await new Promise((resolve) => {
+          let data = '';
+          req.on('data', (chunk) => { data += chunk.toString(); if (data.length > 50000) req.destroy(); });
+          req.on('end', () => { try { resolve(data ? JSON.parse(data) : {}); } catch { resolve({}); } });
+          req.on('error', () => resolve({}));
+        });
+        const modOrderOk = body && typeof body.mod_order_ok === 'boolean' ? body.mod_order_ok : null;
+        const teamsOk = body && typeof body.teams_ok === 'boolean' ? body.teams_ok : null;
+        const squadApplied = body && typeof body.squad_applied === 'boolean' ? body.squad_applied : null;
+        try {
+          const { data: row, error } = await supabase
+            .from('user_discord_links')
+            .select('id')
+            .eq('email', userEmail)
+            .maybeSingle();
+          if (error || !row) {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true }));
+            return;
+          }
+          const patch = {
+            mod_order_ok: modOrderOk,
+            teams_ok: teamsOk,
+            squad_applied: squadApplied,
+            setup_info_updated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          await supabase.from('user_discord_links').update(patch).eq('id', row.id);
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: true }));
+        } catch (e) {
+          console.error('Error en /user/setup-info:', e);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+        }
         return;
       }
 
@@ -1616,7 +1638,7 @@ function startOAuthServer() {
           try {
             const statusFilter = url.searchParams.get('status') || '';
             let query = supabase.from('bug_reports').select('*').order('created_at', { ascending: false });
-            if (statusFilter === 'pending' || statusFilter === 'resolved') {
+            if (statusFilter === 'pending' || statusFilter === 'resolved' || statusFilter === 'en_curso') {
               query = query.eq('status', statusFilter);
             }
             const { data: rows, error } = await query;
@@ -1682,20 +1704,20 @@ function startOAuthServer() {
             return;
           }
           const body = await readJsonBody(req);
-          const { nota, respuesta, resolved } = body || {};
+          const { nota, respuesta, resolved, en_curso } = body || {};
           try {
             const patch = { updated_at: new Date().toISOString() };
             if (typeof nota === 'string') patch.admin_nota = nota.trim();
             if (typeof respuesta === 'string') patch.admin_respuesta = respuesta.trim();
+            if (en_curso === true) {
+              patch.status = 'en_curso';
+              patch.en_curso_at = new Date().toISOString();
+              patch.en_curso_by = adminEmail;
+            }
             if (resolved === true) {
               patch.status = 'resolved';
               patch.resolved_at = new Date().toISOString();
               patch.resolved_by = adminEmail;
-              patch.image1_data = null;
-              patch.image2_data = null;
-              patch.image3_data = null;
-              patch.career_file_data = null;
-              patch.career_file_name = null;
             }
             const { data: row, error } = await supabase
               .from('bug_reports')
