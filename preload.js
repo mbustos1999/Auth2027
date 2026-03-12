@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkSquadStatus: () => ipcRenderer.invoke('switcher:checkSquad'),
   applySquad: () => ipcRenderer.invoke('switcher:applySquad'),
   getTeamsStatus: () => ipcRenderer.invoke('teams:getStatus'),
+  getModOrderStatus: () => ipcRenderer.invoke('modManager:getModOrderStatus'),
   launchModManager: () => ipcRenderer.invoke('modmanager:launch'),
   launchLauncher: () => ipcRenderer.invoke('launcher:launch'),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),

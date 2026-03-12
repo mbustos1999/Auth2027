@@ -66,6 +66,7 @@
   const kofiStatusBoxEl = document.getElementById('kofiStatusBox');
   const patreonStatusBoxEl = document.getElementById('patreonStatusBox');
   const teamsHeaderStatusEl = document.getElementById('teamsHeaderStatus');
+  const modsOrderHeaderStatusEl = document.getElementById('modsOrderHeaderStatus');
   const switcherWrapper = document.getElementById('switcherWrapper');
   const switcherPower = document.getElementById('switcherPower');
   const switcherChannelLabel = document.getElementById('switcherChannelLabel');
@@ -567,6 +568,30 @@
       teamsHeaderStatusEl.textContent = 'Teams Error';
       teamsHeaderStatusEl.classList.remove('dash-teams-status--ok');
       teamsHeaderStatusEl.classList.add('dash-teams-status--error');
+    }
+  }
+
+  async function updateModsOrderHeaderStatus(hasGameAccess) {
+    if (!modsOrderHeaderStatusEl) return;
+    if (!hasGameAccess || !window.electronAPI || !window.electronAPI.getModOrderStatus) {
+      modsOrderHeaderStatusEl.hidden = true;
+      modsOrderHeaderStatusEl.classList.remove('dash-mods-order-status--ok', 'dash-mods-order-status--error');
+      return;
+    }
+    try {
+      const res = await window.electronAPI.getModOrderStatus();
+      const correct = !!(res && res.ok && res.correct);
+      modsOrderHeaderStatusEl.hidden = false;
+      modsOrderHeaderStatusEl.textContent = correct ? 'Orden de los mods es correcta' : 'Orden de mods incorrecta';
+      modsOrderHeaderStatusEl.title = correct ? 'El orden de los mods (Argenmod 1, 2, 3, 4) es correcta' : 'El orden de los mods en Mod Manager es incorrecta. Debe ser: Argenmod 1, 2, 3, 4';
+      modsOrderHeaderStatusEl.classList.toggle('dash-mods-order-status--ok', correct);
+      modsOrderHeaderStatusEl.classList.toggle('dash-mods-order-status--error', !correct);
+    } catch (_) {
+      modsOrderHeaderStatusEl.hidden = false;
+      modsOrderHeaderStatusEl.textContent = 'Orden de mods incorrecta';
+      modsOrderHeaderStatusEl.title = 'El orden de los mods en Mod Manager es incorrecta';
+      modsOrderHeaderStatusEl.classList.remove('dash-mods-order-status--ok');
+      modsOrderHeaderStatusEl.classList.add('dash-mods-order-status--error');
     }
   }
 
@@ -2109,8 +2134,9 @@
       }
     }
 
-    // Actualizar estado de Teams en el header
+    // Actualizar estado de Teams y orden de mods en el header
     updateTeamsHeaderStatus(hasGameAccess);
+    updateModsOrderHeaderStatus(hasGameAccess);
 
     if (isLinked && (hasAdminRole || hasSupportRole)) {
       loadMpAdminPendingCount();

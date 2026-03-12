@@ -924,6 +924,44 @@ ipcMain.handle('teams:getStatus', async () => {
   }
 });
 
+ipcMain.handle('modManager:getModOrderStatus', async () => {
+  try {
+    const baseDir = app.isPackaged ? process.resourcesPath : __dirname;
+    const configPath = path.join(baseDir, 'modManager', 'FIFA Mod Manager.json');
+    if (!fs.existsSync(configPath)) {
+      return { ok: false, correct: false, reason: 'not_found' };
+    }
+    const raw = fs.readFileSync(configPath, 'utf8');
+    const config = JSON.parse(raw);
+    const profiles = config?.Profiles?.FC26;
+    if (!Array.isArray(profiles) || profiles.length === 0) {
+      return { ok: false, correct: false, reason: 'no_profile' };
+    }
+    const lastProfile = config?.LastUsedProfileName?.FC26;
+    const profile = lastProfile
+      ? profiles.find((p) => p?.Name === lastProfile) || profiles[0]
+      : profiles[0];
+    const appliedMods = profile?.AppliedMods || profile?.GameSettings?.AppliedMods;
+    if (!Array.isArray(appliedMods) || appliedMods.length < 4) {
+      return { ok: true, correct: false };
+    }
+    const firstFour = appliedMods.slice(0, 4);
+    const expectedPrefixes = ['ARGENMOD 1', 'ARGENMOD 2', 'ARGENMOD 3', 'ARGENMOD 4'];
+    const correct = firstFour.every((mod, i) => {
+      const fp = String(mod?.ModFilePath || '').trim();
+      const prefix = expectedPrefixes[i];
+      if (fp.length < prefix.length) return false;
+      if (!fp.toUpperCase().startsWith(prefix.toUpperCase())) return false;
+      const nextChar = fp[prefix.length];
+      return !nextChar || !/\d/.test(nextChar);
+    });
+    return { ok: true, correct };
+  } catch (e) {
+    console.error('Error en modManager:getModOrderStatus:', e);
+    return { ok: false, correct: false, reason: e.message || 'parse_error' };
+  }
+});
+
 // Buscar carpeta del Live Editor (nombre puede ser liveEditor, FC 26 LE v26.2.5 (1), FC 26 Live Editor, etc.)
 // Ruta típica: .../liveEditor/FC 26 LE v26.2.5 (1)/Launcher.exe
 function findLiveEditorLauncherPath() {

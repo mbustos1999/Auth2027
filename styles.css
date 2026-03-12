@@ -767,6 +767,40 @@ html, body {
   display: none !important;
 }
 
+.dash-mods-order-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(166, 207, 224, 0.2);
+}
+
+.dash-mods-order-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-mods-order-status--ok {
+  background: rgba(34, 197, 94, 0.16);
+  color: #22c55e;
+}
+
+.dash-mods-order-status--error {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f97373;
+}
+
+.dash-mods-order-status[hidden] {
+  display: none !important;
+}
+
 .dash-user-meta span {
   display: block;
   font-size: 13px;
