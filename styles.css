@@ -1002,8 +1002,65 @@ html, body {
 
 .users-admin-actions-right {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
+}
+
+/* Botones del toolbar de admin (Usuarios, Bugs, MP) */
+.users-admin-actions-right .login-btn-secondary,
+.bugs-admin-toolbar .login-btn-secondary {
+  flex: none;
+  min-width: 120px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.users-admin-actions-right .login-btn-secondary:hover:not(:disabled),
+.bugs-admin-toolbar .login-btn-secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+/* Refrescar roles / Sincronizar - azul */
+#usersAdminSyncRoles {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  border: none;
+  box-shadow: none;
+}
+
+#usersAdminSyncRoles:hover:not(:disabled) {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+}
+
+/* Recargar lista - verde */
+#usersAdminRefresh,
+#bugsAdminRefresh {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  border: none;
+  box-shadow: none;
+}
+
+#usersAdminRefresh:hover:not(:disabled),
+#bugsAdminRefresh:hover:not(:disabled) {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+}
+
+/* Buscar (MP admin) - azul */
+#mpAdminSearch {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  border: none;
+  box-shadow: none;
+}
+
+#mpAdminSearch:hover:not(:disabled) {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
 }
 
 .mp-admin-result {
@@ -1369,10 +1426,8 @@ html, body {
   max-width: 180px;
 }
 
-.bugs-admin-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.bug-row-resolved {
+  opacity: 0.85;
 }
 
 .bug-admin-card {
@@ -1421,12 +1476,73 @@ html, body {
 
 .bug-detail-modal-content .bug-detail-content {
   margin-bottom: 20px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+.bug-detail-modal-content .bug-detail-content .bug-detail-content-inner,
+.bug-detail-modal-content .bug-detail-content .dash-card-text {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .bug-detail-admin-actions {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* Botones del modal de detalle de bug */
+.bug-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.bug-detail-btn {
+  min-width: 100px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bug-detail-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.bug-detail-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.bug-detail-btn--en-curso {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #fff;
+}
+
+.bug-detail-btn--resolver {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+}
+
+.bug-detail-btn--cerrar {
+  background: transparent;
+  color: #94a3b8;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.5);
+}
+
+.bug-detail-btn--cerrar:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.1);
+  color: #e2e8f0;
 }
 
 .users-admin-filters .recover-input {
@@ -3054,6 +3170,10 @@ html, body {
   pointer-events: none;
 }
 
+.recover-modal:not([hidden]) {
+  pointer-events: auto;
+}
+
 .recover-modal[hidden] {
   display: none;
 }
@@ -3186,6 +3306,7 @@ html, body {
 /* Modal mods: contenido más ancho para varias barras */
 .mods-modal-content {
   max-width: 420px;
+  overflow-x: hidden;
 }
 .mods-modal-header {
   display: flex;

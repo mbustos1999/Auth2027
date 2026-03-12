@@ -144,15 +144,16 @@
     }
   }
 
-  /** Envía el setup info al servidor (login/logout). No bloquea. */
-  async function updateUserSetupInfo() {
+  /** Envía el setup info al servidor (login/logout). override: { switcher_abierto?: boolean } */
+  async function updateUserSetupInfo(override = {}) {
     if (!currentUser?.user_email || typeof fetchBot !== 'function') return;
     try {
       const info = await getSetupInfo();
+      const payload = { ...info, ...override };
       await fetchBot(`${BOT_BASE_URL}/user/setup-info`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(info)
+        body: JSON.stringify(payload)
       });
     } catch (_) {}
   }
@@ -1011,17 +1012,17 @@
         fetchMercadoPagoAndSave().catch(() => {});
       });
 
-    // Actualizar setup info (mod order, teams, squad) en el servidor al abrir sesión
-    updateUserSetupInfo().catch(() => {});
+    // Actualizar setup info (mod order, teams, squad, switcher abierto) en el servidor al abrir sesión
+    updateUserSetupInfo({ switcher_abierto: true }).catch(() => {});
 
     // Al entrar al dashboard, ir directamente a la pestaña Perfil
     activateTab('profile');
   }
 
   async function showLogin() {
-    // Actualizar setup info al cerrar sesión (antes de limpiar el token)
+    // Actualizar setup info al cerrar sesión (switcher cerrado, antes de limpiar el token)
     if (currentUser?.user_email) {
-      try { await updateUserSetupInfo(); } catch (_) {}
+      try { await updateUserSetupInfo({ switcher_abierto: false }); } catch (_) {}
     }
     if (window.electronAPI && typeof window.electronAPI.clearSessionUser === 'function') {
       try { window.electronAPI.clearSessionUser(); } catch (_) {}
@@ -2899,7 +2900,6 @@
   const bugDetailContent = document.getElementById('bugDetailContent');
   const bugDetailNota = document.getElementById('bugDetailNota');
   const bugDetailRespuesta = document.getElementById('bugDetailRespuesta');
-  const bugDetailSave = document.getElementById('bugDetailSave');
   const bugDetailEnCurso = document.getElementById('bugDetailEnCurso');
   const bugDetailResuelto = document.getElementById('bugDetailResuelto');
   const bugDetailCancel = document.getElementById('bugDetailCancel');
@@ -2913,47 +2913,49 @@
     const adminEmail = encodeURIComponent(currentUser.user_email);
     const status = bugsAdminFilterStatus?.value || '';
     const url = status ? `${BOT_BASE_URL}/admin/bugs?email=${adminEmail}&status=${status}` : `${BOT_BASE_URL}/admin/bugs?email=${adminEmail}`;
-    bugsAdminList.innerHTML = '<p class="dash-card-text">Cargando…</p>';
+    bugsAdminList.innerHTML = '<tr><td colspan="9">Cargando…</td></tr>';
     if (bugsAdminError) bugsAdminError.hidden = true;
     try {
       const res = await fetchBot(url);
       const data = await res.json().catch(() => ({}));
       const bugs = Array.isArray(data.bugs) ? data.bugs : [];
-      bugsAdminList.innerHTML = '';
       if (bugs.length === 0) {
-        const p = document.createElement('p');
-        p.className = 'dash-card-text';
-        p.textContent = 'No hay reportes de bugs.';
-        bugsAdminList.appendChild(p);
+        bugsAdminList.innerHTML = '<tr><td colspan="9">No hay reportes de bugs.</td></tr>';
         return;
       }
+      bugsAdminList.innerHTML = '';
       bugs.forEach((bug) => {
-        const card = document.createElement('div');
-        card.className = `bug-admin-card${bug.status === 'resolved' ? ' bug-admin-card--resolved' : ''}`;
-        const created = bug.created_at ? new Date(bug.created_at).toLocaleString() : '-';
+        const tr = document.createElement('tr');
+        if (bug.status === 'resolved') tr.classList.add('bug-row-resolved');
         const statusLabel = bug.status === 'resolved' ? 'Resuelto' : bug.status === 'en_curso' ? 'En curso' : 'Pendiente';
-        const enCursoInfo = bug.status === 'en_curso' && bug.en_curso_by
-          ? ` (por ${escapeHtml(bug.en_curso_by)})`
-          : '';
-        let html = '<div class="bug-admin-card-meta">';
-        html += `<p class="dash-card-text"><strong>#${bug.id}</strong> · ${escapeHtml(bug.equipo || '-')} · Temp. ${bug.temporada || '-'}</p>`;
-        html += `<p class="dash-card-text"><strong>Usuario:</strong> ${escapeHtml(bug.user_email || '-')}</p>`;
-        html += `<p class="dash-card-text"><strong>Problema:</strong> ${escapeHtml((bug.problema || '').slice(0, 120))}${(bug.problema || '').length > 120 ? '…' : ''}</p>`;
-        html += `<p class="dash-card-text"><strong>Fecha:</strong> ${escapeHtml(created)} · <strong>Estado:</strong> ${statusLabel}${enCursoInfo}</p>`;
+        const statusClass = bug.status === 'resolved' ? 'completed' : bug.status === 'en_curso' ? 'in-progress' : 'pending';
+        const enCursoInfo = bug.status === 'en_curso' && bug.en_curso_by ? ` (${escapeHtml(bug.en_curso_by)})` : '';
+        const problemaShort = (bug.problema || '').slice(0, 60) + ((bug.problema || '').length > 60 ? '…' : '');
         const setupStr = formatSetupInfo(bug);
-        if (setupStr) html += `<p class="dash-card-text"><strong>Setup:</strong> ${setupStr}</p>`;
-        if (bug.career_file_url) {
-          html += `<p class="dash-card-text"><a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="mods-download-btn" style="display:inline-block">Abrir archivo (Transfer.it)</a></p>`;
-        }
-        html += `<button type="button" class="login-btn-secondary bug-admin-view-detail" data-id="${bug.id}">Ver detalle</button>`;
-        html += '</div>';
-        card.innerHTML = html;
-        const viewBtn = card.querySelector('.bug-admin-view-detail');
+        const fileLink = bug.career_file_url
+          ? `<a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="mods-download-btn" style="font-size:12px">Abrir</a>`
+          : '-';
+        tr.innerHTML = `
+          <td>${bug.id}</td>
+          <td>${escapeHtml(bug.user_email || '-')}</td>
+          <td>${escapeHtml(bug.equipo || '-')}</td>
+          <td>${bug.temporada || '-'}</td>
+          <td title="${escapeHtml(bug.problema || '')}">${escapeHtml(problemaShort || '-')}</td>
+          <td>${escapeHtml(setupStr) || '-'}</td>
+          <td><span class="status ${statusClass}">${statusLabel}${enCursoInfo}</span></td>
+          <td>${fileLink}</td>
+          <td>
+            <div class="users-admin-actions">
+              <button type="button" class="users-admin-btn users-admin-btn--edit bug-admin-view-detail" data-id="${bug.id}">Ver detalle</button>
+            </div>
+          </td>
+        `;
+        const viewBtn = tr.querySelector('.bug-admin-view-detail');
         if (viewBtn) viewBtn.addEventListener('click', () => openBugDetailModal(Number(viewBtn.getAttribute('data-id'))));
-        bugsAdminList.appendChild(card);
+        bugsAdminList.appendChild(tr);
       });
     } catch (_) {
-      bugsAdminList.innerHTML = '<p class="dash-card-text message-error">Error al cargar bugs.</p>';
+      bugsAdminList.innerHTML = '<tr><td colspan="9" class="message-error">Error al cargar bugs.</td></tr>';
     }
   }
 
@@ -3018,41 +3020,6 @@
   if (bugDetailModalCloseX) bugDetailModalCloseX.addEventListener('click', closeBugDetailModal);
   if (bugDetailCancel) bugDetailCancel.addEventListener('click', closeBugDetailModal);
 
-  if (bugDetailSave) {
-    bugDetailSave.addEventListener('click', async () => {
-      if (!currentBugDetailId || !currentUser?.user_email) return;
-      const adminEmail = encodeURIComponent(currentUser.user_email);
-      const nota = bugDetailNota?.value?.trim() || '';
-      const respuesta = bugDetailRespuesta?.value?.trim() || '';
-      if (bugDetailError) bugDetailError.hidden = true;
-      bugDetailSave.disabled = true;
-      try {
-        const res = await fetchBot(`${BOT_BASE_URL}/admin/bugs/${currentBugDetailId}?email=${adminEmail}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nota, respuesta })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (data.success) {
-          closeBugDetailModal();
-          loadBugsAdminList();
-        } else {
-          if (bugDetailError) {
-            bugDetailError.textContent = data.message || 'Error al guardar.';
-            bugDetailError.hidden = false;
-          }
-        }
-      } catch (_) {
-        if (bugDetailError) {
-          bugDetailError.textContent = 'Error de conexión.';
-          bugDetailError.hidden = false;
-        }
-      } finally {
-        bugDetailSave.disabled = false;
-      }
-    });
-  }
-
   if (bugDetailEnCurso) {
     bugDetailEnCurso.addEventListener('click', async () => {
       if (!currentBugDetailId || !currentUser?.user_email) return;
@@ -3090,11 +3057,12 @@
     bugDetailResuelto.addEventListener('click', async () => {
       if (!currentBugDetailId || !currentUser?.user_email) return;
       const adminEmail = encodeURIComponent(currentUser.user_email);
+      const nota = bugDetailNota?.value?.trim() || '';
       const respuesta = bugDetailRespuesta?.value?.trim() || '';
       if (bugDetailError) bugDetailError.hidden = true;
       bugDetailResuelto.disabled = true;
       try {
-        const patchBody = { respuesta: respuesta, resolved: true };
+        const patchBody = { nota, respuesta, resolved: true };
         const res = await fetchBot(`${BOT_BASE_URL}/admin/bugs/${currentBugDetailId}?email=${adminEmail}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -3106,7 +3074,7 @@
           loadBugsAdminList();
         } else {
           if (bugDetailError) {
-            bugDetailError.textContent = data.message || 'Error al marcar como resuelto.';
+            bugDetailError.textContent = data.message || 'Error al guardar y resolver.';
             bugDetailError.hidden = false;
           }
         }
@@ -3427,6 +3395,10 @@
             va = String(a.squad_applied ?? '?');
             vb = String(b.squad_applied ?? '?');
             break;
+          case 'switcher':
+            va = a.switcher_abierto ? 'abierto' : 'cerrado';
+            vb = b.switcher_abierto ? 'abierto' : 'cerrado';
+            break;
           default:
             return 0;
         }
@@ -3436,7 +3408,7 @@
     }
 
     if (filtered.length === 0) {
-      usersAdminTableBody.innerHTML = '<tr><td colspan="10">Sin resultados para este filtro.</td></tr>';
+      usersAdminTableBody.innerHTML = '<tr><td colspan="11">Sin resultados para este filtro.</td></tr>';
       updateUsersAdminSortHeaders();
       return;
     }
@@ -3472,6 +3444,7 @@
         <td>${formatSetupCell(row.mod_order_ok)}</td>
         <td>${formatSetupCell(row.teams_ok)}</td>
         <td>${formatSetupCell(row.squad_applied)}</td>
+        <td><span class="status ${row.switcher_abierto ? 'linked' : 'pending'}">${row.switcher_abierto ? 'Abierto' : 'Cerrado'}</span></td>
         <td>
           <div class="users-admin-actions">
             <button type="button" class="users-admin-btn users-admin-btn--edit" data-user-id="${escapeHtml(String(row.id))}">Editar</button>
@@ -3509,7 +3482,7 @@
     }
     if (!usersAdminTableBody) return;
 
-    usersAdminTableBody.innerHTML = '<tr><td colspan="10">Cargando usuarios...</td></tr>';
+    usersAdminTableBody.innerHTML = '<tr><td colspan="11">Cargando usuarios...</td></tr>';
 
     try {
       const email = encodeURIComponent(currentUser.user_email);
@@ -3527,7 +3500,7 @@
 
       usersAdminCache = data.users;
       if (usersAdminCache.length === 0) {
-        usersAdminTableBody.innerHTML = '<tr><td colspan="10">No hay usuarios registrados.</td></tr>';
+        usersAdminTableBody.innerHTML = '<tr><td colspan="11">No hay usuarios registrados.</td></tr>';
         return;
       }
 

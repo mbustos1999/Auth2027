@@ -665,6 +665,26 @@ app.whenReady().then(() => {
   setupAutoUpdater();
 });
 
+const BOT_BASE_URL = process.env.AUTH_APP_BOT_URL || 'https://auth2027-production.up.railway.app';
+
+app.on('before-quit', async (e) => {
+  if (!sessionEmail) return;
+  e.preventDefault();
+  try {
+    const token = createSessionToken(sessionEmail);
+    const secret = (sharedAppConfig && sharedAppConfig.botSharedSecret) ? String(sharedAppConfig.botSharedSecret).trim() : '';
+    const headers = { 'Content-Type': 'application/json' };
+    if (secret) headers['X-Auth2027-Secret'] = secret;
+    if (token) headers['X-Auth2027-Session'] = token;
+    await fetch(`${BOT_BASE_URL}/user/setup-info`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ switcher_abierto: false })
+    });
+  } catch (_) {}
+  app.exit(0);
+});
+
 app.on('window-all-closed', () => {
   // Al cerrar todas las ventanas, aseguramos que se elimine el archivo de la ruta de destino
   removeGameDbIfExists();

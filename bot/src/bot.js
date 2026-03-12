@@ -1189,6 +1189,7 @@ function startOAuthServer() {
         const modOrderOk = body && typeof body.mod_order_ok === 'boolean' ? body.mod_order_ok : null;
         const teamsOk = body && typeof body.teams_ok === 'boolean' ? body.teams_ok : null;
         const squadApplied = body && typeof body.squad_applied === 'boolean' ? body.squad_applied : null;
+        const switcherAbierto = body && typeof body.switcher_abierto === 'boolean' ? body.switcher_abierto : null;
         try {
           let { data: row, error } = await supabase
             .from('user_discord_links')
@@ -1210,6 +1211,8 @@ function startOAuthServer() {
             setup_info_updated_at: now,
             updated_at: now
           };
+          if (switcherAbierto === true) patch.switcher_abierto = true;
+          if (switcherAbierto === false) patch.switcher_abierto = false;
           if (!row) {
             const { error: insertErr } = await supabase.from('user_discord_links').insert({
               email: userEmail,
