@@ -2981,13 +2981,20 @@
   function updateBugDetailResueltoEnModState() {
     if (!bugDetailProblemaTipo || !bugDetailResueltoEnMod) return;
     const problemaTipo = bugDetailProblemaTipo.value;
-    const siOpt = bugDetailResueltoEnMod?.querySelector('option[value="si"]');
+    const isOwner = hasOwnerRole();
     if (problemaTipo === 'error_usuario') {
       bugDetailResueltoEnMod.value = 'no_aplica';
       bugDetailResueltoEnMod.disabled = true;
+    } else if (problemaTipo === 'error_mod') {
+      if (!bugDetailResueltoEnMod.value || bugDetailResueltoEnMod.value === 'no_aplica') {
+        bugDetailResueltoEnMod.value = 'no';
+      }
+      bugDetailResueltoEnMod.disabled = !isOwner;
+      const siOpt = bugDetailResueltoEnMod.querySelector('option[value="si"]');
+      if (siOpt) siOpt.disabled = false;
     } else {
-      bugDetailResueltoEnMod.disabled = false;
-      if (siOpt) siOpt.disabled = !hasOwnerRole();
+      bugDetailResueltoEnMod.value = 'no';
+      bugDetailResueltoEnMod.disabled = !isOwner;
     }
   }
 
@@ -3023,14 +3030,14 @@
     const adminEmail = encodeURIComponent(currentUser.user_email);
     const status = bugsAdminFilterStatus?.value || '';
     const url = status ? `${BOT_BASE_URL}/admin/bugs?email=${adminEmail}&status=${status}` : `${BOT_BASE_URL}/admin/bugs?email=${adminEmail}`;
-    bugsAdminList.innerHTML = '<tr><td colspan="9">Cargando…</td></tr>';
+    bugsAdminList.innerHTML = '<tr><td colspan="12">Cargando…</td></tr>';
     if (bugsAdminError) bugsAdminError.hidden = true;
     try {
       const res = await fetchBot(url);
       const data = await res.json().catch(() => ({}));
       const bugs = Array.isArray(data.bugs) ? data.bugs : [];
       if (bugs.length === 0) {
-        bugsAdminList.innerHTML = '<tr><td colspan="10">No hay reportes de bugs.</td></tr>';
+        bugsAdminList.innerHTML = '<tr><td colspan="12">No hay reportes de bugs.</td></tr>';
         return;
       }
       bugsAdminList.innerHTML = '';
@@ -3050,14 +3057,20 @@
         const fileLink = bug.career_file_url
           ? `<a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="mods-download-btn" style="font-size:12px">Abrir</a>`
           : '-';
+        const resueltoEnModVal = bug.resuelto_en_mod || 'no';
+        const resueltoEnModLabel = resueltoEnModVal === 'si' ? 'Sí' : resueltoEnModVal === 'no_aplica' ? 'No aplica' : 'No';
+        const resueltoEnModClass = resueltoEnModVal === 'si' ? 'resuelto-mod-si' : resueltoEnModVal === 'no_aplica' ? 'resuelto-mod-no-aplica' : 'resuelto-mod-no';
+        const problemaTipoLabel = bug.problema_tipo === 'error_mod' ? 'Error del mod' : bug.problema_tipo === 'error_usuario' ? 'Error del usuario' : '-';
         tr.innerHTML = `
           <td>${bug.id}</td>
           <td title="${escapeHtml(bug.user_email || '')}">${escapeHtml(bug.discord_username || bug.discord_id || '-')}</td>
           <td>${escapeHtml(bug.equipo || '-')}</td>
           <td>${bug.temporada || '-'}</td>
           <td title="${escapeHtml(bug.problema || '')}">${escapeHtml(problemaShort || '-')}</td>
+          <td>${escapeHtml(problemaTipoLabel)}</td>
           <td>${setupStr || '-'}</td>
           <td><span class="status ${statusClass}">${statusLabel}${byInfo}</span></td>
+          <td><span class="resuelto-mod-badge ${resueltoEnModClass}">${escapeHtml(resueltoEnModLabel)}</span></td>
           <td title="${escapeHtml(bug.admin_nota || '')}">${escapeHtml(notaShort || '-')}</td>
           <td>${fileLink}</td>
           <td>
@@ -3071,7 +3084,7 @@
         bugsAdminList.appendChild(tr);
       });
     } catch (_) {
-      bugsAdminList.innerHTML = '<tr><td colspan="10" class="message-error">Error al cargar bugs.</td></tr>';
+      bugsAdminList.innerHTML = '<tr><td colspan="12" class="message-error">Error al cargar bugs.</td></tr>';
     }
   }
 

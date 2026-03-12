@@ -1829,7 +1829,13 @@ function startOAuthServer() {
             if (typeof nota === 'string') patch.admin_nota = nota.trim();
             if (typeof respuesta === 'string') patch.admin_respuesta = respuesta.trim();
             if (problema_tipo === 'error_mod' || problema_tipo === 'error_usuario') patch.problema_tipo = problema_tipo;
-            if (resuelto_en_mod === 'si' || resuelto_en_mod === 'no' || resuelto_en_mod === 'no_aplica') patch.resuelto_en_mod = resuelto_en_mod;
+            if (problema_tipo === 'error_usuario') {
+              patch.resuelto_en_mod = 'no_aplica';
+            } else if (resuelto_en_mod === 'si' || resuelto_en_mod === 'no' || resuelto_en_mod === 'no_aplica') {
+              patch.resuelto_en_mod = resuelto_en_mod;
+            } else if (problema_tipo === 'error_mod') {
+              patch.resuelto_en_mod = 'no';
+            }
             if (en_curso === true) {
               patch.status = 'en_curso';
               patch.en_curso_at = new Date().toISOString();
