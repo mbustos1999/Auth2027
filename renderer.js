@@ -2967,6 +2967,7 @@
   const bugDetailRespuesta = document.getElementById('bugDetailRespuesta');
   const bugDetailEnCurso = document.getElementById('bugDetailEnCurso');
   const bugDetailResuelto = document.getElementById('bugDetailResuelto');
+  const bugDetailGuardar = document.getElementById('bugDetailGuardar');
   const bugDetailCancel = document.getElementById('bugDetailCancel');
   const bugDetailError = document.getElementById('bugDetailError');
   const bugDetailModalCloseX = document.getElementById('bugDetailModalCloseX');
@@ -3030,20 +3031,18 @@
     const adminEmail = encodeURIComponent(currentUser.user_email);
     const status = bugsAdminFilterStatus?.value || '';
     const url = status ? `${BOT_BASE_URL}/admin/bugs?email=${adminEmail}&status=${status}` : `${BOT_BASE_URL}/admin/bugs?email=${adminEmail}`;
-    bugsAdminList.innerHTML = '<tr><td colspan="12">Cargando…</td></tr>';
+    bugsAdminList.innerHTML = '<p class="bugs-list-loading">Cargando…</p>';
     if (bugsAdminError) bugsAdminError.hidden = true;
     try {
       const res = await fetchBot(url);
       const data = await res.json().catch(() => ({}));
       const bugs = Array.isArray(data.bugs) ? data.bugs : [];
       if (bugs.length === 0) {
-        bugsAdminList.innerHTML = '<tr><td colspan="12">No hay reportes de bugs.</td></tr>';
+        bugsAdminList.innerHTML = '<p class="bugs-list-empty">No hay reportes de bugs.</p>';
         return;
       }
       bugsAdminList.innerHTML = '';
       bugs.forEach((bug) => {
-        const tr = document.createElement('tr');
-        if (bug.status === 'resolved') tr.classList.add('bug-row-resolved');
         const statusLabel = bug.status === 'resolved' ? 'Resuelto' : bug.status === 'en_curso' ? 'En curso' : 'Pendiente';
         const statusClass = bug.status === 'resolved' ? 'completed' : bug.status === 'en_curso' ? 'in-progress' : 'pending';
         const byInfo = bug.status === 'en_curso' && bug.en_curso_by
@@ -3051,40 +3050,66 @@
           : bug.status === 'resolved' && bug.resolved_by
             ? ` (por ${escapeHtml(bug.resolved_by)})`
             : '';
-        const problemaShort = (bug.problema || '').slice(0, 60) + ((bug.problema || '').length > 60 ? '…' : '');
-        const notaShort = (bug.admin_nota || '').slice(0, 40) + ((bug.admin_nota || '').length > 40 ? '…' : '');
         const setupStr = formatSetupInfo(bug);
         const fileLink = bug.career_file_url
-          ? `<a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="mods-download-btn" style="font-size:12px">Abrir</a>`
-          : '-';
+          ? `<a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="bugs-card-link">Abrir archivo</a>`
+          : '<span class="bugs-card-muted">—</span>';
         const resueltoEnModVal = bug.resuelto_en_mod || 'no';
         const resueltoEnModLabel = resueltoEnModVal === 'si' ? 'Sí' : resueltoEnModVal === 'no_aplica' ? 'No aplica' : 'No';
         const resueltoEnModClass = resueltoEnModVal === 'si' ? 'resuelto-mod-si' : resueltoEnModVal === 'no_aplica' ? 'resuelto-mod-no-aplica' : 'resuelto-mod-no';
-        const problemaTipoLabel = bug.problema_tipo === 'error_mod' ? 'Error del mod' : bug.problema_tipo === 'error_usuario' ? 'Error del usuario' : '-';
-        tr.innerHTML = `
-          <td>${bug.id}</td>
-          <td title="${escapeHtml(bug.user_email || '')}">${escapeHtml(bug.discord_username || bug.discord_id || '-')}</td>
-          <td>${escapeHtml(bug.equipo || '-')}</td>
-          <td>${bug.temporada || '-'}</td>
-          <td title="${escapeHtml(bug.problema || '')}">${escapeHtml(problemaShort || '-')}</td>
-          <td>${escapeHtml(problemaTipoLabel)}</td>
-          <td>${setupStr || '-'}</td>
-          <td><span class="status ${statusClass}">${statusLabel}${byInfo}</span></td>
-          <td><span class="resuelto-mod-badge ${resueltoEnModClass}">${escapeHtml(resueltoEnModLabel)}</span></td>
-          <td title="${escapeHtml(bug.admin_nota || '')}">${escapeHtml(notaShort || '-')}</td>
-          <td>${fileLink}</td>
-          <td>
-            <div class="users-admin-actions">
-              <button type="button" class="users-admin-btn users-admin-btn--edit bug-admin-view-detail" data-id="${bug.id}">Ver detalle</button>
+        const problemaTipoLabel = bug.problema_tipo === 'error_mod' ? 'Error del mod' : bug.problema_tipo === 'error_usuario' ? 'Error del usuario' : '—';
+        const card = document.createElement('div');
+        card.className = `bugs-card ${bug.status === 'resolved' ? 'bugs-card--resolved' : ''}`;
+        card.innerHTML = `
+          <div class="bugs-card-header">
+            <span class="bugs-card-id">#${bug.id}</span>
+            <span class="status ${statusClass}">${statusLabel}${byInfo}</span>
+            <span class="resuelto-mod-badge ${resueltoEnModClass}">${escapeHtml(resueltoEnModLabel)}</span>
+            <button type="button" class="bugs-card-btn bug-admin-view-detail" data-id="${bug.id}">Ver detalle</button>
+          </div>
+          <div class="bugs-card-body">
+            <div class="bugs-card-grid">
+              <div class="bugs-card-field">
+                <span class="bugs-card-label">Usuario</span>
+                <span class="bugs-card-value" title="${escapeHtml(bug.user_email || '')}">${escapeHtml(bug.discord_username || bug.discord_id || '-')}</span>
+              </div>
+              <div class="bugs-card-field">
+                <span class="bugs-card-label">Equipo</span>
+                <span class="bugs-card-value">${escapeHtml(bug.equipo || '-')}</span>
+              </div>
+              <div class="bugs-card-field">
+                <span class="bugs-card-label">Temp</span>
+                <span class="bugs-card-value">${bug.temporada || '-'}</span>
+              </div>
+              <div class="bugs-card-field">
+                <span class="bugs-card-label">Tipo</span>
+                <span class="bugs-card-value">${escapeHtml(problemaTipoLabel)}</span>
+              </div>
+              <div class="bugs-card-field bugs-card-field--full">
+                <span class="bugs-card-label">Problema</span>
+                <span class="bugs-card-value">${escapeHtml(bug.problema || '-')}</span>
+              </div>
+              <div class="bugs-card-field">
+                <span class="bugs-card-label">Setup</span>
+                <span class="bugs-card-value">${setupStr || '-'}</span>
+              </div>
+              <div class="bugs-card-field bugs-card-field--full">
+                <span class="bugs-card-label">Nota</span>
+                <span class="bugs-card-value">${escapeHtml(bug.admin_nota || '-')}</span>
+              </div>
+              <div class="bugs-card-field">
+                <span class="bugs-card-label">Archivo</span>
+                <span class="bugs-card-value">${fileLink}</span>
+              </div>
             </div>
-          </td>
+          </div>
         `;
-        const viewBtn = tr.querySelector('.bug-admin-view-detail');
+        const viewBtn = card.querySelector('.bug-admin-view-detail');
         if (viewBtn) viewBtn.addEventListener('click', () => openBugDetailModal(Number(viewBtn.getAttribute('data-id'))));
-        bugsAdminList.appendChild(tr);
+        bugsAdminList.appendChild(card);
       });
     } catch (_) {
-      bugsAdminList.innerHTML = '<tr><td colspan="12" class="message-error">Error al cargar bugs.</td></tr>';
+      bugsAdminList.innerHTML = '<p class="bugs-list-error">Error al cargar bugs.</p>';
     }
   }
 
@@ -3141,8 +3166,10 @@
       content += '</div>';
       if (bugDetailContent) bugDetailContent.innerHTML = content;
       if (bugDetailModal) bugDetailModal.hidden = false;
-      if (bugDetailResuelto) bugDetailResuelto.hidden = bug.status === 'resolved';
-      if (bugDetailEnCurso) bugDetailEnCurso.hidden = bug.status === 'resolved' || bug.status === 'en_curso';
+      const isResolved = bug.status === 'resolved';
+      if (bugDetailResuelto) bugDetailResuelto.hidden = isResolved;
+      if (bugDetailEnCurso) bugDetailEnCurso.hidden = isResolved || bug.status === 'en_curso';
+      if (bugDetailGuardar) bugDetailGuardar.hidden = !isResolved;
     } catch (_) {
       if (bugsAdminError) {
         bugsAdminError.textContent = 'Error al cargar el bug.';
@@ -3249,6 +3276,50 @@
         }
       } finally {
         bugDetailResuelto.disabled = false;
+      }
+    });
+  }
+
+  if (bugDetailGuardar) {
+    bugDetailGuardar.addEventListener('click', async () => {
+      if (!currentBugDetailId || !currentUser?.user_email) return;
+      const adminEmail = encodeURIComponent(currentUser.user_email);
+      const nota = bugDetailNota?.value?.trim() || '';
+      const respuesta = bugDetailRespuesta?.value?.trim() || '';
+      const problemaTipo = bugDetailProblemaTipo?.value || '';
+      let resueltoEnMod = bugDetailResueltoEnMod?.value || 'no';
+      if (bugDetailProblemaTipo?.value === 'error_usuario') resueltoEnMod = 'no_aplica';
+      if (bugDetailError) bugDetailError.hidden = true;
+      bugDetailGuardar.disabled = true;
+      try {
+        const patchBody = {};
+        if (nota) patchBody.nota = nota;
+        if (respuesta) patchBody.respuesta = respuesta;
+        if (problemaTipo) patchBody.problema_tipo = problemaTipo;
+        patchBody.resuelto_en_mod = resueltoEnMod;
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/bugs/${currentBugDetailId}?email=${adminEmail}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patchBody)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data.success) {
+          closeBugDetailModal();
+          loadBugsAdminChart();
+          loadBugsAdminList();
+        } else {
+          if (bugDetailError) {
+            bugDetailError.textContent = data.message || 'Error al guardar.';
+            bugDetailError.hidden = false;
+          }
+        }
+      } catch (_) {
+        if (bugDetailError) {
+          bugDetailError.textContent = 'Error de conexión.';
+          bugDetailError.hidden = false;
+        }
+      } finally {
+        bugDetailGuardar.disabled = false;
       }
     });
   }

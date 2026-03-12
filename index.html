@@ -784,26 +784,8 @@
                   <button type="button" class="login-btn-secondary" id="bugsAdminRefresh">Recargar</button>
                 </div>
               </div>
-              <div class="users-admin-table-wrapper table-wrapper">
-                <table class="users-admin-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Usuario Discord</th>
-                      <th>Equipo</th>
-                      <th>Temp</th>
-                      <th>Problema</th>
-                      <th>Tipo</th>
-                      <th>Setup</th>
-                      <th>Estado</th>
-                      <th>Resuelto en mod</th>
-                      <th>Nota</th>
-                      <th>Archivo</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="bugsAdminList"></tbody>
-                </table>
+              <div class="bugs-list-wrapper">
+                <div id="bugsAdminList" class="bugs-list"></div>
               </div>
             </section>
           </div>
@@ -926,6 +908,7 @@
           <div class="recover-actions bug-detail-actions">
             <button type="button" id="bugDetailEnCurso" class="recover-btn bug-detail-btn bug-detail-btn--en-curso">En curso</button>
             <button type="button" id="bugDetailResuelto" class="recover-btn bug-detail-btn bug-detail-btn--resolver">Guardar y Resolver</button>
+            <button type="button" id="bugDetailGuardar" class="recover-btn bug-detail-btn bug-detail-btn--guardar" hidden>Guardar</button>
             <button type="button" id="bugDetailCancel" class="recover-btn bug-detail-btn bug-detail-btn--cerrar">Cerrar</button>
           </div>
         </div>
