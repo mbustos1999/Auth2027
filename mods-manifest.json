@@ -1,14 +1,14 @@
 {
   "version": "1.0.1",
   "required": true,
-  "_note": "GitHub no admite tanto peso. Para archivos muy pesados usa Transfer.it o Dropbox (enlace con ?dl=1). Ver MODS-RELEASE.md.",
+  "_note": "",
   "downloadUrls": [
-    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-3-3/ARGENMOD%201.fifamod",
-    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-3-3/ARGENMOD%202.fifamod",
-    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-3-3/ARGENMOD%203.fifamod",
-    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-3-3v2/ARGENMOD%204.fifamod",
-    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-3-3/%5Baddon%5D%20MODO%20TORNEO.fifamod"
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-6-6-6/ARGENMOD%201.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-6-6-6/ARGENMOD%202.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-6-6-6/ARGENMOD%203.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-6-6-6/ARGENMOD%204.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-4-3/%5Baddon%5D%20MODO%20TORNEO.fifamod"
   ],
-  "sizeHint": "ArgenMod TU 1.5.0",
+  "sizeHint": "ArgenMod TU 1.5.0 V2",
   "instructions": "Descargar automáticamente."
 }

@@ -147,6 +147,27 @@ const overlayTargetDir = path.join(
   'Generic'
 );
 
+const fontsTargetDir = path.join(
+  'C:',
+  'FC 26 Live Editor',
+  'mods',
+  'legacy',
+  'data',
+  'ui',
+  'fonts'
+);
+
+const globalComponentsTargetDir = path.join(
+  'C:',
+  'FC 26 Live Editor',
+  'mods',
+  'legacy',
+  'data',
+  'ui',
+  'game',
+  'globalComponents'
+);
+
 const layoutTargetDir = path.join(
   'C:',
   'FC 26 Live Editor',
@@ -196,6 +217,17 @@ const eaSettingsDir = path.join(
   'EA SPORTS FC 26',
   'settings'
 );
+
+// Marcadores con lógica especial: fonts, themes, Generic, globalComponents
+const SPECIAL_MARKER_IDS = ['Liga Profesional Argentina', 'B Metro Argentina', 'Primera Nacional'];
+
+// Estado del último marcador aplicado (para limpieza al cambiar o "Ninguno")
+let lastAppliedSpecialMarkerId = null;
+let lastAppliedSpecialMarkerFiles = {
+  fonts: [],
+  themes: [],
+  generic: []
+};
 
 function ensureGameDbPresent() {
   try {
@@ -291,6 +323,45 @@ function clearOverlayTargetDir() {
   return { ok: true };
 }
 
+function clearSpecialMarkerContent() {
+  if (!lastAppliedSpecialMarkerId) return { ok: true };
+  try {
+    const { fonts: fontFiles, themes: themeFiles, generic: genericFiles } = lastAppliedSpecialMarkerFiles;
+    for (const name of fontFiles) {
+      const p = path.join(fontsTargetDir, name);
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    }
+    for (const name of themeFiles) {
+      const p = path.join(themesTargetDir, name);
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    }
+    for (const name of genericFiles) {
+      const p = path.join(overlayTargetDir, name);
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    }
+    if (fs.existsSync(globalComponentsTargetDir)) {
+      const entries = fs.readdirSync(globalComponentsTargetDir, { withFileTypes: true });
+      for (const e of entries) {
+        const fullPath = path.join(globalComponentsTargetDir, e.name);
+        try {
+          if (e.isDirectory()) fs.rmSync(fullPath, { recursive: true, force: true });
+          else fs.unlinkSync(fullPath);
+        } catch (err) {
+          console.error('Error al borrar globalComponents:', e.name, err);
+        }
+      }
+    }
+    lastAppliedSpecialMarkerId = null;
+    lastAppliedSpecialMarkerFiles = { fonts: [], themes: [], generic: [] };
+    return { ok: true };
+  } catch (e) {
+    console.error('Error al limpiar contenido de marcador especial:', e);
+    lastAppliedSpecialMarkerId = null;
+    lastAppliedSpecialMarkerFiles = { fonts: [], themes: [], generic: [] };
+    return { ok: false, error: e.message };
+  }
+}
+
 function scanMarkers() {
   const markersBasePath = path.join(__dirname, 'marcadores');
   const result = [];
@@ -304,6 +375,17 @@ function scanMarkers() {
       const logoDir = path.join(base, 'logo');
       const markerDir = path.join(base, 'marcador');
       const overlayDir = path.join(base, 'overlay');
+      const fontsDir = path.join(base, 'fonts');
+      const themesDir = path.join(base, 'themes');
+      const genericDir = path.join(base, 'Generic');
+      const genericOverlaysDir = path.join(base, 'overlays', 'Generic');
+      const globalComponentsDir = path.join(base, 'globalComponents');
+
+      const isSpecial = SPECIAL_MARKER_IDS.includes(id) &&
+        fs.existsSync(fontsDir) &&
+        fs.existsSync(themesDir) &&
+        (fs.existsSync(genericDir) || fs.existsSync(genericOverlaysDir)) &&
+        fs.existsSync(globalComponentsDir);
 
       let logoWebPath = null;
       if (fs.existsSync(logoDir)) {
@@ -322,9 +404,13 @@ function scanMarkers() {
       }
 
       let overlayPath = null;
-      const overlayFile = path.join(overlayDir, 'overlay_9002.big');
-      if (fs.existsSync(overlayFile)) {
-        overlayPath = overlayFile;
+      if (isSpecial) {
+        const genericToUse = fs.existsSync(genericDir) ? genericDir : genericOverlaysDir;
+        const overlayFile = path.join(genericToUse, 'overlay_9002.big');
+        if (fs.existsSync(overlayFile)) overlayPath = overlayFile;
+      } else {
+        const overlayFile = path.join(overlayDir, 'overlay_9002.big');
+        if (fs.existsSync(overlayFile)) overlayPath = overlayFile;
       }
 
       result.push({
@@ -332,7 +418,12 @@ function scanMarkers() {
         name: id,
         logoSrc: logoWebPath,
         markerSrc: markerWebPath,
-        overlayPath
+        overlayPath,
+        isSpecial,
+        fontsDir: isSpecial && fs.existsSync(fontsDir) ? fontsDir : null,
+        themesDir: isSpecial && fs.existsSync(themesDir) ? themesDir : null,
+        genericDir: isSpecial ? (fs.existsSync(genericDir) ? genericDir : genericOverlaysDir) : null,
+        globalComponentsDir: isSpecial && fs.existsSync(globalComponentsDir) ? globalComponentsDir : null
       });
     }
   } catch (e) {
@@ -689,6 +780,7 @@ app.on('window-all-closed', () => {
   // Al cerrar todas las ventanas, aseguramos que se elimine el archivo de la ruta de destino
   removeGameDbIfExists();
   removeTeamsIfExists();
+  clearSpecialMarkerContent();
   clearOverlayTargetDir();
   clearPublicityContent();
   if (process.platform !== 'darwin') app.quit();
@@ -710,6 +802,7 @@ ipcMain.on('window-close', () => {
   // Al cerrar desde el botón personalizado también limpiamos el archivo
   removeGameDbIfExists();
   removeTeamsIfExists();
+  clearSpecialMarkerContent();
   clearOverlayTargetDir();
   clearPublicityContent();
   mainWindow?.close();
@@ -743,22 +836,94 @@ ipcMain.handle('switcher:applyMarker', async (_event, markerId) => {
   try {
     const markers = scanMarkers();
     const marker = markers.find((m) => m.id === markerId);
-    if (!marker || !marker.overlayPath) {
+    if (!marker) {
       return { ok: false, reason: 'not_found' };
     }
 
-    const resClear = removeOverlayFileByPrefix('overlay_9002');
-    if (resClear.ok === false) {
-      return { ok: false, reason: resClear.error || 'clear_failed' };
+    // Si el marcador anterior era especial, limpiar todo su contenido
+    if (lastAppliedSpecialMarkerId) {
+      const resClear = clearSpecialMarkerContent();
+      if (resClear.ok === false) {
+        return { ok: false, reason: resClear.error || 'clear_failed' };
+      }
     }
 
-    const targetDir = overlayTargetDir;
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
-    }
+    if (marker.isSpecial) {
+      // Marcador especial: fonts, themes, Generic, globalComponents
+      if (!marker.fontsDir || !marker.themesDir || !marker.genericDir || !marker.globalComponentsDir) {
+        return { ok: false, reason: 'marker_missing_special_folders' };
+      }
 
-    const targetPath = path.join(targetDir, 'overlay_9002.big');
-    fs.copyFileSync(marker.overlayPath, targetPath);
+      const fontFiles = [];
+      const themeFiles = [];
+      const genericFiles = [];
+      const gcFiles = [];
+
+      ensureDirExists(fontsTargetDir);
+      const fontEntries = fs.readdirSync(marker.fontsDir, { withFileTypes: true });
+      for (const e of fontEntries) {
+        if (e.isFile() && !e.name.startsWith('.')) {
+          const dest = path.join(fontsTargetDir, e.name);
+          fs.copyFileSync(path.join(marker.fontsDir, e.name), dest);
+          fontFiles.push(e.name);
+        }
+      }
+
+      ensureDirExists(themesTargetDir);
+      const themeEntries = fs.readdirSync(marker.themesDir, { withFileTypes: true });
+      for (const e of themeEntries) {
+        if (e.isFile() && !e.name.startsWith('.')) {
+          const dest = path.join(themesTargetDir, e.name);
+          fs.copyFileSync(path.join(marker.themesDir, e.name), dest);
+          themeFiles.push(e.name);
+        }
+      }
+
+      ensureDirExists(overlayTargetDir);
+      const genericEntries = fs.readdirSync(marker.genericDir, { withFileTypes: true });
+      for (const e of genericEntries) {
+        if (e.isFile() && !e.name.startsWith('.')) {
+          const dest = path.join(overlayTargetDir, e.name);
+          fs.copyFileSync(path.join(marker.genericDir, e.name), dest);
+          genericFiles.push(e.name);
+        }
+      }
+
+      ensureDirExists(globalComponentsTargetDir);
+      if (fs.existsSync(globalComponentsTargetDir)) {
+        const existing = fs.readdirSync(globalComponentsTargetDir, { withFileTypes: true });
+        for (const e of existing) {
+          const fullPath = path.join(globalComponentsTargetDir, e.name);
+          try {
+            if (e.isDirectory()) fs.rmSync(fullPath, { recursive: true, force: true });
+            else fs.unlinkSync(fullPath);
+          } catch (err) {
+            console.error('Error al borrar globalComponents previo:', e.name, err);
+          }
+        }
+      }
+      copyDirRecursive(marker.globalComponentsDir, globalComponentsTargetDir);
+
+      lastAppliedSpecialMarkerId = markerId;
+      lastAppliedSpecialMarkerFiles = {
+        fonts: fontFiles,
+        themes: themeFiles,
+        generic: genericFiles
+      };
+    } else {
+      // Marcador normal: solo overlay_9002
+      if (!marker.overlayPath) {
+        return { ok: false, reason: 'not_found' };
+      }
+      const resClear = removeOverlayFileByPrefix('overlay_9002');
+      if (resClear.ok === false) {
+        return { ok: false, reason: resClear.error || 'clear_failed' };
+      }
+      ensureDirExists(overlayTargetDir);
+      const targetPath = path.join(overlayTargetDir, 'overlay_9002.big');
+      fs.copyFileSync(marker.overlayPath, targetPath);
+      lastAppliedSpecialMarkerId = null;
+    }
 
     return { ok: true };
   } catch (e) {
@@ -768,7 +933,9 @@ ipcMain.handle('switcher:applyMarker', async (_event, markerId) => {
 });
 
 ipcMain.handle('switcher:clearOverlay', async () => {
-  // Limpiar solo overlay de marcador
+  if (lastAppliedSpecialMarkerId) {
+    return clearSpecialMarkerContent();
+  }
   return removeOverlayFileByPrefix('overlay_9002');
 });
 
