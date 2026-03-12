@@ -989,6 +989,7 @@ html, body {
   margin-top: 10px;
   margin-bottom: 8px;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: space-between;
   align-items: center;
@@ -1646,11 +1647,14 @@ html, body {
   color: #eab308;
 }
 
-/* Estilo tabla usuarios (WPDean-style) */
+/* Estilo tabla usuarios (WPDean-style) - responsiva */
 .users-admin-table-wrapper.table-wrapper {
   margin-top: 1rem;
-  max-height: 420px;
+  width: 100%;
+  max-width: 100%;
+  max-height: min(420px, 50vh);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(10px);
   border-radius: 16px;
@@ -1660,8 +1664,10 @@ html, body {
 
 .users-admin-table-wrapper .users-admin-table {
   width: 100%;
+  min-width: 800px;
   border-collapse: collapse;
   font-size: 14px;
+  table-layout: auto;
 }
 
 .users-admin-table-wrapper .users-admin-table thead {
@@ -1669,10 +1675,10 @@ html, body {
 }
 
 .users-admin-table-wrapper .users-admin-table th {
-  padding: 18px 20px;
+  padding: 14px 16px;
   text-align: left;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: #fff;
@@ -1680,6 +1686,7 @@ html, body {
   top: 0;
   z-index: 1;
   background: inherit;
+  white-space: nowrap;
 }
 
 .users-admin-table-wrapper .users-admin-table th:not(:last-child)::after {
@@ -1736,9 +1743,9 @@ html, body {
 }
 
 .users-admin-table-wrapper .users-admin-table td {
-  padding: 16px 20px;
+  padding: 12px 16px;
   color: #e2e8f0;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .users-admin-table-wrapper .users-admin-table .status {
@@ -1825,12 +1832,42 @@ html, body {
   filter: brightness(1.1);
 }
 
+@media (max-width: 1024px) {
+  .users-admin-table-wrapper.table-wrapper {
+    max-height: min(380px, 45vh);
+  }
+  .users-admin-table-wrapper .users-admin-table {
+    min-width: 750px;
+    font-size: 13px;
+  }
+  .users-admin-table-wrapper .users-admin-table th,
+  .users-admin-table-wrapper .users-admin-table td {
+    padding: 10px 12px;
+  }
+}
+
 @media (max-width: 768px) {
   .users-admin-table-wrapper.table-wrapper {
-    overflow-x: auto;
+    max-height: min(350px, 40vh);
+    margin-bottom: 1rem;
   }
   .users-admin-table-wrapper .users-admin-table {
     min-width: 700px;
+    font-size: 12px;
+  }
+  .users-admin-table-wrapper .users-admin-table th,
+  .users-admin-table-wrapper .users-admin-table td {
+    padding: 8px 10px;
+  }
+  .users-admin-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .users-admin-filters {
+    flex-direction: column;
+  }
+  .users-admin-filters .recover-input {
+    max-width: none;
   }
 }
 
@@ -4110,6 +4147,9 @@ html, body {
 }
 .config-field-label:first-of-type {
   margin-top: 0;
+}
+.required-asterisk {
+  color: #ef4444;
 }
 .config-textarea {
   min-height: 80px;

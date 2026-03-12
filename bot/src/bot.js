@@ -1799,20 +1799,46 @@ function startOAuthServer() {
             return;
           }
           const body = await readJsonBody(req);
-          const { nota, respuesta, resolved, en_curso } = body || {};
+          const { nota, respuesta, resolved, en_curso, problema_tipo, resuelto_en_mod } = body || {};
           try {
+            let adminDisplayName = adminEmail;
+            if (en_curso === true || resolved === true) {
+              const { data: linkRow } = await supabase
+                .from('user_discord_links')
+                .select('discord_username')
+                .eq('email', adminEmail)
+                .maybeSingle();
+              if (linkRow?.discord_username) adminDisplayName = linkRow.discord_username;
+            }
+            if (resuelto_en_mod === 'si') {
+              const { data: adminRow } = await supabase
+                .from('user_discord_links')
+                .select('roles')
+                .eq('email', adminEmail)
+                .maybeSingle();
+              const roles = Array.isArray(adminRow?.roles) ? adminRow.roles.map((r) => String(r)) : [];
+              const hasOwnerRole = roles.some((r) => /owner/i.test(r) || r.includes('𝑶𝑾𝑵𝑬𝑹'));
+              if (!hasOwnerRole) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.end(JSON.stringify({ success: false, message: 'Solo el rol OWNER puede marcar "Resuelto en el mod" como Sí.' }));
+                return;
+              }
+            }
             const patch = { updated_at: new Date().toISOString() };
             if (typeof nota === 'string') patch.admin_nota = nota.trim();
             if (typeof respuesta === 'string') patch.admin_respuesta = respuesta.trim();
+            if (problema_tipo === 'error_mod' || problema_tipo === 'error_usuario') patch.problema_tipo = problema_tipo;
+            if (resuelto_en_mod === 'si' || resuelto_en_mod === 'no' || resuelto_en_mod === 'no_aplica') patch.resuelto_en_mod = resuelto_en_mod;
             if (en_curso === true) {
               patch.status = 'en_curso';
               patch.en_curso_at = new Date().toISOString();
-              patch.en_curso_by = adminEmail;
+              patch.en_curso_by = adminDisplayName;
             }
             if (resolved === true) {
               patch.status = 'resolved';
               patch.resolved_at = new Date().toISOString();
-              patch.resolved_by = adminEmail;
+              patch.resolved_by = adminDisplayName;
             }
             const { data: row, error } = await supabase
               .from('bug_reports')

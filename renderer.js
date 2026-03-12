@@ -2134,9 +2134,10 @@
       const isBugsTab = tab === 'bugs';
       const isBugReportBtn = btn.id === 'btnReportBug' || btn.classList.contains('dash-nav-item--bug-report');
 
-      // Reportar Bug: siempre visible para usuarios logueados, nunca bloqueado
+      // Reportar Bug: siempre visible para usuarios logueados; bloqueado durante cooldown de 10 min
       if (isBugReportBtn) {
         btn.removeAttribute('hidden');
+        if (updateBugReportButtonState(btn)) return;
         btn.classList.remove('dash-nav-item--locked');
         btn.removeAttribute('data-locked');
         btn.removeAttribute('title');
@@ -2801,6 +2802,37 @@
   }
 
   // --- Reportar Bug/Problema ---
+  const BUG_REPORT_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutos
+  const BUG_REPORT_COOLDOWN_KEY = 'bugReportCooldownUntil';
+
+  function getBugReportCooldownRemaining() {
+    try {
+      const until = parseInt(localStorage.getItem(BUG_REPORT_COOLDOWN_KEY) || '0', 10);
+      return Math.max(0, until - Date.now());
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function updateBugReportButtonState(btn) {
+    if (!btn) return false;
+    const remaining = getBugReportCooldownRemaining();
+    if (remaining > 0) {
+      const mins = Math.ceil(remaining / 60000);
+      btn.classList.add('dash-nav-item--locked');
+      btn.setAttribute('data-locked', 'cooldown');
+      btn.title = mins <= 1 ? 'Podrás reportar otro bug en 1 minuto.' : `Podrás reportar otro bug en ${mins} minutos.`;
+      return true;
+    }
+    try {
+      localStorage.removeItem(BUG_REPORT_COOLDOWN_KEY);
+    } catch (_) {}
+    btn.classList.remove('dash-nav-item--locked');
+    btn.removeAttribute('data-locked');
+    btn.removeAttribute('title');
+    return false;
+  }
+
   const btnReportBug = document.getElementById('btnReportBug');
   const bugReportModal = document.getElementById('bugReportModal');
   const bugReportModalCloseX = document.getElementById('bugReportModalCloseX');
@@ -2886,15 +2918,11 @@
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
-          if (bugReportSuccessMessage) {
-            bugReportSuccessMessage.textContent = 'Un administrador revisará tu caso y responderá a la brevedad.';
-            bugReportSuccessMessage.hidden = false;
-          }
-          if (bugReportEquipo) bugReportEquipo.value = '';
-          if (bugReportTemporada) bugReportTemporada.value = '';
-          if (bugReportProblema) bugReportProblema.value = '';
-          if (bugReportCareerUrl) bugReportCareerUrl.value = '';
-          setTimeout(closeBugReportModal, 2500);
+          try {
+            localStorage.setItem(BUG_REPORT_COOLDOWN_KEY, String(Date.now() + BUG_REPORT_COOLDOWN_MS));
+          } catch (_) {}
+          closeBugReportModal();
+          if (btnReportBug) updateBugReportButtonState(btnReportBug);
         } else {
           if (bugReportModalError) {
             bugReportModalError.textContent = data.message || 'Error al enviar el reporte.';
@@ -2912,6 +2940,13 @@
     });
   }
 
+  // Actualizar cada minuto el estado del botón Reportar Bug durante el cooldown
+  setInterval(() => {
+    if (btnReportBug && getBugReportCooldownRemaining() > 0) {
+      updateBugReportButtonState(btnReportBug);
+    }
+  }, 60000);
+
   // --- Bugs admin panel ---
   const bugsAdminList = document.getElementById('bugsAdminList');
   const bugsAdminError = document.getElementById('bugsAdminError');
@@ -2926,6 +2961,8 @@
   const bugDetailModal = document.getElementById('bugDetailModal');
   const bugDetailId = document.getElementById('bugDetailId');
   const bugDetailContent = document.getElementById('bugDetailContent');
+  const bugDetailProblemaTipo = document.getElementById('bugDetailProblemaTipo');
+  const bugDetailResueltoEnMod = document.getElementById('bugDetailResueltoEnMod');
   const bugDetailNota = document.getElementById('bugDetailNota');
   const bugDetailRespuesta = document.getElementById('bugDetailRespuesta');
   const bugDetailEnCurso = document.getElementById('bugDetailEnCurso');
@@ -2935,6 +2972,24 @@
   const bugDetailModalCloseX = document.getElementById('bugDetailModalCloseX');
 
   let currentBugDetailId = null;
+
+  function hasOwnerRole() {
+    const roles = Array.isArray(currentDiscordRow?.roles) ? currentDiscordRow.roles.map((r) => String(r)) : [];
+    return roles.some((r) => /owner/i.test(r) || r.includes('𝑶𝑾𝑵𝑬𝑹'));
+  }
+
+  function updateBugDetailResueltoEnModState() {
+    if (!bugDetailProblemaTipo || !bugDetailResueltoEnMod) return;
+    const problemaTipo = bugDetailProblemaTipo.value;
+    const siOpt = bugDetailResueltoEnMod?.querySelector('option[value="si"]');
+    if (problemaTipo === 'error_usuario') {
+      bugDetailResueltoEnMod.value = 'no_aplica';
+      bugDetailResueltoEnMod.disabled = true;
+    } else {
+      bugDetailResueltoEnMod.disabled = false;
+      if (siOpt) siOpt.disabled = !hasOwnerRole();
+    }
+  }
 
   async function loadBugsAdminChart() {
     if (!currentUser?.user_email || !bugsChartPending || !bugsChartEnCurso || !bugsChartResolved) return;
@@ -2975,7 +3030,7 @@
       const data = await res.json().catch(() => ({}));
       const bugs = Array.isArray(data.bugs) ? data.bugs : [];
       if (bugs.length === 0) {
-        bugsAdminList.innerHTML = '<tr><td colspan="9">No hay reportes de bugs.</td></tr>';
+        bugsAdminList.innerHTML = '<tr><td colspan="10">No hay reportes de bugs.</td></tr>';
         return;
       }
       bugsAdminList.innerHTML = '';
@@ -2984,20 +3039,26 @@
         if (bug.status === 'resolved') tr.classList.add('bug-row-resolved');
         const statusLabel = bug.status === 'resolved' ? 'Resuelto' : bug.status === 'en_curso' ? 'En curso' : 'Pendiente';
         const statusClass = bug.status === 'resolved' ? 'completed' : bug.status === 'en_curso' ? 'in-progress' : 'pending';
-        const enCursoInfo = bug.status === 'en_curso' && bug.en_curso_by ? ` (${escapeHtml(bug.en_curso_by)})` : '';
+        const byInfo = bug.status === 'en_curso' && bug.en_curso_by
+          ? ` (por ${escapeHtml(bug.en_curso_by)})`
+          : bug.status === 'resolved' && bug.resolved_by
+            ? ` (por ${escapeHtml(bug.resolved_by)})`
+            : '';
         const problemaShort = (bug.problema || '').slice(0, 60) + ((bug.problema || '').length > 60 ? '…' : '');
+        const notaShort = (bug.admin_nota || '').slice(0, 40) + ((bug.admin_nota || '').length > 40 ? '…' : '');
         const setupStr = formatSetupInfo(bug);
         const fileLink = bug.career_file_url
           ? `<a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="mods-download-btn" style="font-size:12px">Abrir</a>`
           : '-';
         tr.innerHTML = `
           <td>${bug.id}</td>
-          <td>${escapeHtml(bug.user_email || '-')}</td>
+          <td title="${escapeHtml(bug.user_email || '')}">${escapeHtml(bug.discord_username || bug.discord_id || '-')}</td>
           <td>${escapeHtml(bug.equipo || '-')}</td>
           <td>${bug.temporada || '-'}</td>
           <td title="${escapeHtml(bug.problema || '')}">${escapeHtml(problemaShort || '-')}</td>
           <td>${setupStr || '-'}</td>
-          <td><span class="status ${statusClass}">${statusLabel}${enCursoInfo}</span></td>
+          <td><span class="status ${statusClass}">${statusLabel}${byInfo}</span></td>
+          <td title="${escapeHtml(bug.admin_nota || '')}">${escapeHtml(notaShort || '-')}</td>
           <td>${fileLink}</td>
           <td>
             <div class="users-admin-actions">
@@ -3010,7 +3071,7 @@
         bugsAdminList.appendChild(tr);
       });
     } catch (_) {
-      bugsAdminList.innerHTML = '<tr><td colspan="9" class="message-error">Error al cargar bugs.</td></tr>';
+      bugsAdminList.innerHTML = '<tr><td colspan="10" class="message-error">Error al cargar bugs.</td></tr>';
     }
   }
 
@@ -3033,18 +3094,32 @@
       const bug = data.bug;
       currentBugDetailId = id;
       if (bugDetailId) bugDetailId.textContent = id;
+      if (bugDetailProblemaTipo) bugDetailProblemaTipo.value = bug.problema_tipo || '';
+      if (bugDetailResueltoEnMod) {
+        const rem = bug.resuelto_en_mod || 'no';
+        bugDetailResueltoEnMod.value = (rem === 'si' || rem === 'no' || rem === 'no_aplica') ? rem : 'no';
+      }
+      updateBugDetailResueltoEnModState();
       if (bugDetailNota) bugDetailNota.value = bug.admin_nota || '';
       if (bugDetailRespuesta) bugDetailRespuesta.value = bug.admin_respuesta || '';
       if (bugDetailError) bugDetailError.hidden = true;
       let content = '<div class="bug-detail-content-inner">';
       content += `<p class="dash-card-text"><strong>Equipo:</strong> ${escapeHtml(bug.equipo || '-')}</p>`;
       content += `<p class="dash-card-text"><strong>Temporada:</strong> ${bug.temporada || '-'}</p>`;
-      content += `<p class="dash-card-text"><strong>Usuario:</strong> ${escapeHtml(bug.user_email || '-')}</p>`;
-      content += `<p class="dash-card-text"><strong>Discord:</strong> ${escapeHtml(bug.discord_username || bug.discord_id || '-')}</p>`;
+      content += `<p class="dash-card-text"><strong>Usuario Discord:</strong> ${escapeHtml(bug.discord_username || bug.discord_id || '-')}</p>`;
+      content += `<p class="dash-card-text"><strong>Correo:</strong> ${escapeHtml(bug.user_email || '-')}</p>`;
       content += `<p class="dash-card-text"><strong>Problema:</strong></p><p class="dash-card-text">${escapeHtml(bug.problema || '-')}</p>`;
+      const problemaTipoLabel = bug.problema_tipo === 'error_mod' ? 'Error del mod' : bug.problema_tipo === 'error_usuario' ? 'Error del usuario' : null;
+      const resueltoEnModLabel = bug.resuelto_en_mod === 'si' ? 'Sí' : bug.resuelto_en_mod === 'no_aplica' ? 'No aplica' : 'No';
+      if (problemaTipoLabel) content += `<p class="dash-card-text"><strong>Tipo de problema:</strong> ${escapeHtml(problemaTipoLabel)}</p>`;
+      content += `<p class="dash-card-text"><strong>Resuelto en el mod:</strong> ${escapeHtml(resueltoEnModLabel)}</p>`;
       const statusLabel = bug.status === 'resolved' ? 'Resuelto' : bug.status === 'en_curso' ? 'En curso' : 'Pendiente';
-      const enCursoBy = bug.en_curso_by ? ` (por ${escapeHtml(bug.en_curso_by)})` : '';
-      content += `<p class="dash-card-text"><strong>Estado:</strong> ${statusLabel}${enCursoBy}</p>`;
+      const byInfo = bug.status === 'en_curso' && bug.en_curso_by
+        ? ` (por ${escapeHtml(bug.en_curso_by)})`
+        : bug.status === 'resolved' && bug.resolved_by
+          ? ` (por ${escapeHtml(bug.resolved_by)})`
+          : '';
+      content += `<p class="dash-card-text"><strong>Estado:</strong> ${statusLabel}${byInfo}</p>`;
       const setupStr = formatSetupInfo(bug);
       if (setupStr) content += `<p class="dash-card-text"><strong>Setup al reportar:</strong> ${setupStr}</p>`;
       if (bug.career_file_url) {
@@ -3074,18 +3149,25 @@
   }
   if (bugDetailModalCloseX) bugDetailModalCloseX.addEventListener('click', closeBugDetailModal);
   if (bugDetailCancel) bugDetailCancel.addEventListener('click', closeBugDetailModal);
+  if (bugDetailProblemaTipo) bugDetailProblemaTipo.addEventListener('change', updateBugDetailResueltoEnModState);
 
   if (bugDetailEnCurso) {
     bugDetailEnCurso.addEventListener('click', async () => {
       if (!currentBugDetailId || !currentUser?.user_email) return;
       const adminEmail = encodeURIComponent(currentUser.user_email);
+      const problemaTipo = bugDetailProblemaTipo?.value || '';
+      let resueltoEnMod = bugDetailResueltoEnMod?.value || 'no';
+      if (bugDetailProblemaTipo?.value === 'error_usuario') resueltoEnMod = 'no_aplica';
       if (bugDetailError) bugDetailError.hidden = true;
       bugDetailEnCurso.disabled = true;
       try {
+        const patchBody = { en_curso: true };
+        if (problemaTipo) patchBody.problema_tipo = problemaTipo;
+        patchBody.resuelto_en_mod = resueltoEnMod;
         const res = await fetchBot(`${BOT_BASE_URL}/admin/bugs/${currentBugDetailId}?email=${adminEmail}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ en_curso: true })
+          body: JSON.stringify(patchBody)
         });
         const data = await res.json().catch(() => ({}));
         if (data.success) {
@@ -3115,10 +3197,22 @@
       const adminEmail = encodeURIComponent(currentUser.user_email);
       const nota = bugDetailNota?.value?.trim() || '';
       const respuesta = bugDetailRespuesta?.value?.trim() || '';
+      if (!nota || !respuesta) {
+        if (bugDetailError) {
+          bugDetailError.textContent = 'La nota interna y la respuesta al usuario son obligatorias.';
+          bugDetailError.hidden = false;
+        }
+        return;
+      }
+      const problemaTipo = bugDetailProblemaTipo?.value || '';
+      let resueltoEnMod = bugDetailResueltoEnMod?.value || 'no';
+      if (bugDetailProblemaTipo?.value === 'error_usuario') resueltoEnMod = 'no_aplica';
       if (bugDetailError) bugDetailError.hidden = true;
       bugDetailResuelto.disabled = true;
       try {
         const patchBody = { nota, respuesta, resolved: true };
+        if (problemaTipo) patchBody.problema_tipo = problemaTipo;
+        patchBody.resuelto_en_mod = resueltoEnMod;
         const res = await fetchBot(`${BOT_BASE_URL}/admin/bugs/${currentBugDetailId}?email=${adminEmail}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },

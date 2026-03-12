@@ -789,12 +789,13 @@
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>Usuario</th>
+                      <th>Usuario Discord</th>
                       <th>Equipo</th>
                       <th>Temp</th>
                       <th>Problema</th>
                       <th>Setup</th>
                       <th>Estado</th>
+                      <th>Nota</th>
                       <th>Archivo</th>
                       <th></th>
                     </tr>
@@ -904,10 +905,22 @@
         </div>
         <div id="bugDetailContent" class="bug-detail-content"></div>
         <div class="bug-detail-admin-actions">
-          <label class="config-field-label">Nota interna (solo admin)</label>
-          <textarea id="bugDetailNota" class="recover-input config-textarea" placeholder="Notas internas..." rows="2"></textarea>
-          <label class="config-field-label">Respuesta al usuario</label>
-          <textarea id="bugDetailRespuesta" class="recover-input config-textarea" placeholder="Esta respuesta se enviará al usuario..." rows="3"></textarea>
+          <label class="config-field-label">Problema</label>
+          <select id="bugDetailProblemaTipo" class="recover-input">
+            <option value="">Seleccionar...</option>
+            <option value="error_mod">Error del mod</option>
+            <option value="error_usuario">Error del usuario</option>
+          </select>
+          <label class="config-field-label">Resuelto en el mod</label>
+          <select id="bugDetailResueltoEnMod" class="recover-input">
+            <option value="no">No</option>
+            <option value="si">Sí</option>
+            <option value="no_aplica">No aplica</option>
+          </select>
+          <label class="config-field-label">Nota interna (solo admin) <span class="required-asterisk">*</span></label>
+          <textarea id="bugDetailNota" class="recover-input config-textarea" placeholder="Notas internas..." rows="2" required></textarea>
+          <label class="config-field-label">Respuesta al usuario <span class="required-asterisk">*</span></label>
+          <textarea id="bugDetailRespuesta" class="recover-input config-textarea" placeholder="Esta respuesta se enviará al usuario..." rows="3" required></textarea>
           <div class="recover-actions bug-detail-actions">
             <button type="button" id="bugDetailEnCurso" class="recover-btn bug-detail-btn bug-detail-btn--en-curso">En curso</button>
             <button type="button" id="bugDetailResuelto" class="recover-btn bug-detail-btn bug-detail-btn--resolver">Guardar y Resolver</button>
