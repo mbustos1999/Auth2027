@@ -3,12 +3,12 @@
   "required": true,
   "_note": "",
   "downloadUrls": [
-    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-6-6-6/ARGENMOD%201.fifamod",
-    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-6-6-6/ARGENMOD%202.fifamod",
-    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-6-6-6/ARGENMOD%203.fifamod",
-    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-6-6-6/ARGENMOD%204.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-4-3r/ARGENMOD%201.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-4-3r/ARGENMOD%202.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-4-3r/ARGENMOD%203.fifamod",
+    "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-4-3r/ARGENMOD%204.fifamod",
     "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-4-3/%5Baddon%5D%20MODO%20TORNEO.fifamod"
   ],
-  "sizeHint": "ArgenMod TU 1.5.0 V2",
+  "sizeHint": "ArgenMod TU 1.5.0 V3",
   "instructions": "Descargar automáticamente."
 }

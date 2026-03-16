@@ -878,7 +878,11 @@
   }
 
   async function login(username, password) {
-    if (!authUrl) {
+    // Con Electron: usar /auth/exchange del bot (el bot valida con WordPress y devuelve token; la app nunca tiene el secreto)
+    const useBotAuth = !!(window.electronAPI && typeof window.electronAPI.setSessionToken === 'function');
+    const loginUrl = useBotAuth ? `${BOT_BASE_URL}/auth/exchange` : authUrl;
+
+    if (!loginUrl) {
       const hasConfig = !!(baseUrl || authEndpoint);
       const msg = !window.electronAPI
         ? 'Ejecuta la app con: npm start (no abras index.html en el navegador).'
@@ -891,7 +895,7 @@
     setLoading(true);
 
     try {
-      const res = await fetch(authUrl, {
+      const res = await fetch(loginUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -899,24 +903,26 @@
 
       const data = await res.json().catch(() => ({}));
 
-      // Límite de intentos desde el servidor (3 intentos fallidos -> bloqueo 60s)
-      if (res.status === 429 && data && data.error === 'too_many_attempts') {
+      // Límite de intentos desde el servidor
+      if (res.status === 429) {
         const retryAfter = typeof data.retry_after === 'number' ? data.retry_after : 60;
         startLoginCooldown(retryAfter);
-        if (data.message) {
-          showError(data.message);
-        } else {
-          showError('Demasiados intentos fallidos. Espera un momento antes de volver a intentar.');
-        }
+        showError(data.message || 'Demasiados intentos fallidos. Espera un momento antes de volver a intentar.');
         return null;
       }
 
       if (res.ok && data.success) {
-        return {
+        const user = {
           user_id: data.user_id,
-          display_name: data.display_name,
+          display_name: data.display_name || 'Usuario',
           user_email: data.user_email
         };
+        if (useBotAuth && data.token) {
+          try {
+            await window.electronAPI.setSessionToken(data.token);
+          } catch (_) {}
+        }
+        return user;
       }
 
       if (data.message) {
@@ -974,12 +980,7 @@
   }
 
   async function showDashboard(user) {
-    // Registrar sesión en main para que las peticiones al bot lleven token firmado (email)
-    if (window.electronAPI && typeof window.electronAPI.setSessionUser === 'function') {
-      try {
-        await window.electronAPI.setSessionUser(user.user_email || '');
-      } catch (_) {}
-    }
+    // El token ya se guardó en login() al usar /auth/exchange; no hace falta hacer nada más aquí
     if (window.electronAPI && typeof window.electronAPI.getConfig === 'function') {
       try {
         const c = await window.electronAPI.getConfig();

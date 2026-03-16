@@ -2,7 +2,6 @@ const { app, BrowserWindow, ipcMain, screen, shell, net, dialog } = require('ele
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const crypto = require('crypto');
 const https = require('https');
 const http = require('http');
 const { spawn } = require('child_process');
@@ -18,19 +17,8 @@ try {
   }
 } catch (_) {}
 
-// Sesión de usuario para peticiones al bot (token firmado; el renderer no ve el secreto)
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 h
-let sessionEmail = null;
-let sessionExpiry = 0;
-
-function createSessionToken(email) {
-  const secret = (sharedAppConfig && sharedAppConfig.botSharedSecret) ? String(sharedAppConfig.botSharedSecret).trim() : '';
-  if (!secret || !email) return '';
-  const exp = Date.now() + SESSION_TTL_MS;
-  const payload = JSON.stringify({ e: String(email).trim(), exp });
-  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
-  return Buffer.from(payload).toString('base64url') + '.' + sig;
-}
+// Sesión: token emitido por el bot (la app nunca tiene el secreto)
+let sessionToken = null;
 
 // Auto-updater (solo cuando la app está empaquetada)
 let autoUpdater = null;
@@ -56,22 +44,8 @@ try {
       baseUrl: (config.API_BASE_URL != null) ? String(config.API_BASE_URL).trim() : '',
       authEndpoint: (config.AUTH_ENDPOINT != null) ? String(config.AUTH_ENDPOINT).trim() : '',
       discordOAuthBaseUrl: (config.DISCORD_OAUTH_BASE_URL != null) ? String(config.DISCORD_OAUTH_BASE_URL).trim() : '',
-      pcName: defaultPcName || 'PC',
-      botSharedSecret: (config.BOT_SHARED_SECRET != null) ? String(config.BOT_SHARED_SECRET).trim() : ''
+      pcName: defaultPcName || 'PC'
     };
-    // App empaquetada: si no hay secreto por .env, intentar desde el archivo de config en userData
-    if (app.isPackaged && !sharedAppConfig.botSharedSecret) {
-      try {
-        const cfgPath = path.join(app.getPath('userData'), USER_DATA_CONFIG_FILENAME);
-        if (fs.existsSync(cfgPath)) {
-          const raw = fs.readFileSync(cfgPath, 'utf8');
-          const data = JSON.parse(raw);
-          if (data && typeof data.botSharedSecret === 'string' && data.botSharedSecret.trim()) {
-            sharedAppConfig.botSharedSecret = data.botSharedSecret.trim();
-          }
-        }
-      } catch (_) {}
-    }
   }
 } catch (_) {}
 
@@ -219,7 +193,7 @@ const eaSettingsDir = path.join(
 );
 
 // Marcadores con lógica especial: fonts, themes, Generic, globalComponents
-const SPECIAL_MARKER_IDS = ['Liga Profesional Argentina', 'B Metro Argentina', 'Primera Nacional'];
+const SPECIAL_MARKER_IDS = ['', '', 'marcador completo'];
 
 // Estado del último marcador aplicado (para limpieza al cambiar o "Ninguno")
 let lastAppliedSpecialMarkerId = null;
@@ -759,14 +733,10 @@ app.whenReady().then(() => {
 const BOT_BASE_URL = process.env.AUTH_APP_BOT_URL || 'https://auth2027-production.up.railway.app';
 
 app.on('before-quit', async (e) => {
-  if (!sessionEmail) return;
+  if (!sessionToken) return;
   e.preventDefault();
   try {
-    const token = createSessionToken(sessionEmail);
-    const secret = (sharedAppConfig && sharedAppConfig.botSharedSecret) ? String(sharedAppConfig.botSharedSecret).trim() : '';
-    const headers = { 'Content-Type': 'application/json' };
-    if (secret) headers['X-Auth2027-Secret'] = secret;
-    if (token) headers['X-Auth2027-Session'] = token;
+    const headers = { 'Content-Type': 'application/json', 'X-Auth2027-Session': sessionToken };
     await fetch(`${BOT_BASE_URL}/user/setup-info`, {
       method: 'POST',
       headers,
@@ -1301,28 +1271,21 @@ ipcMain.handle('app:getVersion', () => app.getVersion());
 // Devolver la config cargada al arranque (evita require en el handler por si falla en el instalador)
 ipcMain.handle('app:getConfig', () => Promise.resolve(sharedAppConfig || {}));
 
-// Peticiones al bot: main añade secreto + token de sesión (el renderer nunca recibe el secreto)
-ipcMain.handle('bot:setSessionUser', (_event, email) => {
-  sessionEmail = typeof email === 'string' && email.trim() ? email.trim() : null;
-  sessionExpiry = sessionEmail ? Date.now() + SESSION_TTL_MS : 0;
+// Peticiones al bot: main añade token de sesión (emitido por el bot; la app nunca tiene el secreto)
+ipcMain.handle('bot:setSessionToken', (_event, token) => {
+  sessionToken = typeof token === 'string' && token.trim() ? token.trim() : null;
   return Promise.resolve();
 });
 ipcMain.handle('bot:clearSessionUser', () => {
-  sessionEmail = null;
-  sessionExpiry = 0;
+  sessionToken = null;
   return Promise.resolve();
 });
 ipcMain.handle('bot:fetch', async (_event, url, options) => {
   if (typeof url !== 'string' || !url.startsWith('http')) {
     return { ok: false, status: 0, statusText: 'Invalid URL', body: '' };
   }
-  const secret = (sharedAppConfig && sharedAppConfig.botSharedSecret) ? String(sharedAppConfig.botSharedSecret).trim() : '';
   const headers = { ...(options && options.headers) };
-  if (secret) headers['X-Auth2027-Secret'] = secret;
-  if (sessionEmail && sessionExpiry > Date.now()) {
-    const token = createSessionToken(sessionEmail);
-    if (token) headers['X-Auth2027-Session'] = token;
-  }
+  if (sessionToken) headers['X-Auth2027-Session'] = sessionToken;
   try {
     const res = await fetch(url, { ...options, headers });
     const body = await res.text();

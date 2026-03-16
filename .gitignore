@@ -7,6 +7,7 @@ bot/.env
 build-config.js
 config.local.js
 dist/
+build/
 scripts/
 liveEditor/FC 26 LE v26.2.7/Logs/*
 modManager/Mods/FC26/*.fifamod

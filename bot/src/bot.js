@@ -18,8 +18,14 @@ const {
   MERCADOPAGO_ACCESS_TOKEN_CHILE,
   MERCADOPAGO_ACCESS_TOKEN_ARG,
   MERCADOPAGO_ACCESS_TOKEN,
-  BOT_SHARED_SECRET
+  BOT_SHARED_SECRET,
+  AUTH_API_URL,
+  AUTH_ENDPOINT
 } = process.env;
+
+const WP_BASE_URL = (AUTH_API_URL || 'https://argenmod.com').trim().replace(/\/$/, '');
+const WP_AUTH_ENDPOINT = (AUTH_ENDPOINT || '/wp-json/argenmod/v1/validar-login').trim();
+const WP_AUTH_URL = WP_BASE_URL && WP_AUTH_ENDPOINT ? `${WP_BASE_URL}${WP_AUTH_ENDPOINT.startsWith('/') ? '' : '/'}${WP_AUTH_ENDPOINT}` : '';
 
 if (!DISCORD_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('Faltan variables de entorno. Revisa bot/.env (TOKEN y SUPABASE).');
@@ -127,6 +133,17 @@ function isRateLimited(ip, bucket, limit) {
     entry.shift();
   }
   return entry.length > limit;
+}
+
+/** Crea un token de sesión firmado (solo el bot lo usa; la app nunca tiene el secreto) */
+function createSessionToken(email) {
+  if (!SHARED_SECRET || !email || typeof email !== 'string') return null;
+  const e = String(email).trim();
+  if (!e) return null;
+  const exp = Date.now() + 24 * 60 * 60 * 1000;
+  const payload = JSON.stringify({ e, exp });
+  const sig = crypto.createHmac('sha256', SHARED_SECRET).update(payload).digest('base64url');
+  return Buffer.from(payload).toString('base64url') + '.' + sig;
 }
 
 /**
@@ -1003,6 +1020,98 @@ function startOAuthServer() {
         return;
       }
 
+      // --- Login sin secreto en la app: el bot verifica con WordPress y devuelve token ---
+      if (url.pathname === '/auth/exchange' && req.method === 'POST') {
+        const ip = getClientIp(req);
+        if (isRateLimited(ip, 'auth_exchange', 5)) {
+          logSecurityEvent('auth_exchange_rate_limit', { ip });
+          res.statusCode = 429;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Demasiados intentos. Espera un minuto.' }));
+          return;
+        }
+        if (!WP_AUTH_URL || !SHARED_SECRET) {
+          res.statusCode = 503;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Servicio no configurado.' }));
+          return;
+        }
+        const body = await new Promise((resolve) => {
+          let data = '';
+          req.on('data', (chunk) => {
+            data += chunk.toString();
+            if (data.length > 10000) req.destroy();
+          });
+          req.on('end', () => {
+            try {
+              resolve(data ? JSON.parse(data) : {});
+            } catch {
+              resolve({});
+            }
+          });
+          req.on('error', () => resolve({}));
+        });
+        const username = body && typeof body.username === 'string' ? body.username.trim() : '';
+        const password = body && typeof body.password === 'string' ? body.password : '';
+        if (!username || !password) {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Usuario y contraseña requeridos.' }));
+          return;
+        }
+        try {
+          const wpRes = await fetch(WP_AUTH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+          const wpData = await wpRes.json().catch(() => ({}));
+          if (wpRes.status === 429 && wpData.error === 'too_many_attempts') {
+            res.statusCode = 429;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: wpData.message || 'Demasiados intentos. Espera un momento.' }));
+            return;
+          }
+          if (!wpRes.ok || !wpData.success) {
+            res.statusCode = wpRes.status === 401 ? 401 : 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: wpData.message || 'Credenciales inválidas.' }));
+            return;
+          }
+          const email = wpData.user_email || '';
+          if (!email) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'No se pudo obtener el correo.' }));
+            return;
+          }
+          const token = createSessionToken(email);
+          if (!token) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Error al generar sesión.' }));
+            return;
+          }
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(
+            JSON.stringify({
+              success: true,
+              token,
+              user_email: email,
+              display_name: wpData.display_name || 'Usuario',
+              user_id: wpData.user_id || null
+            })
+          );
+        } catch (e) {
+          console.error('Error en /auth/exchange:', e);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Error de conexión.' }));
+        }
+        return;
+      }
+
       // Endpoint interno para estado de MercadoPago
       if (url.pathname === '/mp/status') {
         const email = (url.searchParams.get('email') || '').trim();
@@ -1333,14 +1442,24 @@ function startOAuthServer() {
       }
 
       // --- Admin: gestión de usuarios ---
+      // IMPORTANTE: El email se obtiene del token, NUNCA del query. Evita que alguien
+      // con token de víctima pase ?email=admin@x.com para intentar escalar privilegios.
       if (url.pathname.startsWith('/admin/')) {
-        const adminEmail = (url.searchParams.get('email') || '').trim();
+        const sessionHeader = (req.headers['x-auth2027-session'] || '').trim();
+        const adminEmail = sessionHeader ? verifySessionToken(sessionHeader, null) : null;
         if (!adminEmail || !isValidEmail(adminEmail)) {
-          res.statusCode = 400;
-          res.end('Invalid email');
+          res.statusCode = 401;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Sesión inválida o expirada.' }));
           return;
         }
-        if (!ensureAuthorizedRequest(req, res, 'admin', 80, adminEmail)) return;
+        if (isRateLimited(getClientIp(req), 'admin', 80)) {
+          logSecurityEvent('admin_rate_limit', { ip: getClientIp(req) });
+          res.statusCode = 429;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, message: 'Demasiadas peticiones.' }));
+          return;
+        }
 
         async function isAdminByEmail(email) {
           try {
@@ -1407,6 +1526,7 @@ function startOAuthServer() {
         }
 
         if (!(await isAdminByEmail(adminEmail))) {
+          logSecurityEvent('admin_denied', { email: adminEmail ? `${adminEmail.slice(0, 3)}***` : null });
           res.statusCode = 403;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
           res.end(JSON.stringify({ success: false, message: 'Acceso denegado (admin requerido).' }));

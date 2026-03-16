@@ -12,10 +12,11 @@
     "electron": "electron .",
     "bot": "npm start --prefix bot",
     "dev": "electron . --enable-logging",
-    "build": "node scripts/inject-build-config.js && electron-builder",
-    "build:win": "node scripts/inject-build-config.js && electron-builder --win",
-    "build:mac": "node scripts/inject-build-config.js && electron-builder --mac",
-    "release": "node scripts/inject-build-config.js && node -e \"require('dotenv').config(); require('child_process').execSync('npx electron-builder --publish always', {stdio:'inherit', env: process.env})\""
+    "build": "node scripts/build-with-obfuscation.js",
+    "build:win": "node scripts/build-with-obfuscation.js --win",
+    "build:mac": "node scripts/build-with-obfuscation.js --mac",
+    "build:no-obfuscate": "node scripts/inject-build-config.js && electron-builder",
+    "release": "node scripts/build-with-obfuscation.js --publish always"
   },
   "keywords": [
     "electron",
@@ -27,7 +28,8 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "electron": "^28.0.0",
-    "electron-builder": "^25.0.0"
+    "electron-builder": "^25.0.0",
+    "javascript-obfuscator": "^4.2.2"
   },
   "dependencies": {
     "dotenv": "^17.3.1",

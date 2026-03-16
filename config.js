@@ -5,16 +5,7 @@ const defaultSupabaseUrl = 'https://vdpghetcckgbpxcqcsdm.supabase.co';
 const defaultSupabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
 const defaultDiscordOAuthBaseUrl =
   'https://discord.com/oauth2/authorize?client_id=1364442374540890142&redirect_uri=https://auth2027-production.up.railway.app/auth/discord/callback&response_type=code&scope=identify%20email';
-// En desarrollo: .env. En app empaquetada: build-config.js (generado en npm run build desde .env)
-let botSharedSecret = (process.env.BOT_SHARED_SECRET || '').trim();
-if (!botSharedSecret) {
-  try {
-    const buildConfig = require('./build-config.js');
-    if (buildConfig && typeof buildConfig.BOT_SHARED_SECRET === 'string') {
-      botSharedSecret = buildConfig.BOT_SHARED_SECRET.trim();
-    }
-  } catch (_) {}
-}
+// 
 
 module.exports = {
   API_BASE_URL: process.env.AUTH_API_URL || 'https://argenmod.com',
@@ -24,6 +15,5 @@ module.exports = {
   DISCORD_INVITE_URL: process.env.DISCORD_INVITE_URL,
   DISCORD_OAUTH_BASE_URL: process.env.DISCORD_OAUTH_BASE_URL || defaultDiscordOAuthBaseUrl,
   MERCADOPAGO_ACCESS_TOKEN_CHILE: process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE,
-  MERCADOPAGO_ACCESS_TOKEN_ARG: process.env.MERCADOPAGO_ACCESS_TOKEN_ARG,
-  BOT_SHARED_SECRET: botSharedSecret
+  MERCADOPAGO_ACCESS_TOKEN_ARG: process.env.MERCADOPAGO_ACCESS_TOKEN_ARG
 };

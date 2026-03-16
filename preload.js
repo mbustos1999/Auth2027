@@ -56,9 +56,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('mods-download-progress', handler);
     return () => ipcRenderer.removeListener('mods-download-progress', handler);
   },
-  // Peticiones al bot: el main añade secreto + token de sesión (el renderer nunca ve el secreto)
+  // Peticiones al bot: el main añade token de sesión (el renderer nunca ve el secreto; el token lo emite el bot)
   fetchBot: (url, options) => ipcRenderer.invoke('bot:fetch', url, options),
-  setSessionUser: (email) => ipcRenderer.invoke('bot:setSessionUser', email),
+  setSessionToken: (token) => ipcRenderer.invoke('bot:setSessionToken', token),
   clearSessionUser: () => ipcRenderer.invoke('bot:clearSessionUser')
 });
 

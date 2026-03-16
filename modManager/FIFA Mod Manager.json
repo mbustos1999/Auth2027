@@ -7,7 +7,7 @@
     "ExecutablePaths": [
       "C:\\Program Files (x86)\\Steam\\steamapps\\common\\FC 26\\FC26.exe"
     ],
-    "DefaultGameExecutablePath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\FC 26\\FC26.exe"
+    "DefaultGameExecutablePath": ""
   },
   "GameCommandLineSettings": {
     "CurrentGameExecutor": 0
@@ -31,7 +31,24 @@
         },
         "LocaleIniModFilePath": "",
         "LocaleIniIndex": -1,
-        "AppliedMods": []
+        "AppliedMods": [
+          {
+            "ModFilePath": "ARGENMOD 1 (1).fifamod",
+            "IsEnabled": true
+          },
+          {
+            "ModFilePath": "ARGENMOD 2 (1).fifamod",
+            "IsEnabled": true
+          },
+          {
+            "ModFilePath": "ARGENMOD 3 (1).fifamod",
+            "IsEnabled": true
+          },
+          {
+            "ModFilePath": "ARGENMOD 4 (1).fifamod",
+            "IsEnabled": true
+          }
+        ]
       }
     ]
   },
