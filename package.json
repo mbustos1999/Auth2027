@@ -47,7 +47,10 @@
       "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md}",
       "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
       "!**/*.map",
-      "!modManager"
+      "!modManager",
+      "!.env",
+      "!.env.*",
+      "!build-config.js"
     ],
     "extraResources": [
       {

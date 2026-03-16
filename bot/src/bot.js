@@ -170,8 +170,9 @@ function verifySessionToken(token, requestEmail) {
 }
 
 /**
- * Autorización: rate limit, luego secreto compartido O token de sesión válido.
- * Si requestEmail está definido y se envía X-Auth2027-Session, se exige que el email del token coincida con requestEmail.
+ * Autorización: rate limit + token de sesión válido (X-Auth2027-Session).
+ * Ya NO se acepta X-Auth2027-Secret: el secreto solo lo usa el bot para crear tokens.
+ * Si alguien tiene el secreto (versión antigua, leak), no puede autenticarse con él.
  */
 function ensureAuthorizedRequest(req, res, bucket, limit, requestEmail) {
   const ip = getClientIp(req);
@@ -195,15 +196,6 @@ function ensureAuthorizedRequest(req, res, bucket, limit, requestEmail) {
       res.end(JSON.stringify({ success: false, message: 'session_invalid_or_email_mismatch' }));
       return false;
     }
-  }
-
-  if (!SHARED_SECRET) {
-    return true;
-  }
-
-  const header = req.headers['x-auth2027-secret'];
-  if (typeof header === 'string' && header.trim() === SHARED_SECRET) {
-    return true;
   }
 
   logSecurityEvent('unauthorized', { ip, path: req.url?.split('?')[0] });
