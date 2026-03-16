@@ -1147,6 +1147,14 @@
     return div.innerHTML;
   }
 
+  /** Solo permite URLs http/https para href (evita javascript:, file:, etc.) */
+  function safeUrlForHref(url) {
+    if (!url || typeof url !== 'string') return '';
+    const u = url.trim();
+    if (u.startsWith('https://') || u.startsWith('http://')) return escapeHtml(u);
+    return '';
+  }
+
   /** Formatea un valor booleano de setup (✓ verde, ✗ roja, ? amarillo) */
   function formatSetupCell(val) {
     if (val === true) return '<span class="setup-cell setup-cell--ok">✓</span>';
@@ -3051,8 +3059,8 @@
             ? ` (por ${escapeHtml(bug.resolved_by)})`
             : '';
         const setupStr = formatSetupInfo(bug);
-        const fileLink = bug.career_file_url
-          ? `<a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="bugs-card-link">Abrir archivo</a>`
+        const fileLink = bug.career_file_url && safeUrlForHref(bug.career_file_url)
+          ? `<a href="${safeUrlForHref(bug.career_file_url)}" target="_blank" rel="noopener" class="bugs-card-link">Abrir archivo</a>`
           : '<span class="bugs-card-muted">—</span>';
         const resueltoEnModVal = bug.resuelto_en_mod || 'no';
         const resueltoEnModLabel = resueltoEnModVal === 'si' ? 'Sí' : resueltoEnModVal === 'no_aplica' ? 'No aplica' : 'No';
@@ -3160,8 +3168,8 @@
       content += `<p class="dash-card-text"><strong>Estado:</strong> ${statusLabel}${byInfo}</p>`;
       const setupStr = formatSetupInfo(bug);
       if (setupStr) content += `<p class="dash-card-text"><strong>Setup al reportar:</strong> ${setupStr}</p>`;
-      if (bug.career_file_url) {
-        content += `<p class="dash-card-text"><a href="${escapeHtml(bug.career_file_url)}" target="_blank" rel="noopener" class="mods-download-btn" style="display:inline-block;margin-top:8px">Abrir archivo de modo carrera (Transfer.it)</a></p>`;
+      if (bug.career_file_url && safeUrlForHref(bug.career_file_url)) {
+        content += `<p class="dash-card-text"><a href="${safeUrlForHref(bug.career_file_url)}" target="_blank" rel="noopener" class="mods-download-btn" style="display:inline-block;margin-top:8px">Abrir archivo de modo carrera (Transfer.it)</a></p>`;
       }
       content += '</div>';
       if (bugDetailContent) bugDetailContent.innerHTML = content;

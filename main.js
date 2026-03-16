@@ -1386,14 +1386,24 @@ ipcMain.handle('mods:getManifest', () => {
 });
 
 ipcMain.handle('shell:openExternal', (_event, url) => {
-  if (typeof url !== 'string' || !url.startsWith('http')) return Promise.resolve({ ok: false });
-  return shell.openExternal(url).then(() => ({ ok: true })).catch((e) => ({ ok: false, error: e?.message }));
+  if (typeof url !== 'string') return Promise.resolve({ ok: false });
+  const u = url.trim();
+  if (!u.startsWith('https://') && !u.startsWith('http://')) return Promise.resolve({ ok: false });
+  try {
+    new URL(u);
+  } catch {
+    return Promise.resolve({ ok: false });
+  }
+  return shell.openExternal(u).then(() => ({ ok: true })).catch((e) => ({ ok: false, error: e?.message }));
 });
 
 ipcMain.handle('shell:openFolder', async (_event, dirPath) => {
   if (typeof dirPath !== 'string' || !dirPath.trim()) return { ok: false };
+  const raw = dirPath.trim();
+  if (raw.includes('..')) return { ok: false };
+  const p = path.normalize(raw);
   try {
-    const err = await shell.openPath(dirPath.trim());
+    const err = await shell.openPath(p);
     return { ok: !err };
   } catch (e) {
     return { ok: false };

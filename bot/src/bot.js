@@ -1165,9 +1165,9 @@ function startOAuthServer() {
           });
           req.on('error', () => resolve({}));
         });
-        const equipo = body && typeof body.equipo === 'string' ? body.equipo.trim() : '';
+        const equipo = body && typeof body.equipo === 'string' ? body.equipo.trim().slice(0, 200) : '';
         const temporada = body && body.temporada != null ? parseInt(body.temporada, 10) : NaN;
-        const problema = body && typeof body.problema === 'string' ? body.problema.trim() : '';
+        const problema = body && typeof body.problema === 'string' ? body.problema.trim().slice(0, 5000) : '';
         if (!equipo || !problema || !Number.isFinite(temporada) || temporada < 2026 || temporada > 2034) {
           res.statusCode = 400;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1457,7 +1457,7 @@ function startOAuthServer() {
           try {
             const { data: rows, error } = await supabase
               .from('user_discord_links')
-              .select('*')
+              .select('id, email, pc_name, link_code, discord_id, discord_username, roles, status, mercadopago_status, mercadopago_data, acceso_manual_until, created_at, updated_at')
               .order('created_at', { ascending: false })
               .limit(500);
 
@@ -1469,9 +1469,17 @@ function startOAuthServer() {
               return;
             }
 
+            const users = (rows || []).map((r) => {
+              const { mercadopago_data: rawMp, ...rest } = r;
+              return {
+                ...rest,
+                mercadopago_data: sanitizeMercadoPagoForClient(rawMp)
+              };
+            });
+
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            res.end(JSON.stringify({ success: true, users: rows || [] }));
+            res.end(JSON.stringify({ success: true, users }));
           } catch (e) {
             console.error('Error inesperado en /admin/users:', e);
             res.statusCode = 500;
@@ -1957,11 +1965,12 @@ function startOAuthServer() {
 
           try {
             const patch = {};
-            if (typeof updates.status === 'string') {
+            const allowedStatus = ['pending', 'linked'];
+            if (typeof updates.status === 'string' && allowedStatus.includes(updates.status)) {
               patch.status = updates.status;
             }
             if (typeof updates.pc_name === 'string' || updates.pc_name === null) {
-              patch.pc_name = updates.pc_name;
+              patch.pc_name = updates.pc_name != null ? String(updates.pc_name).slice(0, 100) : null;
             }
             patch.updated_at = new Date().toISOString();
 
@@ -2069,14 +2078,19 @@ function startOAuthServer() {
             return;
           }
 
+          const safeUrl = (u) => {
+            if (typeof u !== 'string' || !u.trim()) return '';
+            const s = u.trim();
+            return (s.startsWith('https://') || s.startsWith('http://')) ? s : '';
+          };
           try {
             const { data: inserted, error } = await supabase
               .from('home_cards')
               .insert({
-                title: String(title).trim(),
-                image_url: typeof image_url === 'string' ? image_url.trim() : '',
-                logo_url: typeof logo_url === 'string' ? logo_url.trim() : '',
-                description: typeof description === 'string' ? description.trim() : '',
+                title: String(title).trim().slice(0, 200),
+                image_url: safeUrl(image_url),
+                logo_url: safeUrl(logo_url),
+                description: (typeof description === 'string' ? description.trim() : '').slice(0, 1000),
                 sort_order: typeof sort_order === 'number' ? sort_order : 0,
                 updated_at: new Date().toISOString()
               })
@@ -2114,11 +2128,16 @@ function startOAuthServer() {
             return;
           }
 
+          const safeUrl = (u) => {
+            if (typeof u !== 'string' || !u.trim()) return '';
+            const s = u.trim();
+            return (s.startsWith('https://') || s.startsWith('http://')) ? s : '';
+          };
           const updates = {};
-          if (typeof title === 'string') updates.title = title.trim();
-          if (typeof image_url === 'string') updates.image_url = image_url.trim();
-          if (typeof logo_url === 'string') updates.logo_url = logo_url.trim();
-          if (typeof description === 'string') updates.description = description.trim();
+          if (typeof title === 'string') updates.title = title.trim().slice(0, 200);
+          if (typeof image_url === 'string') updates.image_url = safeUrl(image_url);
+          if (typeof logo_url === 'string') updates.logo_url = safeUrl(logo_url);
+          if (typeof description === 'string') updates.description = description.trim().slice(0, 1000);
           if (typeof sort_order === 'number') updates.sort_order = sort_order;
           updates.updated_at = new Date().toISOString();
 

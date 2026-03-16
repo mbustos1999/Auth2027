@@ -1,8 +1,8 @@
 const defaultApiBaseUrl = 'https://argenmod.com';
 const defaultAuthEndpoint = '/wp-json/argenmod/v1/validar-login';
 const defaultSupabaseUrl = 'https://vdpghetcckgbpxcqcsdm.supabase.co';
-const defaultSupabaseAnonKey =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcGdoZXRjY2tnYnB4Y3Fjc2RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0OTc0NzksImV4cCI6MjA4ODA3MzQ3OX0.ntsYSC8BHD0HPT-h-WbUGve-4c5Gz7VMEG258UCNt7I';
+// Usar SUPABASE_ANON_KEY desde .env. No hardcodear en producción.
+const defaultSupabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
 const defaultDiscordOAuthBaseUrl =
   'https://discord.com/oauth2/authorize?client_id=1364442374540890142&redirect_uri=https://auth2027-production.up.railway.app/auth/discord/callback&response_type=code&scope=identify%20email';
 // En desarrollo: .env. En app empaquetada: build-config.js (generado en npm run build desde .env)
