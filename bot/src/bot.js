@@ -52,6 +52,63 @@ function getClientIp(req) {
   return req.socket?.remoteAddress || 'unknown';
 }
 
+/** Headers de seguridad en todas las respuestas HTTP */
+function setSecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+}
+
+/** Validación de email: formato básico y longitud */
+function isValidEmail(email) {
+  if (typeof email !== 'string' || !email.trim()) return false;
+  const s = email.trim();
+  if (s.length > 254) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+/** Log de seguridad (intentos fallidos, rate limit, etc.) */
+function logSecurityEvent(event, details = {}) {
+  const ts = new Date().toISOString();
+  console.warn(`[SEC] ${ts} ${event}`, Object.keys(details).length ? JSON.stringify(details) : '');
+}
+
+/** Devuelve solo los campos de mercadopago_data necesarios para el UI (minimización PII) */
+function sanitizeMercadoPagoForClient(rawData) {
+  if (!rawData) return null;
+  let data = rawData;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch {
+      return null;
+    }
+  }
+  const meta = data.meta || {};
+  const results = Array.isArray(data.results) ? data.results : [];
+  const first = results[0] || null;
+  const sanitizedFirst = first
+    ? {
+        reason: first.reason || (first.auto_recurring && first.auto_recurring.reason) || null,
+        charged_amount: first.charged_amount || (first.auto_recurring && first.auto_recurring.transaction_amount) || null,
+        payer_first_name: first.payer_first_name || (first.payer && first.payer.first_name) || null,
+        payer_last_name: first.payer_last_name || (first.payer && first.payer.last_name) || null,
+        status: first.status || null
+      }
+    : null;
+  return {
+    meta: {
+      effective_status: meta.effective_status || null,
+      ui_label: meta.ui_label || null,
+      raw_status: meta.raw_status || null,
+      days_left: typeof meta.days_left === 'number' ? meta.days_left : null
+    },
+    results: sanitizedFirst ? [sanitizedFirst] : []
+  };
+}
+
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const rateLimitBuckets = new Map();
 
@@ -103,6 +160,7 @@ function ensureAuthorizedRequest(req, res, bucket, limit, requestEmail) {
   const ip = getClientIp(req);
 
   if (bucket && limit && isRateLimited(ip, bucket, limit)) {
+    logSecurityEvent('rate_limit', { ip, bucket, path: req.url });
     res.statusCode = 429;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({ success: false, message: 'Demasiadas peticiones. Espera un momento y vuelve a intentar.' }));
@@ -114,6 +172,7 @@ function ensureAuthorizedRequest(req, res, bucket, limit, requestEmail) {
     const tokenEmail = verifySessionToken(sessionHeader.trim(), requestEmail);
     if (tokenEmail) return true;
     if (requestEmail) {
+      logSecurityEvent('session_invalid', { ip, requestEmail: requestEmail ? '***' : null });
       res.statusCode = 403;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.end(JSON.stringify({ success: false, message: 'session_invalid_or_email_mismatch' }));
@@ -130,6 +189,7 @@ function ensureAuthorizedRequest(req, res, bucket, limit, requestEmail) {
     return true;
   }
 
+  logSecurityEvent('unauthorized', { ip, path: req.url?.split('?')[0] });
   res.statusCode = 401;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify({ success: false, message: 'unauthorized' }));
@@ -900,6 +960,7 @@ function startOAuthServer() {
   const port = Number(process.env.PORT || OAUTH_SERVER_PORT) || 4000;
 
   const server = http.createServer(async (req, res) => {
+    setSecurityHeaders(res);
     try {
       const url = new URL(req.url, `http://localhost:${port}`);
 
@@ -944,10 +1005,10 @@ function startOAuthServer() {
 
       // Endpoint interno para estado de MercadoPago
       if (url.pathname === '/mp/status') {
-        const email = url.searchParams.get('email');
-        if (!email) {
+        const email = (url.searchParams.get('email') || '').trim();
+        if (!email || !isValidEmail(email)) {
           res.statusCode = 400;
-          res.end('Missing email');
+          res.end('Invalid email');
           return;
         }
         if (!ensureAuthorizedRequest(req, res, 'mp_status', 60, email)) return;
@@ -965,7 +1026,7 @@ function startOAuthServer() {
           JSON.stringify({
             success: true,
             mercadopago_status: row.mercadopago_status || null,
-            mercadopago_data: row.mercadopago_data || null
+            mercadopago_data: sanitizeMercadoPagoForClient(row.mercadopago_data)
           })
         );
         return;
@@ -1273,10 +1334,10 @@ function startOAuthServer() {
 
       // --- Admin: gestión de usuarios ---
       if (url.pathname.startsWith('/admin/')) {
-        const adminEmail = url.searchParams.get('email');
-        if (!adminEmail) {
+        const adminEmail = (url.searchParams.get('email') || '').trim();
+        if (!adminEmail || !isValidEmail(adminEmail)) {
           res.statusCode = 400;
-          res.end('Missing email');
+          res.end('Invalid email');
           return;
         }
         if (!ensureAuthorizedRequest(req, res, 'admin', 80, adminEmail)) return;
@@ -2138,10 +2199,10 @@ function startOAuthServer() {
 
       // Endpoint interno para obtener estado completo de usuario
       if (url.pathname === '/u/state') {
-        const email = url.searchParams.get('email');
-        if (!email) {
+        const email = (url.searchParams.get('email') || '').trim();
+        if (!email || !isValidEmail(email)) {
           res.statusCode = 400;
-          res.end('Missing email');
+          res.end('Invalid email');
           return;
         }
         if (!ensureAuthorizedRequest(req, res, 'u_state', 60, email)) return;
@@ -2184,6 +2245,9 @@ function startOAuthServer() {
               .maybeSingle();
             payloadRow = { ...bestRow, has_pending_access_request: !!pendingReq };
           }
+          if (payloadRow && payloadRow.mercadopago_data) {
+            payloadRow = { ...payloadRow, mercadopago_data: sanitizeMercadoPagoForClient(payloadRow.mercadopago_data) };
+          }
 
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -2198,11 +2262,11 @@ function startOAuthServer() {
 
       // Endpoint interno para verificar/anclar PC a cuenta
       if (url.pathname === '/pc/check-binding') {
-        const email = url.searchParams.get('email');
+        const email = (url.searchParams.get('email') || '').trim();
         const pc = (url.searchParams.get('pc') || '').trim();
-        if (!email || !pc) {
+        if (!email || !isValidEmail(email) || !pc || pc.length > 100) {
           res.statusCode = 400;
-          res.end('Missing email or pc');
+          res.end('Invalid email or pc');
           return;
         }
         if (!ensureAuthorizedRequest(req, res, 'pc_check', 60, email)) return;
