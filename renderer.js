@@ -1089,7 +1089,10 @@
       }
     }
     if (tabName === 'home') loadHomeCards();
-    if (tabName === 'config') loadConfigCards();
+    if (tabName === 'config') {
+      loadConfigCards();
+      loadConfigErrores();
+    }
     if (tabName === 'users') fetchAdminUsers();
     if (tabName === 'mpAdmin') {
       loadMpAdminPendingCount();
@@ -1099,6 +1102,131 @@
     if (tabName === 'bugs') {
       loadBugsAdminChart();
       loadBugsAdminList();
+    }
+    if (tabName === 'erroresComunes') {
+      loadErroresComunesAndInit();
+    }
+  }
+
+  let erroresSwiperInstance = null;
+  const PLACEHOLDER_IMG = "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 200%22%3E%3Crect fill=%22%231e293b%22 width=%22400%22 height=%22200%22/%3E%3Ctext x=%22200%22 y=%22110%22 font-size=%2224%22 fill=%22%2394a3b8%22 text-anchor=%22middle%22%3EImagen%3C/text%3E%3C/svg%3E";
+
+  function renderErroresSlide(c, index) {
+    const num = String(index + 1).padStart(2, '0');
+    const cat = escapeHtml(c.categoria || '');
+    const tit = escapeHtml(c.titulo || '');
+    const desc = escapeHtml(c.descripcion || '');
+    const imgSrc = (c.imagen_url || '').trim() || PLACEHOLDER_IMG;
+    const imgAlt = escapeHtml(c.titulo || 'Imagen');
+    return `
+      <div class="news-slider__item swiper-slide">
+        <div class="news__item">
+          <div class="news-date">
+            <span class="news-date__title">${num}</span>
+            <span class="news-date__txt">${cat}</span>
+          </div>
+          <div class="news__title">${tit}</div>
+          <p class="news__txt">${desc}</p>
+          <div class="news__img errores-img-zoomable" role="button" tabindex="0" title="Clic para agrandar">
+            <img src="${escapeHtml(imgSrc)}" alt="${imgAlt}" onerror="this.src='${PLACEHOLDER_IMG.replace(/'/g, "\\'")}'" />
+            <span class="errores-img-zoom-hint">🔍</span>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  async function loadErroresComunesAndInit() {
+    const slidesContainer = document.getElementById('erroresComunesSlides');
+    const sliderEl = document.querySelector('.errores-slider');
+    if (!slidesContainer || !sliderEl || typeof Swiper === 'undefined') return;
+
+    try {
+      const res = await fetchBot(`${BOT_BASE_URL}/errores-comunes`);
+      const data = await res.json().catch(() => ({}));
+      const cards = Array.isArray(data.cards) ? data.cards : [];
+      slidesContainer.innerHTML = cards.length > 0
+        ? cards.map((c, i) => renderErroresSlide(c, i)).join('')
+        : '<div class="news-slider__item swiper-slide"><div class="news__item"><p class="news__txt errores-empty-msg">No hay errores comunes configurados. Un administrador puede agregarlos en Configuración.</p></div></div>';
+    } catch (_) {
+      slidesContainer.innerHTML = '<div class="errores-empty-msg"><p>No se pudieron cargar los errores comunes.</p></div>';
+    }
+
+    if (erroresSwiperInstance) {
+      erroresSwiperInstance.destroy(true, true);
+      erroresSwiperInstance = null;
+    }
+
+    erroresSwiperInstance = new Swiper('.errores-slider', {
+      effect: 'coverflow',
+      grabCursor: true,
+      loop: true,
+      centeredSlides: true,
+      keyboard: true,
+      spaceBetween: 28,
+      slidesPerView: 'auto',
+      speed: 300,
+      coverflowEffect: {
+        rotate: 0,
+        stretch: 0,
+        depth: 0,
+        modifier: 3,
+        slideShadows: false
+      },
+      navigation: {
+        nextEl: '.errores-next',
+        prevEl: '.errores-prev'
+      },
+      pagination: {
+        el: '.errores-pagination',
+        clickable: true
+      }
+    });
+
+    setupErroresLightbox();
+  }
+
+  let erroresLightboxStaticSetup = false;
+  function setupErroresLightbox() {
+    const lightbox = document.getElementById('erroresImgLightbox');
+    const lightboxImg = document.getElementById('erroresLightboxImg');
+    const lightboxClose = document.getElementById('erroresLightboxClose');
+    const lightboxBackdrop = document.querySelector('.errores-lightbox-backdrop');
+    const zoomables = document.querySelectorAll('.errores-img-zoomable');
+    if (!lightbox || !lightboxImg) return;
+
+    function openLightbox(src, alt) {
+      if (!lightbox || !lightboxImg) return;
+      lightboxImg.src = src || '';
+      lightboxImg.alt = alt || '';
+      lightbox.hidden = false;
+    }
+    function closeLightbox() {
+      if (lightbox) lightbox.hidden = true;
+    }
+
+    zoomables.forEach((wrap) => {
+      const img = wrap.querySelector('img');
+      if (!img) return;
+      wrap.addEventListener('click', (e) => {
+        e.preventDefault();
+        const src = img.src || img.getAttribute('src');
+        if (src) openLightbox(src, img.alt);
+      });
+      wrap.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          wrap.click();
+        }
+      });
+    });
+
+    if (!erroresLightboxStaticSetup) {
+      erroresLightboxStaticSetup = true;
+      if (lightboxClose) lightboxClose.addEventListener('click', closeLightbox);
+      if (lightboxBackdrop) lightboxBackdrop.addEventListener('click', closeLightbox);
+      document.addEventListener('keydown', function onErroresLightboxKey(e) {
+        if (lightbox && !lightbox.hidden && e.key === 'Escape') closeLightbox();
+      });
     }
   }
 
@@ -1282,6 +1410,129 @@
     }
   }
 
+  let configErroresCache = [];
+  async function loadConfigErrores() {
+    if (!currentUser || !currentUser.user_email) return;
+    const list = document.getElementById('configErroresList');
+    const errEl = document.getElementById('configErroresError');
+    if (!list) return;
+    if (errEl) errEl.hidden = true;
+    try {
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/errores-comunes`);
+      const data = await res.json().catch(() => ({}));
+      configErroresCache = Array.isArray(data.cards) ? data.cards : [];
+      list.innerHTML = configErroresCache
+        .map(
+          (c) => `
+          <div class="config-card-row" data-id="${escapeHtml(c.id)}">
+            <span class="config-card-title">${escapeHtml(c.titulo || '-')}</span>
+            <span class="config-card-desc">${escapeHtml((c.categoria || '') + ' · ' + (c.descripcion || '').slice(0, 40))}${(c.descripcion || '').length > 40 ? '…' : ''}</span>
+            <div class="config-card-actions">
+              <button type="button" class="config-card-btn config-card-edit config-errores-edit" data-id="${escapeHtml(c.id)}">Editar</button>
+              <button type="button" class="config-card-btn config-card-delete config-errores-delete" data-id="${escapeHtml(c.id)}">Eliminar</button>
+            </div>
+          </div>`
+        )
+        .join('');
+      if (configErroresCache.length === 0) list.innerHTML = '<p class="config-no-cards">No hay tarjetas. Añade una con «Nueva tarjeta».</p>';
+    } catch (e) {
+      if (errEl) {
+        errEl.textContent = 'No se pudieron cargar las tarjetas de errores comunes.';
+        errEl.hidden = false;
+      }
+      list.innerHTML = '';
+    }
+  }
+
+  function openConfigErroresModal(card) {
+    const modal = document.getElementById('configErroresModal');
+    const titleEl = document.getElementById('configErroresModalTitle');
+    document.getElementById('configErroresId').value = card ? card.id : '';
+    document.getElementById('configErroresTitulo').value = card ? card.titulo || '' : '';
+    document.getElementById('configErroresCategoria').value = card ? card.categoria || '' : '';
+    document.getElementById('configErroresDescripcion').value = card ? card.descripcion || '' : '';
+    document.getElementById('configErroresImagenUrl').value = card ? card.imagen_url || '' : '';
+    document.getElementById('configErroresSortOrder').value = card != null && card.sort_order != null ? card.sort_order : 0;
+    const errEl = document.getElementById('configErroresModalError');
+    if (errEl) errEl.hidden = true;
+    if (titleEl) titleEl.textContent = card ? 'Editar tarjeta' : 'Nueva tarjeta';
+    if (modal) modal.hidden = false;
+  }
+
+  function closeConfigErroresModal() {
+    const modal = document.getElementById('configErroresModal');
+    if (modal) modal.hidden = true;
+  }
+
+  async function saveConfigErrores() {
+    if (!currentUser || !currentUser.user_email) return;
+    const id = document.getElementById('configErroresId').value.trim();
+    const titulo = document.getElementById('configErroresTitulo').value.trim();
+    const categoria = document.getElementById('configErroresCategoria').value.trim();
+    const descripcion = document.getElementById('configErroresDescripcion').value.trim();
+    const imagen_url = document.getElementById('configErroresImagenUrl').value.trim();
+    const sort_order = parseInt(document.getElementById('configErroresSortOrder').value, 10) || 0;
+    const errEl = document.getElementById('configErroresModalError');
+    if (errEl) errEl.hidden = true;
+    if (!titulo) {
+      if (errEl) { errEl.textContent = 'El título es obligatorio.'; errEl.hidden = false; }
+      return;
+    }
+    const adminEmail = encodeURIComponent(currentUser.user_email);
+    try {
+      if (id) {
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/errores-comunes/update?email=${adminEmail}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, titulo, categoria, descripcion, imagen_url, sort_order })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.success) {
+          if (errEl) { errEl.textContent = data.message || 'Error al guardar'; errEl.hidden = false; }
+          return;
+        }
+      } else {
+        const res = await fetchBot(`${BOT_BASE_URL}/admin/errores-comunes?email=${adminEmail}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ titulo, categoria, descripcion, imagen_url, sort_order })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.success) {
+          if (errEl) { errEl.textContent = data.message || 'Error al crear'; errEl.hidden = false; }
+          return;
+        }
+      }
+      closeConfigErroresModal();
+      loadConfigErrores();
+      loadErroresComunesAndInit();
+    } catch (e) {
+      if (errEl) { errEl.textContent = 'Error de conexión.'; errEl.hidden = false; }
+    }
+  }
+
+  async function deleteConfigErrores(cardId) {
+    if (!currentUser || !currentUser.user_email || !cardId) return;
+    if (!confirm('¿Eliminar esta tarjeta de errores comunes?')) return;
+    const adminEmail = encodeURIComponent(currentUser.user_email);
+    try {
+      const res = await fetchBot(`${BOT_BASE_URL}/admin/errores-comunes/delete?email=${adminEmail}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: cardId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) {
+        loadConfigErrores();
+        loadErroresComunesAndInit();
+      } else {
+        alert(data.message || 'Error al eliminar');
+      }
+    } catch (_) {
+      alert('Error de conexión.');
+    }
+  }
+
   function setupConfigPanel() {
     const btnClearCache = document.getElementById('btnClearCache');
     const clearCacheMessage = document.getElementById('configClearCacheMessage');
@@ -1347,6 +1598,32 @@
         if (deleteBtn) {
           const id = deleteBtn.getAttribute('data-id');
           deleteConfigCard(id);
+        }
+      });
+    }
+
+    const btnErroresAdd = document.getElementById('configErroresAdd');
+    const modalErrores = document.getElementById('configErroresModal');
+    const btnErroresCancel = document.getElementById('configErroresModalCancel');
+    const btnErroresSave = document.getElementById('configErroresModalSave');
+    const listErrores = document.getElementById('configErroresList');
+    if (btnErroresAdd) btnErroresAdd.addEventListener('click', () => openConfigErroresModal(null));
+    if (btnErroresCancel) btnErroresCancel.addEventListener('click', closeConfigErroresModal);
+    if (btnErroresSave) btnErroresSave.addEventListener('click', saveConfigErrores);
+    if (modalErrores && modalErrores.querySelector('.recover-modal-backdrop')) {
+      modalErrores.querySelector('.recover-modal-backdrop').addEventListener('click', closeConfigErroresModal);
+    }
+    if (listErrores) {
+      listErrores.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('.config-errores-edit');
+        const deleteBtn = e.target.closest('.config-errores-delete');
+        if (editBtn) {
+          const id = editBtn.getAttribute('data-id');
+          const card = configErroresCache.find((c) => c.id === id);
+          openConfigErroresModal(card || null);
+        }
+        if (deleteBtn) {
+          deleteConfigErrores(deleteBtn.getAttribute('data-id'));
         }
       });
     }

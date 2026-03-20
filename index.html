@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet" />
   <link href="https://fonts.bunny.net/css?family=big-shoulders-text:400,700|inconsolata:400" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.css" />
 </head>
 <body>
   <header class="titlebar" id="titlebar">
@@ -213,6 +214,10 @@
             <button class="dash-nav-item" data-tab="Switcher">
               <span class="dash-nav-icon">📅</span>
               <span class="dash-nav-label">Switcher</span>
+            </button>
+            <button class="dash-nav-item" data-tab="erroresComunes">
+              <span class="dash-nav-icon">⚠️</span>
+              <span class="dash-nav-label">Errores comunes</span>
             </button>
             <button class="dash-nav-item" data-tab="settings">
               <span class="dash-nav-icon">⚙️</span>
@@ -573,6 +578,48 @@
             </section>
           </div>
 
+          <!-- ERRORES COMUNES: slider de soluciones -->
+          <div class="dash-tab errores-comunes-tab" data-tab-panel="erroresComunes" hidden>
+            <div class="errores-wrapper">
+              <div class="errores-background"></div>
+
+              <div class="news-slider errores-slider swiper">
+                <div class="news-slider__wrp swiper-wrapper" id="erroresComunesSlides">
+                  <!-- Las tarjetas se cargan por JS desde /errores-comunes -->
+                </div>
+
+                <div class="news-slider__ctr">
+                  <div class="news-slider__arrows">
+                    <button type="button" class="news-slider__arrow news-slider-prev errores-prev" aria-label="Anterior">
+                      <span class="icon-font">
+                        <svg class="icon icon-arrow-left" viewBox="0 0 32 32"><use href="#icon-arrow-left"/></svg>
+                      </span>
+                    </button>
+                    <button type="button" class="news-slider__arrow news-slider-next errores-next" aria-label="Siguiente">
+                      <span class="icon-font">
+                        <svg class="icon icon-arrow-right" viewBox="0 0 32 32"><use href="#icon-arrow-right"/></svg>
+                      </span>
+                    </button>
+                  </div>
+                  <div class="news-slider__pagination errores-pagination"></div>
+                </div>
+              </div>
+            </div>
+
+            <svg hidden aria-hidden="true">
+              <defs>
+                <symbol id="icon-arrow-left" viewBox="0 0 32 32">
+                  <title>arrow-left</title>
+                  <path d="M0.704 17.696l9.856 9.856c0.896 0.896 2.432 0.896 3.328 0s0.896-2.432 0-3.328l-5.792-5.856h21.568c1.312 0 2.368-1.056 2.368-2.368s-1.056-2.368-2.368-2.368h-21.568l5.824-5.824c0.896-0.896 0.896-2.432 0-3.328-0.48-0.48-1.088-0.704-1.696-0.704s-1.216 0.224-1.696 0.704l-9.824 9.824c-0.448 0.448-0.704 1.056-0.704 1.696s0.224 1.248 0.704 1.696z"/>
+                </symbol>
+                <symbol id="icon-arrow-right" viewBox="0 0 32 32">
+                  <title>arrow-right</title>
+                  <path d="M31.296 14.336l-9.888-9.888c-0.896-0.896-2.432-0.896-3.328 0s-0.896 2.432 0 3.328l5.824 5.856h-21.536c-1.312 0-2.368 1.056-2.368 2.368s1.056 2.368 2.368 2.368h21.568l-5.856 5.824c-0.896 0.896-0.896 2.432 0 3.328 0.48 0.48 1.088 0.704 1.696 0.704s1.216-0.224 1.696-0.704l9.824-9.824c0.448-0.448 0.704-1.056 0.704-1.696s-0.224-1.248-0.704-1.664z"/>
+                </symbol>
+              </defs>
+            </svg>
+          </div>
+
           <!-- ADMIN: USUARIOS (solo roles admin) -->
           <div class="dash-tab" data-tab-panel="users" hidden>
             <section class="dash-card dash-card-wide">
@@ -809,13 +856,47 @@
           <div class="dash-tab config-panel" data-tab-panel="config" hidden>
             <section class="discord-card-white config-cards-section">
               <h3>Tarjetas del Inicio</h3>
-              <p class="config-cards-desc">Edita las tarjetas que se muestran en la pestaña Inicio. Solo los administradores pueden ver este panel.</p>
+              <p class="config-cards-desc">Como administrador puedes <strong>agregar</strong> nuevas tarjetas con el botón «Nueva tarjeta», <strong>editar</strong> las existentes o <strong>eliminar</strong> las que ya no necesites. Los cambios se reflejan en la pestaña Inicio.</p>
               <div id="configCardsError" class="message message-error" role="alert" hidden></div>
               <div class="config-cards-toolbar">
                 <button type="button" id="configCardAdd" class="mods-download-btn">Nueva tarjeta</button>
               </div>
               <div id="configCardsList" class="config-cards-list"></div>
             </section>
+
+            <section class="discord-card-white config-cards-section config-errores-section">
+              <h3>Tarjetas de Errores comunes</h3>
+              <p class="config-cards-desc">Gestiona las tarjetas del slider en la pestaña «Errores comunes». Agrega, edita o elimina según necesites.</p>
+              <div id="configErroresError" class="message message-error" role="alert" hidden></div>
+              <div class="config-cards-toolbar">
+                <button type="button" id="configErroresAdd" class="mods-download-btn">Nueva tarjeta</button>
+              </div>
+              <div id="configErroresList" class="config-cards-list"></div>
+            </section>
+
+            <div id="configErroresModal" class="recover-modal" hidden>
+              <div class="recover-modal-backdrop"></div>
+              <div class="recover-modal-content mods-modal-content">
+                <h2 id="configErroresModalTitle">Nueva tarjeta</h2>
+                <input type="hidden" id="configErroresId" />
+                <label class="config-field-label">Título</label>
+                <input type="text" id="configErroresTitulo" class="recover-input" placeholder="Ej: Orden de mods incorrecto" />
+                <label class="config-field-label">Categoría (ej. Mods, Teams, Idioma)</label>
+                <input type="text" id="configErroresCategoria" class="recover-input" placeholder="Mods" />
+                <label class="config-field-label">Descripción</label>
+                <textarea id="configErroresDescripcion" class="recover-input config-textarea" placeholder="Explica el error y la solución..." rows="4"></textarea>
+                <label class="config-field-label">URL de imagen (o ruta local: assets/tutorial/step1.png)</label>
+                <input type="text" id="configErroresImagenUrl" class="recover-input" placeholder="https://... o assets/tutorial/step1.png" />
+                <label class="config-field-label">Orden (número)</label>
+                <input type="number" id="configErroresSortOrder" class="recover-input" placeholder="0" min="0" />
+                <div id="configErroresModalError" class="recover-error" hidden></div>
+                <div class="recover-actions">
+                  <button type="button" id="configErroresModalCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
+                  <button type="button" id="configErroresModalSave" class="recover-btn recover-btn-primary">Guardar</button>
+                </div>
+              </div>
+            </div>
+
             <div id="configCardModal" class="recover-modal" hidden>
               <div class="recover-modal-backdrop"></div>
               <div class="recover-modal-content mods-modal-content">
@@ -1127,6 +1208,15 @@
       </div>
     </div>
 
+    <!-- Modal: Lightbox para agrandar imágenes en Errores comunes -->
+    <div id="erroresImgLightbox" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop errores-lightbox-backdrop"></div>
+      <div class="recover-modal-content errores-lightbox-content">
+        <button type="button" class="errores-lightbox-close" id="erroresLightboxClose" aria-label="Cerrar">×</button>
+        <img id="erroresLightboxImg" src="" alt="" />
+      </div>
+    </div>
+
     <!-- Modal: Squad (estado y aplicar/reemplazar) -->
     <div id="squadModal" class="recover-modal" hidden>
       <div class="recover-modal-backdrop" id="squadModalBackdrop"></div>
@@ -1144,6 +1234,7 @@
     </div>
   </main>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

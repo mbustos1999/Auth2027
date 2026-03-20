@@ -1439,6 +1439,35 @@ function startOAuthServer() {
         return;
       }
 
+      // --- Errores comunes (público: cualquiera puede leer) ---
+      if (url.pathname === '/errores-comunes' && req.method === 'GET') {
+        try {
+          const { data: rows, error } = await supabase
+            .from('errores_comunes')
+            .select('*')
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: true });
+
+          if (error) {
+            console.error('Error leyendo errores_comunes:', error);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'db_error', cards: [] }));
+            return;
+          }
+
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: true, cards: rows || [] }));
+        } catch (e) {
+          console.error('Error inesperado en /errores-comunes:', e);
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ success: false, cards: [] }));
+        }
+        return;
+      }
+
       // --- Admin: gestión de usuarios ---
       // IMPORTANTE: El email se obtiene del token, NUNCA del query. Evita que alguien
       // con token de víctima pase ?email=admin@x.com para intentar escalar privilegios.
@@ -2404,6 +2433,178 @@ function startOAuthServer() {
             res.end(JSON.stringify({ success: true }));
           } catch (e) {
             console.error('Error inesperado en POST /admin/home-cards/delete:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        // --- Admin: tarjetas de Errores comunes (CRUD) ---
+        if (url.pathname === '/admin/errores-comunes' && req.method === 'GET') {
+          try {
+            const { data: rows, error } = await supabase
+              .from('errores_comunes')
+              .select('*')
+              .order('sort_order', { ascending: true })
+              .order('created_at', { ascending: true });
+
+            if (error) {
+              console.error('Error leyendo errores_comunes (admin):', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error', cards: [] }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, cards: rows || [] }));
+          } catch (e) {
+            console.error('Error inesperado en /admin/errores-comunes:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, cards: [] }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/errores-comunes' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const { titulo, categoria, descripcion, imagen_url, sort_order } = body || {};
+
+          if (!titulo || typeof titulo !== 'string') {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Falta titulo.' }));
+            return;
+          }
+
+          const safeUrl = (u) => {
+            if (typeof u !== 'string' || !u.trim()) return '';
+            const s = u.trim();
+            return (s.startsWith('https://') || s.startsWith('http://') || s.startsWith('assets/')) ? s : '';
+          };
+          try {
+            const { data: inserted, error } = await supabase
+              .from('errores_comunes')
+              .insert({
+                titulo: String(titulo).trim().slice(0, 300),
+                categoria: (typeof categoria === 'string' ? categoria.trim() : '').slice(0, 100),
+                descripcion: (typeof descripcion === 'string' ? descripcion.trim() : '').slice(0, 2000),
+                imagen_url: safeUrl(imagen_url) || (imagen_url && imagen_url.trim() ? imagen_url.trim() : ''),
+                sort_order: typeof sort_order === 'number' ? sort_order : 0,
+                updated_at: new Date().toISOString()
+              })
+              .select('*')
+              .single();
+
+            if (error) {
+              console.error('Error insertando error_comun:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, card: inserted }));
+          } catch (e) {
+            console.error('Error inesperado en POST /admin/errores-comunes:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/errores-comunes/update' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const { id, titulo, categoria, descripcion, imagen_url, sort_order } = body || {};
+
+          if (!id) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Falta id.' }));
+            return;
+          }
+
+          const safeUrl = (u) => {
+            if (typeof u !== 'string' || !u.trim()) return '';
+            const s = u.trim();
+            return (s.startsWith('https://') || s.startsWith('http://') || s.startsWith('assets/')) ? s : '';
+          };
+          const updates = {};
+          if (typeof titulo === 'string') updates.titulo = titulo.trim().slice(0, 300);
+          if (typeof categoria === 'string') updates.categoria = categoria.trim().slice(0, 100);
+          if (typeof descripcion === 'string') updates.descripcion = descripcion.trim().slice(0, 2000);
+          if (typeof imagen_url === 'string') updates.imagen_url = safeUrl(imagen_url) || imagen_url.trim();
+          if (typeof sort_order === 'number') updates.sort_order = sort_order;
+          updates.updated_at = new Date().toISOString();
+
+          if (Object.keys(updates).length <= 1) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Incluye al menos un campo a actualizar.' }));
+            return;
+          }
+
+          try {
+            const { data: updated, error } = await supabase
+              .from('errores_comunes')
+              .update(updates)
+              .eq('id', id)
+              .select('*')
+              .single();
+
+            if (error) {
+              console.error('Error actualizando error_comun:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true, card: updated }));
+          } catch (e) {
+            console.error('Error inesperado en POST /admin/errores-comunes/update:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
+        if (url.pathname === '/admin/errores-comunes/delete' && req.method === 'POST') {
+          const body = await readJsonBody(req);
+          const { id } = body || {};
+
+          if (!id) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'Falta id.' }));
+            return;
+          }
+
+          try {
+            const { error } = await supabase.from('errores_comunes').delete().eq('id', id);
+
+            if (error) {
+              console.error('Error eliminando error_comun:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: true }));
+          } catch (e) {
+            console.error('Error inesperado en POST /admin/errores-comunes/delete:', e);
             res.statusCode = 500;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.end(JSON.stringify({ success: false, message: 'internal_error' }));
