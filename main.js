@@ -1384,9 +1384,34 @@ ipcMain.handle('app:fetchUrl', async (_event, url) => {
 // Devolver la config cargada al arranque (evita require en el handler por si falla en el instalador)
 ipcMain.handle('app:getConfig', () => Promise.resolve(sharedAppConfig || {}));
 
+// Borrar archivos Squad/Squads de EA SPORTS FC 26 settings al iniciar sesión
+function deleteSquadFilesOnLogin() {
+  const localAppData = process.env.LOCALAPPDATA || (os.homedir && typeof os.homedir === 'function' ? path.join(os.homedir(), 'AppData', 'Local') : path.join(process.env.USERPROFILE || '', 'AppData', 'Local'));
+  const settingsDir = path.join(localAppData, 'EA SPORTS FC 26', 'settings');
+  if (!fs.existsSync(settingsDir) || !fs.statSync(settingsDir).isDirectory()) return;
+  try {
+    const entries = fs.readdirSync(settingsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const name = entry.name;
+      if (name.includes('Squad') || name.includes('Squads')) {
+        const fullPath = path.join(settingsDir, name);
+        try {
+          fs.unlinkSync(fullPath);
+        } catch (e) {
+          console.warn('No se pudo borrar:', fullPath, e && e.message);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error al listar/borrar archivos Squad en EA SPORTS FC 26 settings:', e && e.message);
+  }
+}
+
 // Peticiones al bot: main añade token de sesión (emitido por el bot; la app nunca tiene el secreto)
 ipcMain.handle('bot:setSessionToken', (_event, token) => {
   sessionToken = typeof token === 'string' && token.trim() ? token.trim() : null;
+  if (sessionToken) deleteSquadFilesOnLogin();
   return Promise.resolve();
 });
 ipcMain.handle('bot:clearSessionUser', () => {
