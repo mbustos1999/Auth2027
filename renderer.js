@@ -563,27 +563,11 @@
   }
 
   async function updateSquadStatus() {
-    if (!squadStatusText || !window.electronAPI || !window.electronAPI.checkSquadStatus) return;
-    try {
-      const res = await window.electronAPI.checkSquadStatus();
-      squadStatusLoaded = true;
-      squadStatusText.classList.remove('switcher-squad-status--ok', 'switcher-squad-status--error');
-      if (!res || res.ok === false) {
-        squadStatusText.textContent = 'No se encontró ninguna squad en la carpeta aplicarSquad.';
-        squadStatusText.classList.add('switcher-squad-status--error');
-        return;
-      }
-      if (res.applied) {
-        squadStatusText.textContent = 'Squad ya está aplicada en EA SPORTS FC 26.';
-        squadStatusText.classList.add('switcher-squad-status--ok');
-      } else {
-        squadStatusText.textContent = 'Falta aplicar squad.';
-        squadStatusText.classList.add('switcher-squad-status--error');
-      }
-    } catch (_) {
-      squadStatusText.textContent = 'No se pudo comprobar el estado de la squad.';
-      squadStatusText.classList.add('switcher-squad-status--error');
-    }
+    if (!squadStatusText) return;
+    squadStatusLoaded = true;
+    squadStatusText.classList.remove('switcher-squad-status--error');
+    squadStatusText.classList.add('switcher-squad-status--ok');
+    squadStatusText.textContent = 'Ya no es necesario aplicar squad';
   }
 
   async function updateTeamsHeaderStatus(hasGameAccess) {
@@ -723,9 +707,8 @@
   }
 
   if (btnApplySquad) {
-    btnApplySquad.addEventListener('click', () => {
-      showSquadModalWithStatus();
-    });
+    btnApplySquad.disabled = true;
+    btnApplySquad.setAttribute('aria-disabled', 'true');
   }
 
   if (squadModalCloseX) squadModalCloseX.addEventListener('click', closeSquadModal);

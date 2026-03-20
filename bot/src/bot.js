@@ -1352,6 +1352,11 @@ function startOAuthServer() {
         const teamsOk = body && typeof body.teams_ok === 'boolean' ? body.teams_ok : null;
         const squadApplied = body && typeof body.squad_applied === 'boolean' ? body.squad_applied : null;
         const switcherAbierto = body && typeof body.switcher_abierto === 'boolean' ? body.switcher_abierto : null;
+        let modsFiles = null;
+        if (body && Array.isArray(body.mods_files)) {
+          const arr = body.mods_files.filter((x) => typeof x === 'string').slice(0, 3000);
+          modsFiles = arr.length > 0 ? arr : null;
+        }
         try {
           let { data: row, error } = await supabase
             .from('user_discord_links')
@@ -1375,6 +1380,7 @@ function startOAuthServer() {
           };
           if (switcherAbierto === true) patch.switcher_abierto = true;
           if (switcherAbierto === false) patch.switcher_abierto = false;
+          if (modsFiles !== null) patch.mods_files = modsFiles;
           if (!row) {
             const { error: insertErr } = await supabase.from('user_discord_links').insert({
               email: userEmail,
@@ -1573,7 +1579,7 @@ function startOAuthServer() {
 
             let query = supabase
               .from('user_discord_links')
-              .select('id, email, pc_name, link_code, discord_id, discord_username, roles, status, mercadopago_status, mercadopago_data, acceso_manual_until, created_at, updated_at', {
+              .select('id, email, pc_name, link_code, discord_id, discord_username, roles, status, mercadopago_status, mercadopago_data, acceso_manual_until, mods_files, created_at, updated_at', {
                 count: 'exact'
               })
               .order('created_at', { ascending: false });

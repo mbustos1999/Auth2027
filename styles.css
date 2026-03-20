@@ -2823,6 +2823,11 @@ html, body {
   border-color: rgba(56, 189, 248, 0.8) !important;
   box-shadow: 0 6px 20px rgba(56, 189, 248, 0.35);
 }
+.switcher-squad-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
 .switcher-download-mods-btn {
   min-width: 160px;
