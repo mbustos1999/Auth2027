@@ -48,9 +48,12 @@
       "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
       "!**/*.map",
       "!modManager",
+      "!**/.env",
+      "!**/.env.*",
+      "!**/.env.local",
+      "!build-config.js",
       "!.env",
-      "!.env.*",
-      "!build-config.js"
+      "!.env.*"
     ],
     "extraResources": [
       {

@@ -62,18 +62,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearSessionUser: () => ipcRenderer.invoke('bot:clearSessionUser')
 });
 
-// Config: main.js ya la cargó y la pasó por process.env (más fiable); si no, intentar require
+// Config: main.js ya la cargó; si no hay env, intentar config.js. NUNCA incluir tokens/secretos.
 let baseUrl = (process.env.AUTH_APP_BASE_URL != null) ? String(process.env.AUTH_APP_BASE_URL).trim() : '';
 let authEndpoint = (process.env.AUTH_APP_AUTH_ENDPOINT != null) ? String(process.env.AUTH_APP_AUTH_ENDPOINT).trim() : '';
 let supabaseUrl = (process.env.SUPABASE_URL != null) ? String(process.env.SUPABASE_URL).trim() : '';
 let supabaseAnonKey = (process.env.SUPABASE_ANON_KEY != null) ? String(process.env.SUPABASE_ANON_KEY).trim() : '';
 let discordInviteUrl = (process.env.DISCORD_INVITE_URL != null) ? String(process.env.DISCORD_INVITE_URL).trim() : '';
 let discordOAuthBaseUrl = (process.env.DISCORD_OAUTH_BASE_URL != null) ? String(process.env.DISCORD_OAUTH_BASE_URL).trim() : '';
-let mercadopagoAccessTokenChile = (process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE != null) ? String(process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE).trim() : '';
-let mercadopagoAccessTokenArg = (process.env.MERCADOPAGO_ACCESS_TOKEN_ARG != null) ? String(process.env.MERCADOPAGO_ACCESS_TOKEN_ARG).trim() : '';
 let pcName = (process.env.AUTH_APP_PC_NAME != null) ? String(process.env.AUTH_APP_PC_NAME).trim() : '';
 
-if (!baseUrl || !authEndpoint || (!mercadopagoAccessTokenChile && !mercadopagoAccessTokenArg)) {
+if (!baseUrl || !authEndpoint) {
   try {
     const config = require('./config.js');
     if (config) {
@@ -86,12 +84,6 @@ if (!baseUrl || !authEndpoint || (!mercadopagoAccessTokenChile && !mercadopagoAc
       }
       if (!discordOAuthBaseUrl && config.DISCORD_OAUTH_BASE_URL) {
         discordOAuthBaseUrl = String(config.DISCORD_OAUTH_BASE_URL).trim();
-      }
-      if (!mercadopagoAccessTokenChile && config.MERCADOPAGO_ACCESS_TOKEN_CHILE) {
-        mercadopagoAccessTokenChile = String(config.MERCADOPAGO_ACCESS_TOKEN_CHILE).trim();
-      }
-      if (!mercadopagoAccessTokenArg && config.MERCADOPAGO_ACCESS_TOKEN_ARG) {
-        mercadopagoAccessTokenArg = String(config.MERCADOPAGO_ACCESS_TOKEN_ARG).trim();
       }
     }
   } catch (_) {}

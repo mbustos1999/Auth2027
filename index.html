@@ -622,6 +622,29 @@
                   </tbody>
                 </table>
               </div>
+              <div class="users-admin-binding-check" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary, #1a1a1a); border-radius: 8px;">
+                <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem;">Consultar check-binding</h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
+                  <input
+                    type="text"
+                    id="usersAdminBindingEmail"
+                    class="recover-input"
+                    placeholder="Email del usuario"
+                    style="min-width: 200px;"
+                  />
+                  <input
+                    type="text"
+                    id="usersAdminBindingPc"
+                    class="recover-input"
+                    placeholder="PC a verificar (opcional)"
+                    style="min-width: 180px;"
+                  />
+                  <button type="button" class="login-btn-secondary" id="usersAdminBindingCheckBtn">
+                    Consultar
+                  </button>
+                </div>
+                <pre id="usersAdminBindingResult" style="margin: 0; padding: 0.75rem; background: var(--bg-primary, #0d0d0d); border-radius: 6px; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; min-height: 2rem; max-height: 200px; overflow-y: auto;"></pre>
+              </div>
             </section>
 
             <div id="userEditModal" class="recover-modal" hidden>

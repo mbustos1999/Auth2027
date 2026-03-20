@@ -1617,6 +1617,64 @@ function startOAuthServer() {
           return;
         }
 
+        if (url.pathname === '/admin/pc/binding-info' && req.method === 'GET') {
+          try {
+            const targetEmail = (url.searchParams.get('targetEmail') || '').trim();
+            if (!targetEmail || !isValidEmail(targetEmail)) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'Email inválido o faltante.' }));
+              return;
+            }
+
+            const { data: row, error } = await supabase
+              .from('user_discord_links')
+              .select('id, email, pc_name, status, created_at, updated_at')
+              .eq('email', targetEmail)
+              .maybeSingle();
+
+            if (error) {
+              console.error('Error leyendo user_discord_links para binding-info:', error);
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ success: false, message: 'db_error' }));
+              return;
+            }
+
+            const pcToCheck = (url.searchParams.get('pc') || '').trim();
+            let allowed = null;
+            if (row && pcToCheck) {
+              const storedPc = (row.pc_name || '').trim();
+              allowed = !storedPc || storedPc === pcToCheck;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(
+              JSON.stringify({
+                success: true,
+                user: row
+                  ? {
+                      id: row.id,
+                      email: row.email,
+                      pc_name: row.pc_name || null,
+                      status: row.status,
+                      created_at: row.created_at,
+                      updated_at: row.updated_at
+                    }
+                  : null,
+                allowed: allowed
+              })
+            );
+          } catch (e) {
+            console.error('Error inesperado en /admin/pc/binding-info:', e);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(JSON.stringify({ success: false, message: 'internal_error' }));
+          }
+          return;
+        }
+
         if (url.pathname === '/admin/mp/status' && req.method === 'POST') {
           try {
             const body = await readJsonBody(req);

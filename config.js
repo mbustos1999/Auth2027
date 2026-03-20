@@ -13,7 +13,6 @@ module.exports = {
   SUPABASE_URL: process.env.SUPABASE_URL || defaultSupabaseUrl,
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || defaultSupabaseAnonKey,
   DISCORD_INVITE_URL: process.env.DISCORD_INVITE_URL,
-  DISCORD_OAUTH_BASE_URL: process.env.DISCORD_OAUTH_BASE_URL || defaultDiscordOAuthBaseUrl,
-  MERCADOPAGO_ACCESS_TOKEN_CHILE: process.env.MERCADOPAGO_ACCESS_TOKEN_CHILE,
-  MERCADOPAGO_ACCESS_TOKEN_ARG: process.env.MERCADOPAGO_ACCESS_TOKEN_ARG
+  DISCORD_OAUTH_BASE_URL: process.env.DISCORD_OAUTH_BASE_URL || defaultDiscordOAuthBaseUrl
+  // MERCADOPAGO: solo en el bot; la app nunca los usa ni los necesita
 };

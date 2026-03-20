@@ -2304,6 +2304,10 @@
   const usersAdminTableBody = document.getElementById('usersAdminTableBody');
   const usersAdminFilterEmail = document.getElementById('usersAdminFilterEmail');
   const usersAdminFilterDiscord = document.getElementById('usersAdminFilterDiscord');
+  const usersAdminBindingEmail = document.getElementById('usersAdminBindingEmail');
+  const usersAdminBindingPc = document.getElementById('usersAdminBindingPc');
+  const usersAdminBindingCheckBtn = document.getElementById('usersAdminBindingCheckBtn');
+  const usersAdminBindingResult = document.getElementById('usersAdminBindingResult');
   const userEditModal = document.getElementById('userEditModal');
   const userEditEmailInput = document.getElementById('userEditEmail');
   const userEditDiscordInput = document.getElementById('userEditDiscord');
@@ -3960,6 +3964,57 @@
   if (usersAdminFilterDiscord) {
     usersAdminFilterDiscord.addEventListener('input', () => {
       renderAdminUsersTable();
+    });
+  }
+
+  if (usersAdminBindingCheckBtn && usersAdminBindingEmail && usersAdminBindingResult) {
+    usersAdminBindingCheckBtn.addEventListener('click', async () => {
+      const targetEmail = (usersAdminBindingEmail.value || '').trim();
+      if (!targetEmail) {
+        usersAdminBindingResult.textContent = 'Introduce un email para consultar.';
+        return;
+      }
+      if (!currentUser || !currentUser.user_email) {
+        usersAdminBindingResult.textContent = 'Debes estar logueado como admin.';
+        return;
+      }
+      usersAdminBindingCheckBtn.disabled = true;
+      usersAdminBindingResult.textContent = 'Consultando...';
+      try {
+        let url = `${BOT_BASE_URL}/admin/pc/binding-info?email=${encodeURIComponent(
+          currentUser.user_email
+        )}&targetEmail=${encodeURIComponent(targetEmail)}`;
+        const pcToCheck = (usersAdminBindingPc?.value || '').trim();
+        if (pcToCheck) url += `&pc=${encodeURIComponent(pcToCheck)}`;
+
+        const res = await fetchBot(url);
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.success) {
+          usersAdminBindingResult.textContent =
+            data.message || 'Error al consultar. Verifica que seas admin.';
+          return;
+        }
+
+        let out = '';
+        if (data.user) {
+          out += `Email: ${data.user.email}\n`;
+          out += `PC anclado: ${data.user.pc_name || '(ninguno)'}\n`;
+          out += `Estado: ${data.user.status || '-'}\n`;
+          out += `Creado: ${data.user.created_at || '-'}\n`;
+          out += `Actualizado: ${data.user.updated_at || '-'}\n`;
+          if (data.allowed !== null && data.allowed !== undefined) {
+            out += `\n¿Permitido desde PC "${pcToCheck}"?: ${data.allowed ? 'Sí' : 'No'}\n`;
+          }
+        } else {
+          out = 'Usuario no encontrado en user_discord_links.';
+        }
+        usersAdminBindingResult.textContent = out;
+      } catch (e) {
+        usersAdminBindingResult.textContent = 'Error de conexión al consultar.';
+      } finally {
+        usersAdminBindingCheckBtn.disabled = false;
+      }
     });
   }
 
