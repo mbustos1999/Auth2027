@@ -1567,11 +1567,28 @@ function startOAuthServer() {
 
         if (url.pathname === '/admin/users' && req.method === 'GET') {
           try {
-            const { data: rows, error } = await supabase
+            const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+            const pageSize = Math.min(100, Math.max(10, parseInt(url.searchParams.get('pageSize') || '50', 10)));
+            const search = (url.searchParams.get('search') || '').trim();
+
+            let query = supabase
               .from('user_discord_links')
-              .select('id, email, pc_name, link_code, discord_id, discord_username, roles, status, mercadopago_status, mercadopago_data, acceso_manual_until, created_at, updated_at')
-              .order('created_at', { ascending: false })
-              .limit(500);
+              .select('id, email, pc_name, link_code, discord_id, discord_username, roles, status, mercadopago_status, mercadopago_data, acceso_manual_until, created_at, updated_at', {
+                count: 'exact'
+              })
+              .order('created_at', { ascending: false });
+
+            if (search.length > 0) {
+              const escaped = search.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+              const pattern = `*${escaped}*`;
+              query = query.or(
+                `email.ilike.${pattern},discord_username.ilike.${pattern},discord_id.ilike.${pattern},pc_name.ilike.${pattern},link_code.ilike.${pattern},status.ilike.${pattern}`
+              );
+            }
+
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize - 1;
+            const { data: rows, error, count } = await query.range(from, to);
 
             if (error) {
               console.error('Error leyendo user_discord_links para /admin/users:', error);
@@ -1591,7 +1608,15 @@ function startOAuthServer() {
 
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            res.end(JSON.stringify({ success: true, users }));
+            res.end(
+              JSON.stringify({
+                success: true,
+                users,
+                total: count ?? users.length,
+                page,
+                pageSize
+              })
+            );
           } catch (e) {
             console.error('Error inesperado en /admin/users:', e);
             res.statusCode = 500;

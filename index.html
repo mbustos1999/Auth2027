@@ -581,15 +581,10 @@
                 <div class="users-admin-filters">
                   <input
                     type="text"
-                    id="usersAdminFilterEmail"
+                    id="usersAdminSearch"
                     class="recover-input"
-                    placeholder="Filtrar por email"
-                  />
-                  <input
-                    type="text"
-                    id="usersAdminFilterDiscord"
-                    class="recover-input"
-                    placeholder="Filtrar por Discord"
+                    placeholder="Buscar (email, Discord, PC, estado...)"
+                    style="min-width: 260px;"
                   />
                 </div>
                 <div class="users-admin-actions-right">
@@ -621,6 +616,11 @@
                   <tbody id="usersAdminTableBody">
                   </tbody>
                 </table>
+              </div>
+              <div id="usersAdminPagination" class="users-admin-pagination" style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.75rem; flex-wrap: wrap;">
+                <button type="button" class="login-btn-secondary" id="usersAdminPagePrev" disabled>Anterior</button>
+                <span id="usersAdminPageInfo" style="font-size: 0.9rem;">Página 1</span>
+                <button type="button" class="login-btn-secondary" id="usersAdminPageNext" disabled>Siguiente</button>
               </div>
               <div class="users-admin-binding-check" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary, #1a1a1a); border-radius: 8px;">
                 <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem;">Consultar check-binding</h4>

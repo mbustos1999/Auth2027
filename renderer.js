@@ -2302,8 +2302,10 @@
   const usersAdminRefreshBtn = document.getElementById('usersAdminRefresh');
   const usersAdminSyncRolesBtn = document.getElementById('usersAdminSyncRoles');
   const usersAdminTableBody = document.getElementById('usersAdminTableBody');
-  const usersAdminFilterEmail = document.getElementById('usersAdminFilterEmail');
-  const usersAdminFilterDiscord = document.getElementById('usersAdminFilterDiscord');
+  const usersAdminSearch = document.getElementById('usersAdminSearch');
+  const usersAdminPagePrev = document.getElementById('usersAdminPagePrev');
+  const usersAdminPageNext = document.getElementById('usersAdminPageNext');
+  const usersAdminPageInfo = document.getElementById('usersAdminPageInfo');
   const usersAdminBindingEmail = document.getElementById('usersAdminBindingEmail');
   const usersAdminBindingPc = document.getElementById('usersAdminBindingPc');
   const usersAdminBindingCheckBtn = document.getElementById('usersAdminBindingCheckBtn');
@@ -2319,6 +2321,10 @@
   let userEditCurrentId = null;
   let usersAdminCache = [];
   let usersAdminSort = { column: null, direction: 'asc' };
+  let usersAdminPage = 1;
+  let usersAdminPageSize = 50;
+  let usersAdminTotal = 0;
+  let usersAdminSearchDebounce = null;
 
   // Admin MP
   const mpAdminEmailInput = document.getElementById('mpAdminEmail');
@@ -3584,21 +3590,7 @@
   function renderAdminUsersTable() {
     if (!usersAdminTableBody) return;
 
-    const emailFilter = (usersAdminFilterEmail?.value || '').trim().toLowerCase();
-    const discordFilter = (usersAdminFilterDiscord?.value || '').trim().toLowerCase();
-
-    let filtered = usersAdminCache.filter((row) => {
-      const email = (row.email || '').toString().toLowerCase();
-      const discord = (
-        row.discord_username ||
-        row.discord_id ||
-        ''
-      ).toString().toLowerCase();
-
-      if (emailFilter && !email.includes(emailFilter)) return false;
-      if (discordFilter && !discord.includes(discordFilter)) return false;
-      return true;
-    });
+    let filtered = usersAdminCache.slice();
 
     const sortCol = usersAdminSort.column;
     const sortDir = usersAdminSort.direction === 'desc' ? -1 : 1;
@@ -3656,8 +3648,9 @@
     }
 
     if (filtered.length === 0) {
-      usersAdminTableBody.innerHTML = '<tr><td colspan="11">Sin resultados para este filtro.</td></tr>';
+      usersAdminTableBody.innerHTML = '<tr><td colspan="11">Sin resultados.</td></tr>';
       updateUsersAdminSortHeaders();
+      updateUsersAdminPagination();
       return;
     }
 
@@ -3705,6 +3698,20 @@
     });
 
     updateUsersAdminSortHeaders();
+    updateUsersAdminPagination();
+  }
+
+  function updateUsersAdminPagination() {
+    if (!usersAdminPagePrev || !usersAdminPageNext || !usersAdminPageInfo) return;
+    const totalPages = Math.max(1, Math.ceil(usersAdminTotal / usersAdminPageSize));
+    usersAdminPagePrev.disabled = usersAdminPage <= 1;
+    usersAdminPageNext.disabled = usersAdminPage >= totalPages || usersAdminTotal === 0;
+    const from = usersAdminTotal === 0 ? 0 : (usersAdminPage - 1) * usersAdminPageSize + 1;
+    const to = Math.min(usersAdminPage * usersAdminPageSize, usersAdminTotal);
+    usersAdminPageInfo.textContent =
+      usersAdminTotal > 0
+        ? `Página ${usersAdminPage} de ${totalPages} (${from}-${to} de ${usersAdminTotal})`
+        : 'Sin usuarios';
   }
 
   function updateUsersAdminSortHeaders() {
@@ -3734,7 +3741,11 @@
 
     try {
       const email = encodeURIComponent(currentUser.user_email);
-      const res = await fetchBot(`${BOT_BASE_URL}/admin/users?email=${email}`);
+      const search = (usersAdminSearch?.value || '').trim();
+      let url = `${BOT_BASE_URL}/admin/users?email=${email}&page=${usersAdminPage}&pageSize=${usersAdminPageSize}`;
+      if (search) url += `&search=${encodeURIComponent(search)}`;
+
+      const res = await fetchBot(url);
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data || !data.success || !Array.isArray(data.users)) {
@@ -3747,8 +3758,11 @@
       }
 
       usersAdminCache = data.users;
+      usersAdminTotal = typeof data.total === 'number' ? data.total : usersAdminCache.length;
+
       if (usersAdminCache.length === 0) {
         usersAdminTableBody.innerHTML = '<tr><td colspan="11">No hay usuarios registrados.</td></tr>';
+        updateUsersAdminPagination();
         return;
       }
 
@@ -3955,15 +3969,39 @@
     });
   }
 
-  if (usersAdminFilterEmail) {
-    usersAdminFilterEmail.addEventListener('input', () => {
-      renderAdminUsersTable();
+  if (usersAdminSearch) {
+    usersAdminSearch.addEventListener('input', () => {
+      if (usersAdminSearchDebounce) clearTimeout(usersAdminSearchDebounce);
+      usersAdminSearchDebounce = setTimeout(() => {
+        usersAdminPage = 1;
+        fetchAdminUsers();
+      }, 350);
+    });
+    usersAdminSearch.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (usersAdminSearchDebounce) clearTimeout(usersAdminSearchDebounce);
+        usersAdminPage = 1;
+        fetchAdminUsers();
+      }
     });
   }
 
-  if (usersAdminFilterDiscord) {
-    usersAdminFilterDiscord.addEventListener('input', () => {
-      renderAdminUsersTable();
+  if (usersAdminPagePrev) {
+    usersAdminPagePrev.addEventListener('click', () => {
+      if (usersAdminPage > 1) {
+        usersAdminPage--;
+        fetchAdminUsers();
+      }
+    });
+  }
+
+  if (usersAdminPageNext) {
+    usersAdminPageNext.addEventListener('click', () => {
+      const totalPages = Math.ceil(usersAdminTotal / usersAdminPageSize);
+      if (usersAdminPage < totalPages) {
+        usersAdminPage++;
+        fetchAdminUsers();
+      }
     });
   }
 
@@ -4047,19 +4085,8 @@
         const id = editBtn.getAttribute('data-user-id');
         if (!id || !usersAdminTableBody) return;
 
-        const rowEl = editBtn.closest('tr');
-        if (!rowEl) return;
-        const cells = rowEl.querySelectorAll('td');
-        const rowData = {
-          id,
-          email: cells[0]?.textContent || '',
-          discord_username: cells[1]?.textContent || '',
-          status: cells[2]?.textContent || '',
-          roles: (cells[3]?.textContent || '').split(',').map((s) => s.trim()).filter(Boolean),
-          mercadopago_status: cells[4]?.textContent || '',
-          pc_name: cells[5]?.textContent || ''
-        };
-        openUserEditModal(rowData);
+        const row = usersAdminCache.find((r) => String(r.id) === id);
+        if (row) openUserEditModal(row);
       } else if (deleteBtn) {
         const id = deleteBtn.getAttribute('data-user-id');
         if (!id) return;
