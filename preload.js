@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readBugReportFile: (filePath) => ipcRenderer.invoke('bugReport:readFileAsBase64', filePath),
   getModsManifestLocal: () => ipcRenderer.invoke('mods:getManifest'),
   listExistingModFilenames: () => ipcRenderer.invoke('mods:listExistingFilenames'),
+  listLiveEditorModsFiles: () => ipcRenderer.invoke('mods:listLiveEditorModsFiles'),
   downloadMods: (url) => ipcRenderer.invoke('mods:download', url),
   onModsDownloadProgress: (callback) => {
     if (typeof callback !== 'function') return () => {};

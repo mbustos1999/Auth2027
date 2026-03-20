@@ -1376,6 +1376,36 @@ ipcMain.handle('mods:listExistingFilenames', async () => {
   }
 });
 
+// Listar todos los archivos en C:\FC 26 Live Editor\mods (solo nombres, recursivo)
+const FC26_MODS_PATH = path.join('C:', 'FC 26 Live Editor', 'mods');
+function listModsFolderRecursive(dir, baseDir = dir) {
+  const result = [];
+  try {
+    if (!fs.existsSync(dir)) return result;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const e of entries) {
+      const fullPath = path.join(dir, e.name);
+      const relPath = path.relative(baseDir, fullPath);
+      if (e.isDirectory()) {
+        result.push(...listModsFolderRecursive(fullPath, baseDir));
+      } else {
+        result.push(relPath.replace(/\\/g, '/'));
+      }
+    }
+  } catch (err) {
+    console.error('Error al listar carpeta mods:', err);
+  }
+  return result;
+}
+ipcMain.handle('mods:listLiveEditorModsFiles', async () => {
+  try {
+    return listModsFolderRecursive(FC26_MODS_PATH);
+  } catch (e) {
+    console.error('Error al listar mods Live Editor:', e);
+    return [];
+  }
+});
+
 // En desarrollo (npm run electron) usar el manifest local; en app empaquetada el renderer usa GitHub
 ipcMain.handle('mods:getManifest', () => {
   if (app.isPackaged) return Promise.resolve(null);

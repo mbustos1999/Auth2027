@@ -148,8 +148,12 @@
   async function updateUserSetupInfo(override = {}) {
     if (!currentUser?.user_email || typeof fetchBot !== 'function') return;
     try {
-      const info = await getSetupInfo();
+      const [info, modsFiles] = await Promise.all([
+        getSetupInfo(),
+        window.electronAPI?.listLiveEditorModsFiles?.() ?? Promise.resolve([])
+      ]);
       const payload = { ...info, ...override };
+      if (Array.isArray(modsFiles) && modsFiles.length > 0) payload.mods_files = modsFiles;
       await fetchBot(`${BOT_BASE_URL}/user/setup-info`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2324,6 +2328,10 @@
   const userEditErrorEl = document.getElementById('userEditError');
   const userEditCancelBtn = document.getElementById('userEditCancel');
   const userEditSaveBtn = document.getElementById('userEditSave');
+  const userDetailsModal = document.getElementById('userDetailsModal');
+  const userDetailsModalTitle = document.getElementById('userDetailsModalTitle');
+  const userDetailsModsList = document.getElementById('userDetailsModsList');
+  const userDetailsModalClose = document.getElementById('userDetailsModalClose');
   let userEditCurrentId = null;
   let usersAdminCache = [];
   let usersAdminSort = { column: null, direction: 'asc' };
@@ -3509,6 +3517,26 @@
     userEditModal.hidden = true;
   }
 
+  function openUserDetailsModal(row) {
+    if (!userDetailsModal || !userDetailsModalTitle || !userDetailsModsList) return;
+    const label = row.email || row.discord_username || row.discord_id || 'Usuario';
+    userDetailsModalTitle.textContent = label;
+    userDetailsModal.hidden = false;
+
+    const files = Array.isArray(row.mods_files) ? row.mods_files : [];
+    if (files.length === 0) {
+      userDetailsModsList.innerHTML = '<p class="user-details-empty">Este usuario aún no ha iniciado sesión con la app, o la carpeta C:\\FC 26 Live Editor\\mods estaba vacía o no existía en su equipo.</p>';
+    } else {
+      userDetailsModsList.innerHTML = '<ul class="user-details-file-list">' +
+        files.map((f) => `<li>${escapeHtml(String(f))}</li>`).join('') +
+        '</ul>';
+    }
+  }
+
+  function closeUserDetailsModal() {
+    if (userDetailsModal) userDetailsModal.hidden = true;
+  }
+
   function pickMercadoPagoLabel(row) {
     if (!row) return '-';
 
@@ -3694,6 +3722,7 @@
         <td><span class="status ${row.switcher_abierto ? 'linked' : 'pending'}">${row.switcher_abierto ? 'Abierto' : 'Cerrado'}</span></td>
         <td>
           <div class="users-admin-actions">
+            <button type="button" class="users-admin-btn users-admin-btn--details" data-user-id="${escapeHtml(String(row.id))}" data-user-email="${escapeHtml(row.email || '')}">Ver detalles</button>
             <button type="button" class="users-admin-btn users-admin-btn--edit" data-user-id="${escapeHtml(String(row.id))}">Editar</button>
             <button type="button" class="users-admin-btn users-admin-btn--delete" data-user-id="${escapeHtml(String(row.id))}">Eliminar</button>
           </div>
@@ -4033,10 +4062,16 @@
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
 
+      const detailsBtn = target.closest('.users-admin-btn--details');
       const editBtn = target.closest('.users-admin-btn--edit');
       const deleteBtn = target.closest('.users-admin-btn--delete');
 
-      if (editBtn) {
+      if (detailsBtn) {
+        const id = detailsBtn.getAttribute('data-user-id');
+        if (!id || !usersAdminTableBody) return;
+        const row = usersAdminCache.find((r) => String(r.id) === id);
+        if (row) openUserDetailsModal(row);
+      } else if (editBtn) {
         const id = editBtn.getAttribute('data-user-id');
         if (!id || !usersAdminTableBody) return;
 
@@ -4054,6 +4089,14 @@
     userEditCancelBtn.addEventListener('click', () => {
       closeUserEditModal();
     });
+  }
+
+  if (userDetailsModalClose) {
+    userDetailsModalClose.addEventListener('click', closeUserDetailsModal);
+  }
+  if (userDetailsModal) {
+    const backdrop = userDetailsModal.querySelector('.recover-modal-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeUserDetailsModal);
   }
 
   if (userEditSaveBtn) {
