@@ -195,6 +195,9 @@ const eaSettingsDir = path.join(
 // Marcadores con lógica especial: fonts, themes, Generic, globalComponents
 const SPECIAL_MARKER_IDS = ['', '', 'marcador completo'];
 
+// Marcadores con overlay + fonts + themes (limpiar antes de copiar)
+const FONTS_THEMES_MARKER_IDS = ['Liga Profesional Argentina', 'B Metro Argentina', 'Primera Nacional'];
+
 // Estado del último marcador aplicado (para limpieza al cambiar o "Ninguno")
 let lastAppliedSpecialMarkerId = null;
 let lastAppliedSpecialMarkerFiles = {
@@ -202,6 +205,7 @@ let lastAppliedSpecialMarkerFiles = {
   themes: [],
   generic: []
 };
+let lastAppliedLpaMarkerId = null;
 
 function ensureGameDbPresent() {
   try {
@@ -297,6 +301,56 @@ function clearOverlayTargetDir() {
   return { ok: true };
 }
 
+function clearFontsTargetDir() {
+  try {
+    if (!fs.existsSync(fontsTargetDir)) return { ok: true };
+    const entries = fs.readdirSync(fontsTargetDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(fontsTargetDir, entry.name);
+      try {
+        if (entry.isDirectory()) fs.rmSync(fullPath, { recursive: true, force: true });
+        else fs.unlinkSync(fullPath);
+      } catch (e) {
+        console.error('Error al eliminar en fonts:', entry.name, e);
+      }
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('Error al limpiar fonts:', e);
+    return { ok: false, error: e.message };
+  }
+}
+
+function clearThemesTargetDir() {
+  try {
+    if (!fs.existsSync(themesTargetDir)) return { ok: true };
+    const entries = fs.readdirSync(themesTargetDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(themesTargetDir, entry.name);
+      try {
+        if (entry.isDirectory()) fs.rmSync(fullPath, { recursive: true, force: true });
+        else fs.unlinkSync(fullPath);
+      } catch (e) {
+        console.error('Error al eliminar en themes:', entry.name, e);
+      }
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('Error al limpiar themes:', e);
+    return { ok: false, error: e.message };
+  }
+}
+
+function clearLpaMarkerContent() {
+  const r1 = removeOverlayFileByPrefix('overlay_9002');
+  const r2 = clearFontsTargetDir();
+  const r3 = clearThemesTargetDir();
+  if (r1.ok === false) return r1;
+  if (r2.ok === false) return r2;
+  if (r3.ok === false) return r3;
+  return { ok: true };
+}
+
 function clearSpecialMarkerContent() {
   if (!lastAppliedSpecialMarkerId) return { ok: true };
   try {
@@ -387,6 +441,7 @@ function scanMarkers() {
         if (fs.existsSync(overlayFile)) overlayPath = overlayFile;
       }
 
+      const isFontsThemes = FONTS_THEMES_MARKER_IDS.includes(id) && fs.existsSync(fontsDir) && fs.existsSync(themesDir);
       result.push({
         id,
         name: id,
@@ -394,8 +449,9 @@ function scanMarkers() {
         markerSrc: markerWebPath,
         overlayPath,
         isSpecial,
-        fontsDir: isSpecial && fs.existsSync(fontsDir) ? fontsDir : null,
-        themesDir: isSpecial && fs.existsSync(themesDir) ? themesDir : null,
+        isFontsThemes,
+        fontsDir: (isSpecial && fs.existsSync(fontsDir)) || isFontsThemes ? fontsDir : null,
+        themesDir: (isSpecial && fs.existsSync(themesDir)) || isFontsThemes ? themesDir : null,
         genericDir: isSpecial ? (fs.existsSync(genericDir) ? genericDir : genericOverlaysDir) : null,
         globalComponentsDir: isSpecial && fs.existsSync(globalComponentsDir) ? globalComponentsDir : null
       });
@@ -752,7 +808,10 @@ app.on('window-all-closed', () => {
   removeTeamsIfExists();
   clearSpecialMarkerContent();
   clearOverlayTargetDir();
+  clearFontsTargetDir();
+  clearThemesTargetDir();
   clearPublicityContent();
+  lastAppliedLpaMarkerId = null;
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -774,7 +833,10 @@ ipcMain.on('window-close', () => {
   removeTeamsIfExists();
   clearSpecialMarkerContent();
   clearOverlayTargetDir();
+  clearFontsTargetDir();
+  clearThemesTargetDir();
   clearPublicityContent();
+  lastAppliedLpaMarkerId = null;
   mainWindow?.close();
 });
 
@@ -816,6 +878,15 @@ ipcMain.handle('switcher:applyMarker', async (_event, markerId) => {
       if (resClear.ok === false) {
         return { ok: false, reason: resClear.error || 'clear_failed' };
       }
+    }
+
+    // Si el marcador anterior era LPA, limpiar overlay + fonts + themes
+    if (lastAppliedLpaMarkerId) {
+      const resClear = clearLpaMarkerContent();
+      if (resClear.ok === false) {
+        return { ok: false, reason: resClear.error || 'clear_failed' };
+      }
+      lastAppliedLpaMarkerId = null;
     }
 
     if (marker.isSpecial) {
@@ -880,12 +951,38 @@ ipcMain.handle('switcher:applyMarker', async (_event, markerId) => {
         themes: themeFiles,
         generic: genericFiles
       };
+    } else if (marker.isFontsThemes && marker.fontsDir && marker.themesDir) {
+      // Marcadores con fonts+themes (LPA, B Metro, Primera Nacional): overlay + fonts + themes (limpiar antes)
+      if (!marker.overlayPath) {
+        return { ok: false, reason: 'not_found' };
+      }
+      const resClear = clearLpaMarkerContent();
+      if (resClear.ok === false) {
+        return { ok: false, reason: resClear.error || 'clear_failed' };
+      }
+      ensureDirExists(overlayTargetDir);
+      fs.copyFileSync(marker.overlayPath, path.join(overlayTargetDir, 'overlay_9002.big'));
+      ensureDirExists(fontsTargetDir);
+      const fontEntries = fs.readdirSync(marker.fontsDir, { withFileTypes: true });
+      for (const e of fontEntries) {
+        if (e.isFile() && !e.name.startsWith('.')) {
+          fs.copyFileSync(path.join(marker.fontsDir, e.name), path.join(fontsTargetDir, e.name));
+        }
+      }
+      ensureDirExists(themesTargetDir);
+      const themeEntries = fs.readdirSync(marker.themesDir, { withFileTypes: true });
+      for (const e of themeEntries) {
+        if (e.isFile() && !e.name.startsWith('.')) {
+          fs.copyFileSync(path.join(marker.themesDir, e.name), path.join(themesTargetDir, e.name));
+        }
+      }
+      lastAppliedLpaMarkerId = markerId;
     } else {
       // Marcador normal: solo overlay_9002
       if (!marker.overlayPath) {
         return { ok: false, reason: 'not_found' };
       }
-      const resClear = removeOverlayFileByPrefix('overlay_9002');
+      const resClear = clearLpaMarkerContent();
       if (resClear.ok === false) {
         return { ok: false, reason: resClear.error || 'clear_failed' };
       }
@@ -904,9 +1001,12 @@ ipcMain.handle('switcher:applyMarker', async (_event, markerId) => {
 
 ipcMain.handle('switcher:clearOverlay', async () => {
   if (lastAppliedSpecialMarkerId) {
-    return clearSpecialMarkerContent();
+    const r = clearSpecialMarkerContent();
+    if (r.ok) lastAppliedSpecialMarkerId = null;
+    return r;
   }
-  return removeOverlayFileByPrefix('overlay_9002');
+  lastAppliedLpaMarkerId = null;
+  return clearLpaMarkerContent();
 });
 
 ipcMain.handle('switcher:listTvs', async () => {
