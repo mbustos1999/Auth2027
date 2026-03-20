@@ -1268,6 +1268,19 @@ ipcMain.on('update:quitAndInstall', () => {
 });
 ipcMain.handle('app:getVersion', () => app.getVersion());
 
+ipcMain.handle('app:fetchUrl', async (_event, url) => {
+  if (typeof url !== 'string' || !url.trim().startsWith('https://')) {
+    return { ok: false, body: '', error: 'Invalid URL' };
+  }
+  try {
+    const res = await fetch(url.trim(), { method: 'GET' });
+    const body = await res.text();
+    return { ok: res.ok, body, status: res.status };
+  } catch (err) {
+    return { ok: false, body: '', error: err && err.message ? err.message : 'Network error' };
+  }
+});
+
 // Devolver la config cargada al arranque (evita require en el handler por si falla en el instalador)
 ipcMain.handle('app:getConfig', () => Promise.resolve(sharedAppConfig || {}));
 
@@ -1295,20 +1308,48 @@ ipcMain.handle('bot:fetch', async (_event, url, options) => {
   }
 });
 
-// Limpiar caché: borrar carpetas de FIFA Editor Tool, FIFA_Editor_Tool y FIFA_Mod_Manager en AppData\Local
+// Limpiar caché: borrar carpetas de FIFA Editor Tool, FIFA_Editor_Tool y FIFA_Mod_Manager en AppData\Local,
+// y vaciar el contenido de las carpetas de FC 26 Live Editor (globalComponents, overlays, adboards, fonts)
+function clearDirContents(dir) {
+  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    try {
+      fs.rmSync(fullPath, { recursive: true, force: true, maxRetries: 2 });
+    } catch (e) {
+      throw e;
+    }
+  }
+}
+
 ipcMain.handle('app:clearCache', async () => {
   const localAppData = process.env.LOCALAPPDATA || (os.homedir && typeof os.homedir === 'function' ? path.join(os.homedir(), 'AppData', 'Local') : path.join(process.env.USERPROFILE || '', 'AppData', 'Local'));
-  const dirs = [
+  const fc26Base = path.join('C:', 'FC 26 Live Editor', 'mods', 'legacy', 'data', 'ui');
+  const dirsToRemove = [
     path.join(localAppData, 'FIFA Editor Tool'),
     path.join(localAppData, 'FIFA_Editor_Tool'),
     path.join(localAppData, 'FIFA_Mod_Manager')
   ];
+  const dirsToEmpty = [
+    path.join(fc26Base, 'game', 'globalComponents'),
+    path.join(fc26Base, 'game', 'overlays'),
+    path.join(fc26Base, 'game', 'adboards'),
+    path.join(fc26Base, 'fonts')
+  ];
   const errors = [];
-  for (const dir of dirs) {
+  for (const dir of dirsToRemove) {
     try {
       if (fs.existsSync(dir)) {
         fs.rmSync(dir, { recursive: true, force: true, maxRetries: 2 });
       }
+    } catch (e) {
+      errors.push(dir + ': ' + (e && e.message ? e.message : String(e)));
+    }
+  }
+  for (const dir of dirsToEmpty) {
+    try {
+      clearDirContents(dir);
     } catch (e) {
       errors.push(dir + ': ' + (e && e.message ? e.message : String(e)));
     }

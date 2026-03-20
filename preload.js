@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('update-status', handler);
   },
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+  fetchUrl: (url) => ipcRenderer.invoke('app:fetchUrl', url),
   getConfig: () => ipcRenderer.invoke('app:getConfig'),
   clearCache: () => ipcRenderer.invoke('app:clearCache'),
   listSwitcherMarkers: () => ipcRenderer.invoke('switcher:listMarkers'),

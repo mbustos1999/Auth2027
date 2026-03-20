@@ -2142,6 +2142,16 @@
       const isMpAdminTab = tab === 'mpAdmin';
       const isBugsTab = tab === 'bugs';
       const isBugReportBtn = btn.id === 'btnReportBug' || btn.classList.contains('dash-nav-item--bug-report');
+      const isNovedadesBtn = btn.id === 'btnNovedades';
+
+      // Novedades: siempre visible para usuarios logueados
+      if (isNovedadesBtn) {
+        btn.removeAttribute('hidden');
+        btn.classList.remove('dash-nav-item--locked');
+        btn.removeAttribute('data-locked');
+        btn.removeAttribute('title');
+        return;
+      }
 
       // Reportar Bug: siempre visible para usuarios logueados; bloqueado durante cooldown de 10 min
       if (isBugReportBtn) {
@@ -2306,10 +2316,6 @@
   const usersAdminPagePrev = document.getElementById('usersAdminPagePrev');
   const usersAdminPageNext = document.getElementById('usersAdminPageNext');
   const usersAdminPageInfo = document.getElementById('usersAdminPageInfo');
-  const usersAdminBindingEmail = document.getElementById('usersAdminBindingEmail');
-  const usersAdminBindingPc = document.getElementById('usersAdminBindingPc');
-  const usersAdminBindingCheckBtn = document.getElementById('usersAdminBindingCheckBtn');
-  const usersAdminBindingResult = document.getElementById('usersAdminBindingResult');
   const userEditModal = document.getElementById('userEditModal');
   const userEditEmailInput = document.getElementById('userEditEmail');
   const userEditDiscordInput = document.getElementById('userEditDiscord');
@@ -4005,57 +4011,6 @@
     });
   }
 
-  if (usersAdminBindingCheckBtn && usersAdminBindingEmail && usersAdminBindingResult) {
-    usersAdminBindingCheckBtn.addEventListener('click', async () => {
-      const targetEmail = (usersAdminBindingEmail.value || '').trim();
-      if (!targetEmail) {
-        usersAdminBindingResult.textContent = 'Introduce un email para consultar.';
-        return;
-      }
-      if (!currentUser || !currentUser.user_email) {
-        usersAdminBindingResult.textContent = 'Debes estar logueado como admin.';
-        return;
-      }
-      usersAdminBindingCheckBtn.disabled = true;
-      usersAdminBindingResult.textContent = 'Consultando...';
-      try {
-        let url = `${BOT_BASE_URL}/admin/pc/binding-info?email=${encodeURIComponent(
-          currentUser.user_email
-        )}&targetEmail=${encodeURIComponent(targetEmail)}`;
-        const pcToCheck = (usersAdminBindingPc?.value || '').trim();
-        if (pcToCheck) url += `&pc=${encodeURIComponent(pcToCheck)}`;
-
-        const res = await fetchBot(url);
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok || !data.success) {
-          usersAdminBindingResult.textContent =
-            data.message || 'Error al consultar. Verifica que seas admin.';
-          return;
-        }
-
-        let out = '';
-        if (data.user) {
-          out += `Email: ${data.user.email}\n`;
-          out += `PC anclado: ${data.user.pc_name || '(ninguno)'}\n`;
-          out += `Estado: ${data.user.status || '-'}\n`;
-          out += `Creado: ${data.user.created_at || '-'}\n`;
-          out += `Actualizado: ${data.user.updated_at || '-'}\n`;
-          if (data.allowed !== null && data.allowed !== undefined) {
-            out += `\n¿Permitido desde PC "${pcToCheck}"?: ${data.allowed ? 'Sí' : 'No'}\n`;
-          }
-        } else {
-          out = 'Usuario no encontrado en user_discord_links.';
-        }
-        usersAdminBindingResult.textContent = out;
-      } catch (e) {
-        usersAdminBindingResult.textContent = 'Error de conexión al consultar.';
-      } finally {
-        usersAdminBindingCheckBtn.disabled = false;
-      }
-    });
-  }
-
   const usersAdminTableWrapper = document.querySelector('.users-admin-table-wrapper');
   if (usersAdminTableWrapper) {
     usersAdminTableWrapper.addEventListener('click', (e) => {
@@ -4143,8 +4098,117 @@
   if (window.electronAPI.getAppVersion) {
     window.electronAPI.getAppVersion().then((v) => {
       if (appVersionEl && v) appVersionEl.textContent = 'v' + v;
+      const btnNovedadesLabel = document.getElementById('btnNovedadesLabel');
+      if (btnNovedadesLabel && v) btnNovedadesLabel.textContent = 'Novedades versión ' + v;
     }).catch(() => {});
   }
+
+  const NOVEDADES_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1dnFyow6t5O_fcjhdhxxdaEayX4T8xc7azrgkffim_jk/export?format=csv&gid=0';
+
+  function parseCSV(text) {
+    const lines = [];
+    const rows = text.split(/\r?\n/);
+    for (const row of rows) {
+      const cells = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < row.length; i++) {
+        const c = row[i];
+        if (c === '"') {
+          if (inQuotes && row[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (inQuotes) {
+          current += c;
+        } else if (c === ',') {
+          cells.push(current.trim());
+          current = '';
+        } else {
+          current += c;
+        }
+      }
+      cells.push(current.trim());
+      if (cells.some((cell) => cell)) lines.push(cells);
+    }
+    return lines;
+  }
+
+  const btnNovedades = document.getElementById('btnNovedades');
+  const novedadesModal = document.getElementById('novedadesModal');
+  const novedadesModalTitle = document.getElementById('novedadesModalTitle');
+  const novedadesModalClose = document.getElementById('novedadesModalClose');
+  const novedadesLoading = document.getElementById('novedadesLoading');
+  const novedadesError = document.getElementById('novedadesError');
+  const novedadesTableWrap = document.getElementById('novedadesTableWrap');
+  const novedadesTable = document.getElementById('novedadesTable');
+
+  async function openNovedadesModal() {
+    if (!novedadesModal) return;
+    novedadesModal.hidden = false;
+    if (novedadesLoading) novedadesLoading.hidden = false;
+    if (novedadesError) novedadesError.hidden = true;
+    if (novedadesTableWrap) novedadesTableWrap.hidden = true;
+    if (novedadesTable) novedadesTable.innerHTML = '';
+
+    const version = await (window.electronAPI?.getAppVersion?.() || Promise.resolve(''));
+    if (novedadesModalTitle) novedadesModalTitle.textContent = 'Novedades versión ' + (version || '');
+
+    try {
+      const result = await (window.electronAPI?.fetchUrl?.(NOVEDADES_SHEET_URL) || Promise.resolve({ ok: false, body: '', error: 'No fetchUrl' }));
+      if (!result.ok || !result.body) {
+        throw new Error(result.error || 'No se pudo cargar el contenido');
+      }
+      const rows = parseCSV(result.body);
+      if (novedadesTable && rows.length > 0) {
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        (rows[0] || []).forEach((cell) => {
+          const th = document.createElement('th');
+          th.textContent = cell || '';
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        novedadesTable.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        for (let i = 1; i < rows.length; i++) {
+          const tr = document.createElement('tr');
+          (rows[i] || []).forEach((cell) => {
+            const td = document.createElement('td');
+            td.textContent = cell || '';
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        }
+        novedadesTable.appendChild(tbody);
+        novedadesTableWrap.hidden = false;
+      } else if (novedadesError) {
+        novedadesError.textContent = 'No hay datos para mostrar.';
+        novedadesError.hidden = false;
+      }
+    } catch (e) {
+      if (novedadesError) {
+        novedadesError.textContent = 'Error al cargar: ' + (e?.message || String(e));
+        novedadesError.hidden = false;
+      }
+    } finally {
+      if (novedadesLoading) novedadesLoading.hidden = true;
+    }
+  }
+
+  function closeNovedadesModal() {
+    if (novedadesModal) novedadesModal.hidden = true;
+  }
+
+  if (btnNovedades) btnNovedades.addEventListener('click', openNovedadesModal);
+  if (novedadesModal) {
+    const backdrop = novedadesModal.querySelector('.recover-modal-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeNovedadesModal);
+  }
+  if (novedadesModalClose) novedadesModalClose.addEventListener('click', closeNovedadesModal);
   if (window.electronAPI.onUpdateStatus && updateBanner && updateBannerText && btnRestartToUpdate) {
     window.electronAPI.onUpdateStatus((payload) => {
       if (payload.type === 'update-available') {

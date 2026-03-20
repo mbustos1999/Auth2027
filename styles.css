@@ -1052,6 +1052,31 @@ html, body {
   background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
 }
 
+/* Paginación usuarios - botones más llamativos */
+.users-admin-pagination .login-btn-secondary {
+  flex: none;
+  min-width: 110px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.users-admin-pagination .login-btn-secondary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5);
+}
+
+.users-admin-pagination .login-btn-secondary:disabled {
+  background: rgba(75, 85, 99, 0.5);
+  color: rgba(229, 231, 235, 0.5);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
 /* Buscar (MP admin) - azul */
 #mpAdminSearch {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
@@ -3649,6 +3674,64 @@ html, body {
 .mods-modal-content {
   max-width: 420px;
   overflow-x: hidden;
+}
+
+.novedades-modal-content {
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.novedades-loading {
+  padding: 1.5rem;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.novedades-table-wrap {
+  overflow: auto;
+  flex: 1;
+  min-height: 200px;
+  margin-top: 0.5rem;
+}
+
+.novedades-table-wrap .table-wrapper {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: auto;
+}
+
+.novedades-table {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.novedades-table th,
+.novedades-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.novedades-table thead th {
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.novedades-table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.08);
 }
 .mods-modal-header {
   display: flex;

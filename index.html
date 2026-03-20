@@ -218,6 +218,10 @@
               <span class="dash-nav-icon">⚙️</span>
               <span class="dash-nav-label">Ajustes</span>
             </button>
+            <button class="dash-nav-item" id="btnNovedades" type="button">
+              <span class="dash-nav-icon">📋</span>
+              <span class="dash-nav-label" id="btnNovedadesLabel">Novedades</span>
+            </button>
             <button class="dash-nav-item dash-nav-item--bug-report" id="btnReportBug" type="button">
               <span class="dash-nav-icon">🐛</span>
               <span class="dash-nav-label">Reportar Bug/Problema</span>
@@ -622,29 +626,6 @@
                 <span id="usersAdminPageInfo" style="font-size: 0.9rem;">Página 1</span>
                 <button type="button" class="login-btn-secondary" id="usersAdminPageNext" disabled>Siguiente</button>
               </div>
-              <div class="users-admin-binding-check" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary, #1a1a1a); border-radius: 8px;">
-                <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem;">Consultar check-binding</h4>
-                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
-                  <input
-                    type="text"
-                    id="usersAdminBindingEmail"
-                    class="recover-input"
-                    placeholder="Email del usuario"
-                    style="min-width: 200px;"
-                  />
-                  <input
-                    type="text"
-                    id="usersAdminBindingPc"
-                    class="recover-input"
-                    placeholder="PC a verificar (opcional)"
-                    style="min-width: 180px;"
-                  />
-                  <button type="button" class="login-btn-secondary" id="usersAdminBindingCheckBtn">
-                    Consultar
-                  </button>
-                </div>
-                <pre id="usersAdminBindingResult" style="margin: 0; padding: 0.75rem; background: var(--bg-primary, #0d0d0d); border-radius: 6px; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; min-height: 2rem; max-height: 200px; overflow-y: auto;"></pre>
-              </div>
             </section>
 
             <div id="userEditModal" class="recover-modal" hidden>
@@ -862,6 +843,24 @@
         <div class="recover-actions">
           <button type="button" id="rejectRequestModalCancel" class="recover-btn recover-btn-secondary">Cancelar</button>
           <button type="button" id="rejectRequestModalConfirm" class="recover-btn recover-btn-primary">Rechazar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Novedades (contenido del update desde Google Sheets) -->
+    <div id="novedadesModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content mods-modal-content novedades-modal-content">
+        <div class="mods-modal-header">
+          <h2 id="novedadesModalTitle">Novedades</h2>
+          <button type="button" id="novedadesModalClose" class="mods-modal-close-x" aria-label="Cerrar">×</button>
+        </div>
+        <div id="novedadesLoading" class="novedades-loading">Cargando contenido...</div>
+        <div id="novedadesError" class="message message-error" hidden></div>
+        <div id="novedadesTableWrap" class="novedades-table-wrap" hidden>
+          <div class="table-wrapper">
+            <table id="novedadesTable" class="novedades-table"></table>
+          </div>
         </div>
       </div>
     </div>
