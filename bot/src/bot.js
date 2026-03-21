@@ -1608,7 +1608,7 @@ function startOAuthServer() {
 
             let query = supabase
               .from('user_discord_links')
-              .select('id, email, pc_name, link_code, discord_id, discord_username, roles, status, mercadopago_status, mercadopago_data, acceso_manual_until, mods_files, created_at, updated_at', {
+              .select('id, email, pc_name, link_code, discord_id, discord_username, roles, status, mercadopago_status, mercadopago_data, acceso_manual_until, mods_files, mod_order_ok, teams_ok, squad_applied, switcher_abierto, created_at, updated_at', {
                 count: 'exact'
               })
               .order('created_at', { ascending: false });
