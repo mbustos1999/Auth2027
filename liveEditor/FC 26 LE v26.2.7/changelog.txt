@@ -1,3 +1,13 @@
+v26.2.8:
+    - Added to Manager Editor:
+        - Editable Fields: "Manager ID", "Team ID"
+        - Edit Name
+        - Import Miniface
+        - Generate Miniface
+    - Added "Quick Filter" to Players List
+    - Updated FUT Cards Presets
+    - Minor bug fixes
+
 v26.2.7:
     - Fixed game crash when opening player in player editor
     - Added:

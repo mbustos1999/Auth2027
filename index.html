@@ -1085,6 +1085,25 @@
       </div>
     </div>
 
+    <!-- Modal: recomendación de borrar caché al iniciar sesión -->
+    <div id="cacheHelpModal" class="recover-modal" hidden>
+      <div class="recover-modal-backdrop"></div>
+      <div class="recover-modal-content">
+        <h2>Recomendación importante</h2>
+        <p>
+          Si tienes crasheos o inestabilidad, te recomendamos borrar la caché.
+        </p>
+        <p>
+          También se recomienda borrar caché después de cada actualización.
+        </p>
+        <div id="cacheHelpMessage" class="message" hidden></div>
+        <div class="recover-actions">
+          <button type="button" id="cacheHelpClearBtn" class="recover-btn recover-btn-primary">Borrar caché</button>
+          <button type="button" id="cacheHelpCloseBtn" class="recover-btn recover-btn-secondary">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal: mods FC26 obligatorios (descarga automática o por archivo) -->
     <div id="modsRequiredModal" class="recover-modal" hidden>
       <div class="recover-modal-backdrop"></div>
