@@ -118,10 +118,11 @@ function sanitizeMercadoPagoForClient(rawData) {
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const rateLimitBuckets = new Map();
 
-function isRateLimited(ip, bucket, limit) {
+function isRateLimited(ip, bucket, limit, scope = '') {
   if (!ip || !bucket || !Number.isFinite(limit) || limit <= 0) return false;
   const now = Date.now();
-  const key = `${ip}:${bucket}`;
+  const scoped = typeof scope === 'string' ? scope.trim().toLowerCase() : '';
+  const key = scoped ? `${ip}:${bucket}:${scoped}` : `${ip}:${bucket}`;
   let entry = rateLimitBuckets.get(key);
   if (!entry) {
     entry = [];
@@ -1015,7 +1016,9 @@ function startOAuthServer() {
       // --- Login sin secreto en la app: el bot verifica con WordPress y devuelve token ---
       if (url.pathname === '/auth/exchange' && req.method === 'POST') {
         const ip = getClientIp(req);
-        if (isRateLimited(ip, 'auth_exchange', 5)) {
+        // Rate limit menos agresivo por IP para evitar falsos bloqueos cuando
+        // varios usuarios comparten IP (NAT/proxy), más uno por usuario.
+        if (isRateLimited(ip, 'auth_exchange_ip', 60)) {
           logSecurityEvent('auth_exchange_rate_limit', { ip });
           res.statusCode = 429;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1045,6 +1048,18 @@ function startOAuthServer() {
         });
         const username = body && typeof body.username === 'string' ? body.username.trim() : '';
         const password = body && typeof body.password === 'string' ? body.password : '';
+        if (username && isRateLimited(ip, 'auth_exchange_user', 8, username)) {
+          logSecurityEvent('auth_exchange_user_rate_limit', { ip, username: `${username.slice(0, 2)}***` });
+          res.statusCode = 429;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(
+            JSON.stringify({
+              success: false,
+              message: 'Demasiados intentos para este usuario. Espera un momento e intenta de nuevo.'
+            })
+          );
+          return;
+        }
         if (!username || !password) {
           res.statusCode = 400;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1065,9 +1080,26 @@ function startOAuthServer() {
             return;
           }
           if (!wpRes.ok || !wpData.success) {
-            res.statusCode = wpRes.status === 401 ? 401 : 400;
+            // Propagamos el tipo real de error para no confundir al usuario con "contraseña incorrecta".
+            if (wpRes.status === 401 || wpRes.status === 403) {
+              res.statusCode = 401;
+            } else if (wpRes.status === 429) {
+              res.statusCode = 429;
+            } else if (wpRes.status >= 500) {
+              res.statusCode = 502;
+            } else {
+              res.statusCode = 400;
+            }
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            res.end(JSON.stringify({ success: false, message: wpData.message || 'Credenciales inválidas.' }));
+            let friendlyMessage = 'No se pudo iniciar sesión. Intenta nuevamente.';
+            if (res.statusCode === 401) {
+              friendlyMessage = 'Usuario o contraseña incorrectos.';
+            } else if (res.statusCode === 429) {
+              friendlyMessage = 'Demasiados intentos. Espera un momento e intenta de nuevo.';
+            } else if (res.statusCode === 502) {
+              friendlyMessage = 'El servidor de autenticación no responde. Intenta en unos minutos.';
+            }
+            res.end(JSON.stringify({ success: false, message: wpData.message || friendlyMessage }));
             return;
           }
           const email = wpData.user_email || '';
@@ -1097,9 +1129,9 @@ function startOAuthServer() {
           );
         } catch (e) {
           console.error('Error en /auth/exchange:', e);
-          res.statusCode = 500;
+          res.statusCode = 503;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ success: false, message: 'Error de conexión.' }));
+          res.end(JSON.stringify({ success: false, message: 'No se pudo conectar al servidor de autenticación.' }));
         }
         return;
       }
