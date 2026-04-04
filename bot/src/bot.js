@@ -27,6 +27,66 @@ const WP_BASE_URL = (AUTH_API_URL || 'https://argenmod.com').trim().replace(/\/$
 const WP_AUTH_ENDPOINT = (AUTH_ENDPOINT || '/wp-json/argenmod/v1/validar-login').trim();
 const WP_AUTH_URL = WP_BASE_URL && WP_AUTH_ENDPOINT ? `${WP_BASE_URL}${WP_AUTH_ENDPOINT.startsWith('/') ? '' : '/'}${WP_AUTH_ENDPOINT}` : '';
 
+const WP_LOGIN_FETCH_TIMEOUT_MS = 25_000;
+const WP_LOGIN_MAX_ATTEMPTS = 3;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Llama a WordPress con reintentos ante errores transitorios (502–504, red, timeout).
+ * Evita que un fallo puntual del hosting se muestre como “contraseña incorrecta” en el cliente.
+ */
+async function fetchWordPressLogin(username, password) {
+  let lastNetworkError = null;
+  for (let attempt = 0; attempt < WP_LOGIN_MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) await sleep(400 * attempt);
+    try {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), WP_LOGIN_FETCH_TIMEOUT_MS);
+      const wpRes = await fetch(WP_AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        signal: ac.signal
+      });
+      clearTimeout(timer);
+      const wpData = await wpRes.json().catch(() => ({}));
+      const transient = wpRes.status >= 502 && wpRes.status <= 504;
+      if (transient && attempt < WP_LOGIN_MAX_ATTEMPTS - 1) continue;
+      return { wpRes, wpData };
+    } catch (e) {
+      lastNetworkError = e;
+      if (attempt < WP_LOGIN_MAX_ATTEMPTS - 1) continue;
+      return { networkError: lastNetworkError };
+    }
+  }
+  return { networkError: lastNetworkError };
+}
+
+/**
+ * Respuesta de error hacia la app: NO reenviamos wpData.message salvo en 401, porque el renderer
+ * muestra siempre el texto del body y WordPress a veces devuelve “contraseña incorrecta” con otros códigos.
+ */
+function buildAuthExchangeFailureBody(clientStatus, wpData) {
+  let message = 'No se pudo iniciar sesión. Intenta nuevamente.';
+  let errorCode = 'login_failed';
+  if (clientStatus === 401) {
+    errorCode = 'invalid_credentials';
+    message = 'Usuario o contraseña incorrectos.';
+    const wm = wpData && typeof wpData.message === 'string' ? wpData.message.trim() : '';
+    if (wm) message = wm;
+  } else if (clientStatus === 429) {
+    errorCode = 'rate_limited';
+    message = 'Demasiados intentos. Espera un momento e intenta de nuevo.';
+  } else if (clientStatus === 502) {
+    errorCode = 'upstream_error';
+    message = 'El servidor de autenticación no responde. Intenta en unos minutos.';
+  }
+  return { success: false, error_code: errorCode, message };
+}
+
 if (!DISCORD_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('Faltan variables de entorno. Revisa bot/.env (TOKEN y SUPABASE).');
   process.exit(1);
@@ -1067,39 +1127,50 @@ function startOAuthServer() {
           return;
         }
         try {
-          const wpRes = await fetch(WP_AUTH_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-          });
-          const wpData = await wpRes.json().catch(() => ({}));
+          const wpResult = await fetchWordPressLogin(username, password);
+          if (wpResult.networkError) {
+            console.error('fetchWordPressLogin red/timeout:', wpResult.networkError);
+            res.statusCode = 503;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.end(
+              JSON.stringify({
+                success: false,
+                error_code: 'network_error',
+                message: 'No se pudo conectar al servidor de autenticación. Revisa tu conexión e intenta de nuevo.'
+              })
+            );
+            return;
+          }
+          const { wpRes, wpData } = wpResult;
           if (wpRes.status === 429 && wpData.error === 'too_many_attempts') {
             res.statusCode = 429;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            res.end(JSON.stringify({ success: false, message: wpData.message || 'Demasiados intentos. Espera un momento.' }));
+            res.end(
+              JSON.stringify({
+                success: false,
+                error_code: 'rate_limited',
+                message: wpData.message || 'Demasiados intentos. Espera un momento.'
+              })
+            );
             return;
           }
           if (!wpRes.ok || !wpData.success) {
-            // Propagamos el tipo real de error para no confundir al usuario con "contraseña incorrecta".
+            let clientStatus;
             if (wpRes.status === 401 || wpRes.status === 403) {
-              res.statusCode = 401;
+              clientStatus = 401;
             } else if (wpRes.status === 429) {
-              res.statusCode = 429;
+              clientStatus = 429;
             } else if (wpRes.status >= 500) {
-              res.statusCode = 502;
+              clientStatus = 502;
+            } else if (wpRes.ok && wpData && wpData.success === false) {
+              // REST a veces devuelve 200 + { success: false } en login fallido
+              clientStatus = 401;
             } else {
-              res.statusCode = 400;
+              clientStatus = 400;
             }
+            res.statusCode = clientStatus;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            let friendlyMessage = 'No se pudo iniciar sesión. Intenta nuevamente.';
-            if (res.statusCode === 401) {
-              friendlyMessage = 'Usuario o contraseña incorrectos.';
-            } else if (res.statusCode === 429) {
-              friendlyMessage = 'Demasiados intentos. Espera un momento e intenta de nuevo.';
-            } else if (res.statusCode === 502) {
-              friendlyMessage = 'El servidor de autenticación no responde. Intenta en unos minutos.';
-            }
-            res.end(JSON.stringify({ success: false, message: wpData.message || friendlyMessage }));
+            res.end(JSON.stringify(buildAuthExchangeFailureBody(clientStatus, wpData)));
             return;
           }
           const email = wpData.user_email || '';
