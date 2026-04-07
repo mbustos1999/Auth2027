@@ -1076,15 +1076,6 @@ function startOAuthServer() {
       // --- Login sin secreto en la app: el bot verifica con WordPress y devuelve token ---
       if (url.pathname === '/auth/exchange' && req.method === 'POST') {
         const ip = getClientIp(req);
-        // Rate limit menos agresivo por IP para evitar falsos bloqueos cuando
-        // varios usuarios comparten IP (NAT/proxy), más uno por usuario.
-        if (isRateLimited(ip, 'auth_exchange_ip', 60)) {
-          logSecurityEvent('auth_exchange_rate_limit', { ip });
-          res.statusCode = 429;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({ success: false, message: 'Demasiados intentos. Espera un minuto.' }));
-          return;
-        }
         if (!WP_AUTH_URL || !SHARED_SECRET) {
           res.statusCode = 503;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1108,7 +1099,8 @@ function startOAuthServer() {
         });
         const username = body && typeof body.username === 'string' ? body.username.trim() : '';
         const password = body && typeof body.password === 'string' ? body.password : '';
-        if (username && isRateLimited(ip, 'auth_exchange_user', 8, username)) {
+        // Solo límite por usuario (sin IP): la clave no incluye IP para evitar bloqueos colectivos.
+        if (username && isRateLimited('login', 'auth_exchange_user', 8, username)) {
           logSecurityEvent('auth_exchange_user_rate_limit', { ip, username: `${username.slice(0, 2)}***` });
           res.statusCode = 429;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -1455,11 +1447,14 @@ function startOAuthServer() {
         const teamsOk = body && typeof body.teams_ok === 'boolean' ? body.teams_ok : null;
         const squadApplied = body && typeof body.squad_applied === 'boolean' ? body.squad_applied : null;
         const switcherAbierto = body && typeof body.switcher_abierto === 'boolean' ? body.switcher_abierto : null;
+        const liveEditorOk = body && typeof body.live_editor_ok === 'boolean' ? body.live_editor_ok : null;
+        const hasModsFilesArray = !!(body && Array.isArray(body.mods_files));
         let modsFiles = null;
-        if (body && Array.isArray(body.mods_files)) {
+        if (hasModsFilesArray) {
           const arr = body.mods_files.filter((x) => typeof x === 'string').slice(0, 3000);
           modsFiles = arr.length > 0 ? arr : null;
         }
+        const effectiveLiveEditorOk = liveEditorOk !== null ? liveEditorOk : hasModsFilesArray;
         try {
           let { data: row, error } = await supabase
             .from('user_discord_links')
@@ -1483,6 +1478,8 @@ function startOAuthServer() {
           };
           if (switcherAbierto === true) patch.switcher_abierto = true;
           if (switcherAbierto === false) patch.switcher_abierto = false;
+          if (effectiveLiveEditorOk === true) patch.live_editor_ok = true;
+          if (effectiveLiveEditorOk === false) patch.live_editor_ok = false;
           if (modsFiles !== null) patch.mods_files = modsFiles;
           if (!row) {
             const { error: insertErr } = await supabase.from('user_discord_links').insert({
@@ -1711,7 +1708,7 @@ function startOAuthServer() {
 
             let query = supabase
               .from('user_discord_links')
-              .select('id, email, pc_name, link_code, discord_id, discord_username, roles, status, mercadopago_status, mercadopago_data, acceso_manual_until, mods_files, mod_order_ok, teams_ok, squad_applied, switcher_abierto, created_at, updated_at', {
+              .select('id, email, pc_name, link_code, discord_id, discord_username, roles, status, mercadopago_status, mercadopago_data, acceso_manual_until, mods_files, mod_order_ok, teams_ok, squad_applied, switcher_abierto, live_editor_ok, created_at, updated_at', {
                 count: 'exact'
               })
               .order('created_at', { ascending: false });

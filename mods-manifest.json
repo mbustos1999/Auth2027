@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.1.9",
   "required": true,
   "_note": "",
   "downloadUrls": [
@@ -9,6 +9,6 @@
     "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-4-3/ARGENMOD%204.fifamod",
     "https://pub-7313624ee2084aaeb0051277ac66965d.r2.dev/argenmod-tu-1-4-3/Argenmod%201.0.10%20Modo%20Torneo%20v5.fifamod"
   ],
-  "sizeHint": "ArgenMod TU 1.5.2 V1",
+  "sizeHint": "ArgenMod TU 1.5.3 V1",
   "instructions": "Descargar automáticamente."
 }
