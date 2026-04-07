@@ -1,3 +1,42 @@
+.dash-live-editor-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 280px;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-live-editor-status--ok {
+  background: rgba(32, 201, 151, 0.16);
+  color: #59f0c0;
+  border: 1px solid rgba(32, 201, 151, 0.35);
+}
+
+.dash-live-editor-status--nok {
+  background: rgba(255, 107, 107, 0.14);
+  color: #ff8e8e;
+  border: 1px solid rgba(255, 107, 107, 0.35);
+}
+
+.users-live-editor-cell {
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.users-live-editor-cell--ok {
+  color: #20c997;
+}
+
+.users-live-editor-cell--nok {
+  color: #ff6b6b;
+}
 :root {
   /* Paleta Argenmod: verde oliva → azul marino → azul oscuro, acento cian */
   --bg-deep: #0a1322;

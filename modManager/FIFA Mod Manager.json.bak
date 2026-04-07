@@ -33,19 +33,19 @@
         "LocaleIniIndex": -1,
         "AppliedMods": [
           {
-            "ModFilePath": "ARGENMOD 1 (1).fifamod",
+            "ModFilePath": "ARGENMOD 1 V1.1.9.fifamod",
             "IsEnabled": true
           },
           {
-            "ModFilePath": "ARGENMOD 2 (1).fifamod",
+            "ModFilePath": "ARGENMOD 2 V1.1.9.fifamod",
             "IsEnabled": true
           },
           {
-            "ModFilePath": "ARGENMOD 3 (1).fifamod",
+            "ModFilePath": "ARGENMOD 3 V1.1.9.fifamod",
             "IsEnabled": true
           },
           {
-            "ModFilePath": "ARGENMOD 4 (1).fifamod",
+            "ModFilePath": "ARGENMOD 4 V1.1.9.fifamod",
             "IsEnabled": true
           }
         ]
