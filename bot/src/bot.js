@@ -47,17 +47,26 @@ async function fetchWordPressLogin(username, password) {
       const timer = setTimeout(() => ac.abort(), WP_LOGIN_FETCH_TIMEOUT_MS);
       const wpRes = await fetch(WP_AUTH_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'ArgenmodAuthBot/1.0 (+https://argenmod.com)'
+        },
         body: JSON.stringify({ username, password }),
         signal: ac.signal
       });
       clearTimeout(timer);
-      const wpData = await wpRes.json().catch(() => ({}));
+      const rawText = await wpRes.text().catch(() => '');
+      let wpData = {};
+      try { wpData = rawText ? JSON.parse(rawText) : {}; } catch { /* no-json */ }
       const transient = wpRes.status >= 502 && wpRes.status <= 504;
+      if (!wpRes.ok) {
+        console.warn(`[WP-AUTH] intento=${attempt + 1} status=${wpRes.status} body=${rawText.slice(0, 300)}`);
+      }
       if (transient && attempt < WP_LOGIN_MAX_ATTEMPTS - 1) continue;
       return { wpRes, wpData };
     } catch (e) {
       lastNetworkError = e;
+      console.warn(`[WP-AUTH] intento=${attempt + 1} error de red: ${e.message}`);
       if (attempt < WP_LOGIN_MAX_ATTEMPTS - 1) continue;
       return { networkError: lastNetworkError };
     }
@@ -91,6 +100,9 @@ if (!DISCORD_BOT_TOKEN || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('Faltan variables de entorno. Revisa bot/.env (TOKEN y SUPABASE).');
   process.exit(1);
 }
+
+console.log(`[CONFIG] WP_AUTH_URL = ${WP_AUTH_URL || '(vacío — AUTH_API_URL/AUTH_ENDPOINT no configurado)'}`);
+if (!WP_AUTH_URL) console.error('[CONFIG] ADVERTENCIA: WP_AUTH_URL vacío. El login no funcionará.');
 
 // ===== Clientes =====
 
@@ -1160,6 +1172,7 @@ function startOAuthServer() {
             } else {
               clientStatus = 400;
             }
+            console.warn(`[AUTH-EXCHANGE] login fallido user=${username.slice(0, 2)}*** wp_status=${wpRes.status} client_status=${clientStatus} wp_message=${wpData?.message || '(sin mensaje)'} wp_code=${wpData?.code || wpData?.error || '(sin código)'}`);
             res.statusCode = clientStatus;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.end(JSON.stringify(buildAuthExchangeFailureBody(clientStatus, wpData)));
