@@ -190,6 +190,15 @@ function sanitizeMercadoPagoForClient(rawData) {
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const rateLimitBuckets = new Map();
 
+// Limpia entradas vacías del Map cada 5 minutos para evitar memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitBuckets) {
+    while (entry.length && now - entry[0] > RATE_LIMIT_WINDOW_MS) entry.shift();
+    if (entry.length === 0) rateLimitBuckets.delete(key);
+  }
+}, 5 * 60 * 1000).unref();
+
 function isRateLimited(ip, bucket, limit, scope = '') {
   if (!ip || !bucket || !Number.isFinite(limit) || limit <= 0) return false;
   const now = Date.now();
@@ -201,7 +210,6 @@ function isRateLimited(ip, bucket, limit, scope = '') {
     rateLimitBuckets.set(key, entry);
   }
   entry.push(now);
-  // Limpiar ventana
   while (entry.length && now - entry[0] > RATE_LIMIT_WINDOW_MS) {
     entry.shift();
   }
@@ -944,15 +952,47 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log(`Bot conectado como ${client.user.tag}`);
+});
+
+client.on('error', (err) => {
+  console.error('[Discord] Error en el cliente:', err);
+});
+
+client.on('warn', (msg) => {
+  console.warn('[Discord] Advertencia:', msg);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Process] unhandledRejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process] uncaughtException — saliendo para forzar reinicio limpio:', err);
+  process.exit(1);
 });
 
 client.login(DISCORD_BOT_TOKEN);
 
 // ===== Sincronización periódica de roles según Supabase + MercadoPago =====
 
+let syncRunning = false;
+
 async function syncAllLinkedUsersRoles() {
+  if (syncRunning) {
+    console.warn('[Sync] Ya hay una sincronización en curso, saltando esta ejecución.');
+    return;
+  }
+  syncRunning = true;
+  try {
+    await _syncAllLinkedUsersRolesImpl();
+  } finally {
+    syncRunning = false;
+  }
+}
+
+async function _syncAllLinkedUsersRolesImpl() {
   try {
     if (!GUILD_ID) return;
 
@@ -995,10 +1035,10 @@ async function syncAllLinkedUsersRoles() {
 }
 
 // Ejecutar sync al arrancar y luego cada 10 minutos
-client.once('ready', () => {
-  syncAllLinkedUsersRoles().catch(() => {});
+client.once('clientReady', () => {
+  syncAllLinkedUsersRoles().catch((e) => console.error('[Sync] Error inicial:', e));
   setInterval(() => {
-    syncAllLinkedUsersRoles().catch(() => {});
+    syncAllLinkedUsersRoles().catch((e) => console.error('[Sync] Error periódico:', e));
   }, 10 * 60 * 1000);
 });
 
@@ -3223,6 +3263,15 @@ function startOAuthServer() {
       res.statusCode = 500;
       res.end('Error interno');
     }
+  });
+
+  server.on('error', (err) => {
+    console.error('[HTTP] Error en servidor:', err);
+  });
+
+  // 60s timeout por request: evita que conexiones lentas o colgadas acumulen handles
+  server.setTimeout(60_000, (socket) => {
+    socket.destroy();
   });
 
   server.listen(port, () => {
